@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Paraglide auto-generated
+src/paraglide/
+
+# TanStack Router auto-generated
+src/routeTree.gen.ts
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
