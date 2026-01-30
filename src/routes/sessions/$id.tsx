@@ -96,7 +96,7 @@ function SessionDetailPage() {
   return (
     <div className="flex h-full">
       <SidebarProvider open={true}>
-        <Sidebar collapsible="none">
+        <Sidebar collapsible="none" className="bg-background border-r">
           <SidebarHeader>
             <Button
               className="pl-0 self-start"
