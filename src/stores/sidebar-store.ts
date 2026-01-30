@@ -9,11 +9,11 @@ type SidebarStore = {
 
 export const useSidebarStore = create<SidebarStore>()(
   persist(
-    (set) => ({
+    set => ({
       open: true,
-      setOpen: (open) => set({ open }),
-      toggle: () => set((state) => ({ open: !state.open })),
+      setOpen: open => set({ open }),
+      toggle: () => set(state => ({ open: !state.open })),
     }),
-    { name: 'sidebar-state' },
-  ),
+    { name: 'sidebar-state' }
+  )
 )

@@ -29,11 +29,7 @@ export function NavSecondary({
 
             return (
               <SidebarMenuItem key={item.to}>
-                <SidebarMenuButton
-                  render={<Link to={item.to} />}
-                  size="sm"
-                  isActive={isActive}
-                >
+                <SidebarMenuButton render={<Link to={item.to} />} size="sm" isActive={isActive}>
                   <item.icon />
                   <span>{item.title}</span>
                 </SidebarMenuButton>

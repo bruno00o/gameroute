@@ -15,7 +15,7 @@ import {
 export function Header() {
   const navItem = useCurrentNavItem()
   const { pathname } = useLocation()
-  const segments = useBreadcrumbStore((s) => s.segments)
+  const segments = useBreadcrumbStore(s => s.segments)
   const isNested = navItem && pathname !== navItem.to
 
   return (
@@ -26,9 +26,7 @@ export function Header() {
             isNested ? (
               <>
                 <BreadcrumbItem>
-                  <BreadcrumbLink render={<Link to={navItem.to} />}>
-                    {navItem.title}
-                  </BreadcrumbLink>
+                  <BreadcrumbLink render={<Link to={navItem.to} />}>{navItem.title}</BreadcrumbLink>
                 </BreadcrumbItem>
                 {segments.length > 0 ? (
                   segments.map((segment, i) => {
@@ -40,10 +38,7 @@ export function Header() {
                           {isLast || !segment.onClick ? (
                             <BreadcrumbPage>{segment.label}</BreadcrumbPage>
                           ) : (
-                            <BreadcrumbLink
-                              className="cursor-pointer"
-                              onClick={segment.onClick}
-                            >
+                            <BreadcrumbLink className="cursor-pointer" onClick={segment.onClick}>
                               {segment.label}
                             </BreadcrumbLink>
                           )}

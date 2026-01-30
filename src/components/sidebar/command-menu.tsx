@@ -39,7 +39,7 @@ export function CommandMenu({
             <div key={group.label}>
               {index > 0 && <CommandSeparator />}
               <CommandGroup heading={group.label}>
-                {group.items.map((item) => (
+                {group.items.map(item => (
                   <CommandItem
                     key={item.to}
                     value={item.title}

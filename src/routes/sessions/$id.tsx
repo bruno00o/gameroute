@@ -255,8 +255,8 @@ function SessionOverview({ session }: { session: Session }) {
                     avgLatency < 30
                       ? 'text-emerald-500'
                       : avgLatency < 50
-                      ? 'text-amber-500'
-                      : 'text-destructive'
+                        ? 'text-amber-500'
+                        : 'text-destructive'
                   )}
                 >
                   {avgLatency}
@@ -270,8 +270,8 @@ function SessionOverview({ session }: { session: Session }) {
                     maxLatency < 30
                       ? 'text-emerald-500'
                       : maxLatency < 50
-                      ? 'text-amber-500'
-                      : 'text-destructive'
+                        ? 'text-amber-500'
+                        : 'text-destructive'
                   )}
                 >
                   {maxLatency}
@@ -299,8 +299,8 @@ function HopDetail({ hop }: { hop: SessionHop }) {
               hop.status === 'ok'
                 ? 'secondary'
                 : hop.status === 'timeout'
-                ? 'destructive'
-                : 'outline'
+                  ? 'destructive'
+                  : 'outline'
             }
           >
             <Icon className={cn('size-3', hopStatusColor[hop.status])} />
@@ -353,8 +353,8 @@ function HopDetail({ hop }: { hop: SessionHop }) {
                     hop.latency < 30
                       ? 'text-emerald-500'
                       : hop.latency < 50
-                      ? 'text-amber-500'
-                      : 'text-destructive'
+                        ? 'text-amber-500'
+                        : 'text-destructive'
                   )}
                 >
                   {hop.latency}

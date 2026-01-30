@@ -18,9 +18,7 @@ export function NavMain({ group }: { group: NavGroup }) {
       <SidebarMenu>
         {group.items.map(item => {
           const isActive =
-            item.to === '/'
-              ? location.pathname === '/'
-              : location.pathname.startsWith(item.to)
+            item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to)
 
           return (
             <SidebarMenuItem key={item.to}>

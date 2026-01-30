@@ -10,7 +10,7 @@ type BreadcrumbStore = {
   setSegments: (segments: BreadcrumbSegment[]) => void
 }
 
-export const useBreadcrumbStore = create<BreadcrumbStore>((set) => ({
+export const useBreadcrumbStore = create<BreadcrumbStore>(set => ({
   segments: [],
-  setSegments: (segments) => set({ segments }),
+  setSegments: segments => set({ segments }),
 }))
