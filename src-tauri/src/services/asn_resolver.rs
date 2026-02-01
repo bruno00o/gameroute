@@ -10,12 +10,10 @@ use std::time::{Duration, Instant};
 use thiserror::Error;
 use tokio::sync::Mutex;
 
-const IP_API_BATCH_URL: &str = "http://ip-api.com/batch";
-const MAX_BATCH_SIZE: usize = 100;
-const MEMORY_CACHE_CAPACITY: usize = 2000;
-const MIN_REQUEST_INTERVAL: Duration = Duration::from_secs(4);
-const MAX_RETRIES: u32 = 2;
-const OFFLINE_RETRY_INTERVAL: Duration = Duration::from_secs(60);
+use crate::config::{
+    ASN_MAX_BATCH_SIZE, ASN_MAX_RETRIES, ASN_MEMORY_CACHE_CAPACITY, ASN_MIN_REQUEST_INTERVAL,
+    ASN_OFFLINE_RETRY_INTERVAL, IP_API_BATCH_URL,
+};
 
 #[derive(Debug, Error)]
 pub enum AsnError {
@@ -36,7 +34,7 @@ struct RateLimiter {
 impl RateLimiter {
     fn new() -> Self {
         Self {
-            last_request: Mutex::new(Instant::now() - MIN_REQUEST_INTERVAL),
+            last_request: Mutex::new(Instant::now() - ASN_MIN_REQUEST_INTERVAL),
         }
     }
 
@@ -44,8 +42,8 @@ impl RateLimiter {
         let mut last = self.last_request.lock().await;
         let elapsed = last.elapsed();
 
-        if elapsed < MIN_REQUEST_INTERVAL {
-            let wait_time = MIN_REQUEST_INTERVAL - elapsed;
+        if elapsed < ASN_MIN_REQUEST_INTERVAL {
+            let wait_time = ASN_MIN_REQUEST_INTERVAL - elapsed;
             log::info!(
                 "Rate limiting: waiting {} ms before ip-api.com request",
                 wait_time.as_millis()
@@ -81,7 +79,7 @@ impl AsnResolver {
             client,
             rate_limiter: RateLimiter::new(),
             memory_cache: Mutex::new(LruCache::new(
-                NonZeroUsize::new(MEMORY_CACHE_CAPACITY).unwrap(),
+                NonZeroUsize::new(ASN_MEMORY_CACHE_CAPACITY).unwrap(),
             )),
             went_offline_at: Mutex::new(None),
         }
@@ -93,11 +91,11 @@ impl AsnResolver {
         let is_offline = {
             let offline_at = self.went_offline_at.lock().await;
             match *offline_at {
-                Some(when) if when.elapsed() < OFFLINE_RETRY_INTERVAL => true,
+                Some(when) if when.elapsed() < ASN_OFFLINE_RETRY_INTERVAL => true,
                 Some(_) => {
                     log::info!(
                         "Offline cooldown expired ({}s), will retry API",
-                        OFFLINE_RETRY_INTERVAL.as_secs()
+                        ASN_OFFLINE_RETRY_INTERVAL.as_secs()
                     );
                     false
                 }
@@ -243,7 +241,7 @@ impl AsnResolver {
     async fn resolve_from_api(&self, ips: Vec<String>) -> Result<Vec<ResolvedIpData>, AsnError> {
         let mut results = Vec::new();
 
-        for chunk in ips.chunks(MAX_BATCH_SIZE) {
+        for chunk in ips.chunks(ASN_MAX_BATCH_SIZE) {
             self.rate_limiter.wait_if_needed().await;
 
             log::info!(
@@ -254,14 +252,14 @@ impl AsnResolver {
             let mut last_error: Option<AsnError> = None;
             let mut api_responses: Option<Vec<IpApiResponse>> = None;
 
-            for attempt in 1..=MAX_RETRIES {
+            for attempt in 1..=ASN_MAX_RETRIES {
                 let response = match self.client.post(IP_API_BATCH_URL).json(&chunk).send().await {
                     Ok(r) => r,
                     Err(e) => {
                         log::warn!(
                             "ip-api.com request failed (attempt {}/{}): {}",
                             attempt,
-                            MAX_RETRIES,
+                            ASN_MAX_RETRIES,
                             e
                         );
 
@@ -269,7 +267,7 @@ impl AsnResolver {
                             *self.went_offline_at.lock().await = Some(Instant::now());
                         }
                         last_error = Some(AsnError::HttpError(e));
-                        if attempt < MAX_RETRIES {
+                        if attempt < ASN_MAX_RETRIES {
                             tokio::time::sleep(Duration::from_secs(1)).await;
                         }
                         continue;
@@ -286,7 +284,7 @@ impl AsnResolver {
                 if !response.status().is_success() {
                     log::error!("ip-api.com returned error: {}", response.status());
                     last_error = Some(AsnError::InvalidResponse);
-                    if attempt < MAX_RETRIES {
+                    if attempt < ASN_MAX_RETRIES {
                         tokio::time::sleep(Duration::from_secs(1)).await;
                     }
                     continue;
@@ -300,7 +298,7 @@ impl AsnResolver {
                     Err(e) => {
                         log::warn!("Failed to parse ip-api.com response: {}", e);
                         last_error = Some(AsnError::HttpError(e));
-                        if attempt < MAX_RETRIES {
+                        if attempt < ASN_MAX_RETRIES {
                             tokio::time::sleep(Duration::from_secs(1)).await;
                         }
                     }

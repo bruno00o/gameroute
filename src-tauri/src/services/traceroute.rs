@@ -5,10 +5,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use trippy_core::{Builder, PortDirection, PrivilegeMode};
 
-/// Maximum number of hops before traceroute gives up.
-const MAX_HOPS: u8 = 30;
-/// Overall safety timeout wrapping the crate's own trace_timeout.
-const OVERALL_TIMEOUT_SECS: u64 = 30;
+use crate::config::{TRACEROUTE_MAX_HOPS, TRACEROUTE_TIMEOUT_SECS};
 
 #[derive(Debug, Clone)]
 pub struct TracerouteJob {
@@ -170,7 +167,7 @@ impl TracerouteService {
 
         let tracer = match Builder::new(dst_ip)
             .privilege_mode(PrivilegeMode::Unprivileged)
-            .max_ttl(MAX_HOPS)
+            .max_ttl(TRACEROUTE_MAX_HOPS)
             .max_rounds(Some(1))
             .port_direction(PortDirection::new_fixed_dest(33434))
             .build()
@@ -196,7 +193,7 @@ impl TracerouteService {
         // Tracer is Clone; clone for the blocking thread, keep original for snapshot
         let tracer_clone = tracer.clone();
         let trace_result = tokio::time::timeout(
-            Duration::from_secs(OVERALL_TIMEOUT_SECS),
+            Duration::from_secs(TRACEROUTE_TIMEOUT_SECS),
             tokio::task::spawn_blocking(move || tracer_clone.run()),
         )
         .await;
@@ -283,7 +280,7 @@ impl TracerouteService {
                 log::warn!(
                     "Traceroute to {} timed out after {}s",
                     target_ip_clone,
-                    OVERALL_TIMEOUT_SECS
+                    TRACEROUTE_TIMEOUT_SECS
                 );
                 TracerouteResult {
                     target_ip: target_ip_clone,

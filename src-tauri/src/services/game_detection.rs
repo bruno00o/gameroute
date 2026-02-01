@@ -1,3 +1,4 @@
+use crate::config::{MAX_CAPTURED_IPS, MAX_CONSECUTIVE_DB_FAILURES, POLL_INTERVAL_SECS};
 use crate::db::games::GameRepository;
 use crate::models::{
     DetectedGame, GameEndedEvent, MonitoringState, ServerIpCapturedEvent, TracedServerIp,
@@ -8,9 +9,6 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use tokio::time::{interval, Duration};
-
-const POLL_INTERVAL_SECS: u64 = 5;
-const MAX_CAPTURED_IPS: usize = 10_000;
 
 pub struct GameDetector {
     state: Arc<RwLock<MonitoringState>>,
@@ -55,6 +53,7 @@ impl GameDetector {
 
             let mut captured_ip_set: HashSet<String> = HashSet::new();
             let mut capacity_notified = false;
+            let mut consecutive_db_failures: u32 = 0;
 
             log::info!(
                 "Game detection started (polling every {}s)",
@@ -70,9 +69,27 @@ impl GameDetector {
                     _ = poll_interval.tick() => {
 
                         let monitored_games = match game_repo.get_monitored_games().await {
-                            Ok(games) => games,
+                            Ok(games) => {
+                                if consecutive_db_failures > 0 {
+                                    log::info!(
+                                        "Game repository recovered after {} consecutive failures",
+                                        consecutive_db_failures
+                                    );
+                                    consecutive_db_failures = 0;
+                                }
+                                games
+                            }
                             Err(e) => {
-                                log::error!("Failed to fetch monitored games: {}", e);
+                                consecutive_db_failures += 1;
+                                if consecutive_db_failures >= MAX_CONSECUTIVE_DB_FAILURES {
+                                    log::error!(
+                                        "Failed to fetch monitored games ({} consecutive failures): {}. \
+                                         Detection continues but may not detect games until DB recovers.",
+                                        consecutive_db_failures, e
+                                    );
+                                } else {
+                                    log::warn!("Failed to fetch monitored games (attempt {}): {}", consecutive_db_failures, e);
+                                }
                                 continue;
                             }
                         };

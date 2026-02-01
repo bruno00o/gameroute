@@ -1,4 +1,5 @@
 mod commands;
+pub mod config;
 mod db;
 mod models;
 mod platform;
@@ -21,10 +22,9 @@ use commands::network::{
     get_network_map_data, get_network_overview_stats, get_recurring_problem_hops,
 };
 use commands::sessions::{delete_session, get_session_count, get_session_detail, get_sessions};
+use config::CACHE_MAX_TTL_DAYS;
 use db::get_ip_metadata_repository;
 use tauri::Manager;
-
-const CACHE_MAX_TTL_DAYS: i64 = 30;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -68,7 +68,7 @@ pub fn run() {
                                     log::info!("Startup cache prune: {} entries removed", count);
                                 }
                             }
-                            Err(e) => log::warn!("Failed to prune cache on startup: {}", e),
+                            Err(e) => log::error!("Failed to prune cache on startup: {}", e),
                         }
                     }
 

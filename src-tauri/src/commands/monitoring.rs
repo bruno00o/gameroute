@@ -60,10 +60,7 @@ impl MonitoringError {
     }
 }
 
-/// Minimum latency increase (ms) between consecutive hops to flag as a problem hop.
-const LATENCY_INCREASE_THRESHOLD: f64 = 50.0;
-/// Minimum packet loss percentage to flag a hop as problematic.
-const PACKET_LOSS_THRESHOLD: f64 = 10.0;
+use crate::config::{LATENCY_INCREASE_THRESHOLD, PACKET_LOSS_THRESHOLD};
 
 fn identify_problem_hop(hops: &[HopResult]) -> Option<i32> {
     let mut prev_latency: Option<f64> = None;
