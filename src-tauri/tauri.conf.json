@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "gameroute",
   "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "identifier": "app.gameroute.desktop",
   "build": {
     "frontendDist": "../build",
     "devUrl": "http://localhost:5173",
@@ -20,7 +20,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost https://*.steamstatic.com https://*.epicgames.com data:; font-src 'self' data:; connect-src ipc: http://ipc.localhost"
     }
   },
   "bundle": {
