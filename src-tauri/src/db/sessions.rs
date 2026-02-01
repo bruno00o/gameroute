@@ -8,7 +8,6 @@ pub struct SessionRepository {
     pool: SqlitePool,
 }
 
-#[allow(dead_code)]
 impl SessionRepository {
     pub fn new(pool: SqlitePool) -> Self {
         Self { pool }
@@ -56,6 +55,7 @@ impl SessionRepository {
         .map_err(Into::into)
     }
 
+    #[allow(dead_code)] // Used by tests; production uses get_sessions_with_counts
     pub async fn get_all_sessions(&self, limit: i32, offset: i32) -> Result<Vec<Session>, DbError> {
         sqlx::query_as::<_, Session>(
             "SELECT id, game_name, started_at, ended_at

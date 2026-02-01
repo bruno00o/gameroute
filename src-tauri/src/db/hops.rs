@@ -8,12 +8,12 @@ pub struct HopRepository {
     pool: SqlitePool,
 }
 
-#[allow(dead_code)]
 impl HopRepository {
     pub fn new(pool: SqlitePool) -> Self {
         Self { pool }
     }
 
+    #[allow(dead_code)] // Used by tests; production uses insert_hops_batch
     pub async fn insert_hop(&self, traceroute_id: i64, hop: &HopData) -> Result<i64, DbError> {
         let result = sqlx::query(
             "INSERT INTO hops (traceroute_id, hop_number, ip, hostname, latency_min, latency_avg, latency_max, packet_loss, is_problem_hop)
@@ -70,6 +70,7 @@ impl HopRepository {
         Ok(())
     }
 
+    #[allow(dead_code)] // Used by tests; production queries hops via JOIN in TracerouteRepository
     pub async fn get_hops_for_traceroute(&self, traceroute_id: i64) -> Result<Vec<DbHop>, DbError> {
         sqlx::query_as::<_, DbHop>(
             "SELECT id, traceroute_id, hop_number, ip, hostname, latency_min, latency_avg, latency_max, packet_loss, is_problem_hop
@@ -83,6 +84,7 @@ impl HopRepository {
         .map_err(Into::into)
     }
 
+    #[allow(dead_code)] // Used by tests; production checks problem_hop_index on traceroute
     pub async fn get_problem_hop(&self, traceroute_id: i64) -> Result<Option<DbHop>, DbError> {
         sqlx::query_as::<_, DbHop>(
             "SELECT id, traceroute_id, hop_number, ip, hostname, latency_min, latency_avg, latency_max, packet_loss, is_problem_hop
@@ -96,6 +98,7 @@ impl HopRepository {
         .map_err(Into::into)
     }
 
+    #[allow(dead_code)] // Used by tests; production relies on CASCADE delete
     pub async fn delete_hops_for_traceroute(&self, traceroute_id: i64) -> Result<u64, DbError> {
         let result = sqlx::query("DELETE FROM hops WHERE traceroute_id = $1")
             .bind(traceroute_id)
