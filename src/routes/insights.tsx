@@ -171,9 +171,7 @@ function InsightsPage() {
       {isEmpty ? (
         <div className="mt-16 flex flex-col items-center gap-3 text-center">
           <RiBarChartLine className="text-muted-foreground size-10" />
-          <p className="text-muted-foreground text-sm font-medium">
-            {m.insights_empty_title()}
-          </p>
+          <h2 className="text-lg font-medium">{m.insights_empty_title()}</h2>
           <p className="text-muted-foreground text-sm">{m.insights_empty_description()}</p>
         </div>
       ) : (

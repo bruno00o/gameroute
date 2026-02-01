@@ -137,9 +137,7 @@ function NetworkPage() {
       {isEmpty ? (
         <div className="mt-16 flex flex-col items-center gap-3 text-center">
           <RiGlobalLine className="text-muted-foreground size-10" />
-          <p className="text-muted-foreground text-sm font-medium">
-            {m.network_empty_title()}
-          </p>
+          <h2 className="text-lg font-medium">{m.network_empty_title()}</h2>
           <p className="text-muted-foreground text-sm">{m.network_empty_description()}</p>
         </div>
       ) : (
