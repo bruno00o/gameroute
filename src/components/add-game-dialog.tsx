@@ -1,0 +1,125 @@
+import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { open } from '@tauri-apps/plugin-dialog'
+import { RiFolderOpenLine } from '@remixicon/react'
+import { toast } from 'sonner'
+
+import * as m from '@/paraglide/messages'
+import { addManualGame } from '@/lib/tauri'
+import { errorMessage } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+
+export function AddGameDialog({ children }: { children: React.ReactElement }) {
+  const [open_, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [path, setPath] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const queryClient = useQueryClient()
+
+  const handleBrowse = async () => {
+    const selected = await open({
+      title: m.games_add_browse(),
+      multiple: false,
+      filters: [
+        {
+          name: 'Executables',
+          extensions: ['exe', 'app', 'sh', 'x86_64', 'x86', ''],
+        },
+      ],
+    })
+    if (selected) {
+      setPath(selected)
+      if (!name.trim()) {
+        const filename = selected.split(/[/\\]/).pop() ?? ''
+        const inferred = filename.replace(/\.(exe|app|sh|x86_64|x86)$/i, '')
+        if (inferred) setName(inferred)
+      }
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!name.trim() || !path.trim()) return
+
+    setIsSubmitting(true)
+    try {
+      await addManualGame(name.trim(), path.trim())
+      toast.success(m.games_added())
+      queryClient.invalidateQueries({ queryKey: ['games'] })
+      setOpen(false)
+      setName('')
+      setPath('')
+    } catch (err) {
+      toast.error(errorMessage(err))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open_} onOpenChange={setOpen}>
+      <DialogTrigger render={children} />
+      <DialogContent>
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>{m.games_add_title()}</DialogTitle>
+            <DialogDescription>{m.games_add_description()}</DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="game-name">{m.games_add_name()}</Label>
+              <Input
+                id="game-name"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Counter-Strike 2"
+                required
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="game-path">{m.games_add_path()}</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="game-path"
+                  value={path}
+                  onChange={e => setPath(e.target.value)}
+                  placeholder="/path/to/game.exe"
+                  required
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handleBrowse}
+                  title={m.games_add_browse()}
+                >
+                  <RiFolderOpenLine className="size-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              {m.games_add_cancel()}
+            </Button>
+            <Button type="submit" disabled={isSubmitting || !name.trim() || !path.trim()}>
+              {m.games_add_submit()}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
