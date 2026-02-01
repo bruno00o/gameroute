@@ -4,6 +4,7 @@ import { Link } from '@tanstack/react-router'
 
 import { getNavigationData } from '@/lib/navigation'
 import * as m from '@/paraglide/messages'
+import { MonitoringWidget } from '@/components/sidebar/monitoring-widget'
 import { NavMain } from '@/components/sidebar/nav-main'
 import { NavSecondary } from '@/components/sidebar/nav-secondary'
 import { SidebarSearch } from '@/components/sidebar/sidebar-search'
@@ -44,7 +45,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarSearch />
         <NavMain group={navMain} />
         <NavMain group={navAnalytics} />
-        <NavSecondary group={navSecondary} className="mt-auto" />
+        <NavSecondary group={navSecondary} className="mt-auto">
+          <MonitoringWidget />
+        </NavSecondary>
       </SidebarContent>
     </Sidebar>
   )

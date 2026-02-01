@@ -13,19 +13,23 @@ import {
 
 export function NavSecondary({
   group,
+  children,
   ...props
 }: {
   group: NavGroup
+  children?: React.ReactNode
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
   const location = useLocation()
 
   return (
     <SidebarGroup {...props}>
+      {children}
       <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
           {group.items.map(item => {
-            const isActive = location.pathname.startsWith(item.to)
+            const isActive =
+              location.pathname === item.to || location.pathname.startsWith(item.to + '/')
 
             return (
               <SidebarMenuItem key={item.to}>
