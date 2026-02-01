@@ -1,6 +1,8 @@
 pub mod asn;
 pub mod connection;
+pub mod dashboard;
 pub mod game;
+pub mod game_library;
 pub mod hop;
 pub mod ip_metadata;
 pub mod ip_period;
@@ -15,6 +17,7 @@ pub use game::{
     DetectedGame, GameEndedEvent, IpCapacityReachedEvent, MonitoringState, RunningApp,
     RunningProcess,
 };
+pub use game_library::MonitoredGameEntry;
 pub use hop::HopResult;
 pub use server_ip::TracedServerIp;
 pub use traceroute::{

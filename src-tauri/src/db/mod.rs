@@ -2,12 +2,14 @@ use sqlx::sqlite::SqlitePool;
 use std::path::PathBuf;
 use thiserror::Error;
 
+pub mod games;
 pub mod hops;
 pub mod ip_metadata;
 pub mod ip_periods;
 pub mod sessions;
 pub mod traceroutes;
 
+pub use games::get_game_repository;
 pub use hops::get_hop_repository;
 pub use ip_metadata::get_ip_metadata_repository;
 pub use ip_periods::get_ip_period_repository;
@@ -55,6 +57,7 @@ pub fn init_repositories(pool: &SqlitePool) {
     traceroutes::init_traceroute_repository(pool.clone());
     hops::init_hop_repository(pool.clone());
     ip_metadata::init_ip_metadata_repository(pool.clone());
+    games::init_game_repository(pool.clone());
 }
 
 #[cfg(test)]
