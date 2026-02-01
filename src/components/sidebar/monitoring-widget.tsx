@@ -35,7 +35,9 @@ export function MonitoringWidget() {
         useMonitoringStore.setState({ isMonitoring: true })
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      const message =
+        e instanceof Error ? e.message : typeof e === 'object' && e !== null && 'message' in e ? (e as { message: string }).message : String(e)
+      toast.error(message)
     }
   }, [isMonitoring])
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 import { startMonitoring } from '@/lib/tauri'
+import { useMonitoringStore } from '@/stores/monitoring-store'
 import { useSettingsStore } from '@/stores/settings-store'
 
 export function useAutoStartMonitoring() {
@@ -11,8 +12,12 @@ export function useAutoStartMonitoring() {
     if (!autoStart || didRun.current) return
     didRun.current = true
 
-    startMonitoring().catch(e => {
-      console.warn('[monitoring] Auto-start failed:', e)
-    })
+    startMonitoring()
+      .then(() => {
+        useMonitoringStore.setState({ isMonitoring: true })
+      })
+      .catch(e => {
+        console.warn('[monitoring] Auto-start failed:', e)
+      })
   }, [autoStart])
 }
