@@ -1,8 +1,9 @@
+use crate::db::games::GameRepository;
 use crate::models::{
     DetectedGame, GameEndedEvent, MonitoringState, ServerIpCapturedEvent, TracedServerIp,
 };
 use crate::platform;
-use crate::services::{capture_connections_for_pids, GamesDatabase};
+use crate::services::capture_connections_for_pids;
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
@@ -13,15 +14,15 @@ const MAX_CAPTURED_IPS: usize = 10_000;
 
 pub struct GameDetector {
     state: Arc<RwLock<MonitoringState>>,
-    games_db: Arc<GamesDatabase>,
+    game_repo: Arc<GameRepository>,
     stop_tx: Option<mpsc::Sender<()>>,
 }
 
 impl GameDetector {
-    pub fn new(state: Arc<RwLock<MonitoringState>>, games_db: Arc<GamesDatabase>) -> Self {
+    pub fn new(state: Arc<RwLock<MonitoringState>>, game_repo: Arc<GameRepository>) -> Self {
         Self {
             state,
-            games_db,
+            game_repo,
             stop_tx: None,
         }
     }
@@ -42,7 +43,7 @@ impl GameDetector {
         self.stop_tx = Some(stop_tx);
 
         let state = self.state.clone();
-        let games_db = self.games_db.clone();
+        let game_repo = self.game_repo.clone();
         let on_detected = Arc::new(on_game_detected);
         let on_ended = Arc::new(on_game_ended);
         let on_ip = Arc::new(on_ip_captured);
@@ -56,9 +57,8 @@ impl GameDetector {
             let mut capacity_notified = false;
 
             log::info!(
-                "Game detection started (polling every {}s, {} games in database)",
+                "Game detection started (polling every {}s)",
                 POLL_INTERVAL_SECS,
-                games_db.len()
             );
 
             loop {
@@ -69,9 +69,17 @@ impl GameDetector {
                     }
                     _ = poll_interval.tick() => {
 
+                        let monitored_games = match game_repo.get_monitored_games().await {
+                            Ok(games) => games,
+                            Err(e) => {
+                                log::error!("Failed to fetch monitored games: {}", e);
+                                continue;
+                            }
+                        };
+
                         let processes = platform::enumerate_running_processes();
 
-                        let games = platform::detect_games_from_processes(&processes, &games_db);
+                        let games = platform::detect_games_from_processes(&processes, &monitored_games);
 
                         if let Some(game) = games.first() {
 
@@ -83,6 +91,13 @@ impl GameDetector {
 
                                 captured_ip_set.clear();
                                 capacity_notified = false;
+
+                                // Update last_played_at for the matched game
+                                if let Some(entry) = monitored_games.iter().find(|e| e.name == game.game_name) {
+                                    if let Err(e) = game_repo.update_last_played(entry.id).await {
+                                        log::error!("Failed to update last_played_at: {}", e);
+                                    }
+                                }
 
                                 {
                                     let mut state_guard = state.write().await;

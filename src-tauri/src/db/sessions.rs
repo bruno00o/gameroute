@@ -1,4 +1,5 @@
 use crate::db::DbError;
+use crate::models::dashboard::RecentSession;
 use crate::models::session::{Session, SessionListItem};
 use sqlx::sqlite::SqlitePool;
 use std::sync::{Arc, OnceLock};
@@ -124,6 +125,36 @@ impl SessionRepository {
             .await?;
 
         Ok(row.0)
+    }
+
+    pub async fn get_dashboard_stats(&self) -> Result<(i64, i64, i64), DbError> {
+        let row: (i64, i64, i64) = sqlx::query_as(
+            "SELECT
+                COUNT(*) as total_sessions,
+                CAST(COALESCE(SUM(CASE WHEN ended_at IS NOT NULL
+                    THEN (julianday(ended_at) - julianday(started_at)) * 86400
+                    ELSE 0 END), 0) AS INTEGER) as total_play_time_secs,
+                COUNT(DISTINCT game_name) as unique_games
+             FROM sessions",
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row)
+    }
+
+    pub async fn get_recent_sessions(&self, limit: i32) -> Result<Vec<RecentSession>, DbError> {
+        sqlx::query_as::<_, RecentSession>(
+            "SELECT s.id, s.game_name, s.started_at, s.ended_at, g.icon_url
+             FROM sessions s
+             LEFT JOIN games g ON g.name = s.game_name
+             ORDER BY s.started_at DESC
+             LIMIT $1",
+        )
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Into::into)
     }
 }
 

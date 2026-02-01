@@ -7,30 +7,27 @@ mod services;
 use commands::asn::{
     clear_ip_metadata_cache, get_ip_metadata_stats, prune_ip_metadata_cache, resolve_asn,
 };
+use commands::dashboard::get_dashboard_data;
+use commands::games::{
+    add_manual_game, get_game_count, get_games, remove_game, scan_all_games, scan_epic_games,
+    scan_steam_games, search_game_count, search_games, toggle_game_monitored,
+};
 use commands::monitoring::{
     cancel_traceroute, get_monitoring_status, list_running_apps, list_running_processes,
     start_manual_monitoring, start_monitoring, stop_monitoring, AppMonitoringState,
 };
 use commands::sessions::{delete_session, get_session_count, get_session_detail, get_sessions};
 use db::get_ip_metadata_repository;
-use services::GamesDatabase;
 use tauri::Manager;
 
 const CACHE_MAX_TTL_DAYS: i64 = 30;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let games_db = match GamesDatabase::load() {
-        Ok(db) => db,
-        Err(e) => {
-            eprintln!("Fatal: failed to load games database: {}", e);
-            std::process::exit(1);
-        }
-    };
-
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .manage(AppMonitoringState::new(games_db))
+        .manage(AppMonitoringState::new())
         .setup(|app| {
             let log_level = if cfg!(debug_assertions) {
                 log::LevelFilter::Info
@@ -70,6 +67,16 @@ pub fn run() {
                             Err(e) => log::warn!("Failed to prune cache on startup: {}", e),
                         }
                     }
+
+                    tauri::async_runtime::spawn(async {
+                        match crate::commands::games::scan_all_games().await {
+                            Ok(r) => log::info!(
+                                "Startup scan: {} found, {} added, {} updated",
+                                r.games_found, r.games_added, r.games_updated
+                            ),
+                            Err(e) => log::warn!("Startup scan failed: {}", e.message),
+                        }
+                    });
                 }
                 Err(e) => {
                     log::error!("Failed to initialize database: {}", e);
@@ -94,6 +101,17 @@ pub fn run() {
             get_session_detail,
             delete_session,
             get_session_count,
+            scan_steam_games,
+            scan_epic_games,
+            scan_all_games,
+            get_games,
+            get_game_count,
+            add_manual_game,
+            remove_game,
+            toggle_game_monitored,
+            search_games,
+            search_game_count,
+            get_dashboard_data,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

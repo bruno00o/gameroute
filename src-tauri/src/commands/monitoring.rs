@@ -1,5 +1,6 @@
 use crate::db::{
-    get_hop_repository, get_ip_period_repository, get_session_repository, get_traceroute_repository,
+    get_game_repository, get_hop_repository, get_ip_period_repository, get_session_repository,
+    get_traceroute_repository,
 };
 use crate::models::{
     session::HopData, DetectedGame, GameEndedEvent, HopResult, IpCapacityReachedEvent,
@@ -9,7 +10,7 @@ use crate::models::{
 };
 use crate::platform;
 use crate::services::traceroute::TracerouteJob;
-use crate::services::{GameDetector, GamesDatabase, TracerouteService};
+use crate::services::{GameDetector, TracerouteService};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::RwLock;
@@ -17,16 +18,14 @@ use tokio::sync::RwLock;
 pub struct AppMonitoringState {
     pub monitoring_state: Arc<RwLock<MonitoringState>>,
     pub detector: Arc<RwLock<Option<GameDetector>>>,
-    pub games_db: Arc<GamesDatabase>,
     pub traceroute_service: Arc<TracerouteService>,
 }
 
 impl AppMonitoringState {
-    pub fn new(games_db: GamesDatabase) -> Self {
+    pub fn new() -> Self {
         Self {
             monitoring_state: Arc::new(RwLock::new(MonitoringState::default())),
             detector: Arc::new(RwLock::new(None)),
-            games_db: Arc::new(games_db),
             traceroute_service: Arc::new(TracerouteService::new()),
         }
     }
@@ -336,7 +335,12 @@ pub async fn start_monitoring(
         monitoring_state.is_monitoring = true;
     }
 
-    let mut detector = GameDetector::new(state.monitoring_state.clone(), state.games_db.clone());
+    let game_repo = get_game_repository().ok_or_else(|| MonitoringError {
+        code: "REPO_NOT_INITIALIZED".to_string(),
+        message: "Game repository not initialized".to_string(),
+    })?;
+
+    let mut detector = GameDetector::new(state.monitoring_state.clone(), game_repo);
 
     let app_handle_detected = app.clone();
     let app_handle_ended = app.clone();
@@ -648,11 +652,24 @@ pub async fn start_manual_monitoring(
     }
     let process_name = process_name.unwrap();
 
-    let display_name = state
-        .games_db
-        .find_by_exe(&process_name)
-        .map(|g| g.display_name.clone())
-        .unwrap_or_else(|| process_name.clone());
+    let display_name = if let Some(game_repo) = get_game_repository() {
+        match game_repo.get_monitored_games().await {
+            Ok(games) => games
+                .iter()
+                .find(|g| {
+                    let exe_lower = g.executable_name.to_lowercase();
+                    let name_lower = process_name.to_lowercase();
+                    name_lower == exe_lower
+                        || (!name_lower.ends_with(".exe")
+                            && format!("{}.exe", name_lower) == exe_lower)
+                })
+                .map(|g| g.name.clone())
+                .unwrap_or_else(|| process_name.clone()),
+            Err(_) => process_name.clone(),
+        }
+    } else {
+        process_name.clone()
+    };
 
     let game = DetectedGame::new_manual(display_name.clone(), pid, None);
 
@@ -664,7 +681,12 @@ pub async fn start_manual_monitoring(
         monitoring_state.current_game = Some(game.clone());
     }
 
-    let mut detector = GameDetector::new(state.monitoring_state.clone(), state.games_db.clone());
+    let game_repo = get_game_repository().ok_or_else(|| MonitoringError {
+        code: "REPO_NOT_INITIALIZED".to_string(),
+        message: "Game repository not initialized".to_string(),
+    })?;
+
+    let mut detector = GameDetector::new(state.monitoring_state.clone(), game_repo);
 
     let app_handle_detected = app.clone();
     let app_handle_ended = app.clone();

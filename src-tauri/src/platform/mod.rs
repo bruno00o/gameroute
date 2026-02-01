@@ -2,8 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Mutex, OnceLock};
 use sysinfo::{Pid, ProcessRefreshKind, RefreshKind, System, UpdateKind};
 
-use crate::models::{DetectedGame, RunningApp, RunningProcess};
-use crate::services::GamesDatabase;
+use crate::models::{DetectedGame, MonitoredGameEntry, RunningApp, RunningProcess};
 
 #[cfg(target_os = "macos")]
 mod macos;
@@ -46,13 +45,30 @@ pub fn enumerate_running_processes() -> Vec<(u32, String)> {
 
 pub fn detect_games_from_processes(
     processes: &[(u32, String)],
-    games_db: &GamesDatabase,
+    monitored_games: &[MonitoredGameEntry],
 ) -> Vec<DetectedGame> {
     let mut detected = Vec::new();
 
     for (pid, process_name) in processes {
-        if let Some(game_def) = games_db.find_by_exe(process_name) {
-            detected.push(DetectedGame::new(game_def.display_name.clone(), *pid, None));
+        let name_lower = process_name.to_lowercase();
+
+        for entry in monitored_games {
+            let exe_lower = entry.executable_name.to_lowercase();
+            let matched = name_lower == exe_lower
+                || (!name_lower.ends_with(".exe") && format!("{}.exe", name_lower) == exe_lower)
+                || (name_lower.ends_with(".exe")
+                    && name_lower[..name_lower.len() - 4] == exe_lower)
+                || (exe_lower.ends_with(".app")
+                    && name_lower == exe_lower[..exe_lower.len() - 4]);
+
+            if matched {
+                detected.push(DetectedGame::new(
+                    entry.name.clone(),
+                    *pid,
+                    entry.icon_url.clone(),
+                ));
+                break;
+            }
         }
     }
 
