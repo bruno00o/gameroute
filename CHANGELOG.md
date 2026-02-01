@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.1...gameroute-v0.1.2) (2026-02-01)
+
+
+### Bug Fixes
+
+* handle Tauri error objects in monitoring UI ([d3f556e](https://github.com/bruno00o/gameroute/commit/d3f556e2bb27dba0f1ee73a2ea5d6b78ed4b2a67))
+
 ## [0.1.1](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.0...gameroute-v0.1.1) (2026-02-01)
 
 
