@@ -12,9 +12,13 @@ use commands::games::{
     add_manual_game, get_game_count, get_games, remove_game, scan_all_games, scan_epic_games,
     scan_steam_games, search_game_count, search_games, toggle_game_monitored,
 };
+use commands::insights::{get_hourly_quality, get_network_quality_over_time, get_server_stability};
 use commands::monitoring::{
     cancel_traceroute, get_monitoring_status, list_running_apps, list_running_processes,
     start_manual_monitoring, start_monitoring, stop_monitoring, AppMonitoringState,
+};
+use commands::network::{
+    get_network_map_data, get_network_overview_stats, get_recurring_problem_hops,
 };
 use commands::sessions::{delete_session, get_session_count, get_session_detail, get_sessions};
 use db::get_ip_metadata_repository;
@@ -112,6 +116,12 @@ pub fn run() {
             search_games,
             search_game_count,
             get_dashboard_data,
+            get_network_map_data,
+            get_recurring_problem_hops,
+            get_network_overview_stats,
+            get_network_quality_over_time,
+            get_server_stability,
+            get_hourly_quality,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

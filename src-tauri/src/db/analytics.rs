@@ -1,0 +1,182 @@
+use crate::db::DbError;
+use crate::models::insights::{HourlyQuality, ServerStability, SessionQualityPoint};
+use crate::models::network::{NetworkMapEntry, NetworkOverviewStats, RecurringProblemHop};
+use sqlx::sqlite::SqlitePool;
+use std::sync::{Arc, OnceLock};
+
+pub struct AnalyticsRepository {
+    pool: SqlitePool,
+}
+
+impl AnalyticsRepository {
+    pub fn new(pool: SqlitePool) -> Self {
+        Self { pool }
+    }
+
+    // ===== Network commands =====
+
+    pub async fn get_network_map_data(&self) -> Result<Vec<NetworkMapEntry>, DbError> {
+        sqlx::query_as::<_, NetworkMapEntry>(
+            "SELECT
+                ip.ip,
+                m.country,
+                m.city,
+                m.lat,
+                m.lon,
+                m.asn,
+                m.isp,
+                COUNT(DISTINCT ip.session_id) as session_count,
+                COALESCE(SUM(
+                    (julianday(ip.ended_at) - julianday(ip.started_at)) * 86400
+                ), 0.0) as total_duration_secs,
+                COALESCE(SUM(ip.packet_count), 0) as total_packets
+             FROM ip_periods ip
+             LEFT JOIN ip_metadata m ON m.ip = ip.ip
+             GROUP BY ip.ip
+             ORDER BY session_count DESC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
+    pub async fn get_recurring_problem_hops(&self) -> Result<Vec<RecurringProblemHop>, DbError> {
+        sqlx::query_as::<_, RecurringProblemHop>(
+            "SELECT
+                h.ip,
+                m.asn,
+                m.isp,
+                COUNT(DISTINCT t.session_id) as occurrence_count,
+                AVG(h.latency_avg) as avg_latency,
+                AVG(h.packet_loss) as avg_packet_loss
+             FROM hops h
+             JOIN traceroutes t ON t.id = h.traceroute_id
+             LEFT JOIN ip_metadata m ON m.ip = h.ip
+             WHERE h.is_problem_hop = 1 AND h.ip IS NOT NULL
+             GROUP BY h.ip
+             HAVING COUNT(DISTINCT t.session_id) > 1
+             ORDER BY occurrence_count DESC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
+    pub async fn get_network_overview_stats(&self) -> Result<NetworkOverviewStats, DbError> {
+        let unique_server_ips: (i64,) =
+            sqlx::query_as("SELECT COUNT(DISTINCT ip) FROM ip_periods")
+                .fetch_one(&self.pool)
+                .await?;
+
+        let total_traceroutes: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM traceroutes")
+            .fetch_one(&self.pool)
+            .await?;
+
+        let total_problem_hops: (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM hops WHERE is_problem_hop = 1")
+                .fetch_one(&self.pool)
+                .await?;
+
+        let avg_latency: (Option<f64>,) =
+            sqlx::query_as("SELECT AVG(latency_avg) FROM hops WHERE latency_avg IS NOT NULL")
+                .fetch_one(&self.pool)
+                .await?;
+
+        Ok(NetworkOverviewStats {
+            unique_server_ips: unique_server_ips.0,
+            total_traceroutes: total_traceroutes.0,
+            total_problem_hops: total_problem_hops.0,
+            avg_latency: avg_latency.0,
+        })
+    }
+
+    // ===== Insights commands =====
+
+    pub async fn get_network_quality_over_time(
+        &self,
+    ) -> Result<Vec<SessionQualityPoint>, DbError> {
+        sqlx::query_as::<_, SessionQualityPoint>(
+            "SELECT
+                s.id as session_id,
+                s.game_name,
+                s.started_at,
+                AVG(h.latency_avg) as avg_latency,
+                CASE WHEN COUNT(h.id) > 0
+                    THEN CAST(SUM(CASE WHEN h.is_problem_hop = 1 THEN 1 ELSE 0 END) AS REAL) / COUNT(h.id)
+                    ELSE 0.0
+                END as problem_hop_ratio,
+                COALESCE(ip_counts.ip_count, 0) as ip_count
+             FROM sessions s
+             LEFT JOIN traceroutes t ON t.session_id = s.id
+             LEFT JOIN hops h ON h.traceroute_id = t.id
+             LEFT JOIN (
+                 SELECT session_id, COUNT(DISTINCT ip) as ip_count
+                 FROM ip_periods
+                 GROUP BY session_id
+             ) ip_counts ON ip_counts.session_id = s.id
+             GROUP BY s.id
+             ORDER BY s.started_at ASC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
+    pub async fn get_server_stability(&self) -> Result<Vec<ServerStability>, DbError> {
+        sqlx::query_as::<_, ServerStability>(
+            "SELECT
+                t.target_ip as ip,
+                m.asn,
+                m.isp,
+                m.country,
+                AVG(h.latency_avg) as avg_latency,
+                AVG(h.packet_loss) as avg_packet_loss,
+                COUNT(DISTINCT t.id) as traceroute_count,
+                CASE WHEN COUNT(h.id) > 0
+                    THEN CAST(SUM(CASE WHEN h.is_problem_hop = 1 THEN 1 ELSE 0 END) AS REAL) / COUNT(h.id)
+                    ELSE 0.0
+                END as problem_hop_ratio
+             FROM traceroutes t
+             LEFT JOIN hops h ON h.traceroute_id = t.id
+             LEFT JOIN ip_metadata m ON m.ip = t.target_ip
+             GROUP BY t.target_ip
+             ORDER BY problem_hop_ratio ASC, avg_latency ASC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
+    pub async fn get_hourly_quality(&self) -> Result<Vec<HourlyQuality>, DbError> {
+        sqlx::query_as::<_, HourlyQuality>(
+            "SELECT
+                CAST(strftime('%H', s.started_at) AS INTEGER) as hour,
+                COUNT(DISTINCT s.id) as session_count,
+                AVG(h.latency_avg) as avg_latency,
+                CASE WHEN COUNT(h.id) > 0
+                    THEN CAST(SUM(CASE WHEN h.is_problem_hop = 1 THEN 1 ELSE 0 END) AS REAL) / COUNT(h.id)
+                    ELSE 0.0
+                END as problem_hop_ratio
+             FROM sessions s
+             LEFT JOIN traceroutes t ON t.session_id = s.id
+             LEFT JOIN hops h ON h.traceroute_id = t.id
+             GROUP BY hour
+             ORDER BY hour ASC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+}
+
+static ANALYTICS_REPOSITORY: OnceLock<Arc<AnalyticsRepository>> = OnceLock::new();
+
+pub fn init_analytics_repository(pool: SqlitePool) {
+    let repo = AnalyticsRepository::new(pool);
+    let _ = ANALYTICS_REPOSITORY.set(Arc::new(repo));
+    log::info!("Analytics repository initialized");
+}
+
+pub fn get_analytics_repository() -> Option<Arc<AnalyticsRepository>> {
+    ANALYTICS_REPOSITORY.get().cloned()
+}
