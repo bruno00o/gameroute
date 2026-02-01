@@ -1,10 +1,11 @@
+use crate::commands::CommandError;
 use crate::db::{get_ip_period_repository, get_session_repository, get_traceroute_repository};
 use crate::models::session::{SessionDetail, SessionListItem};
 
 const MAX_PAGINATION_LIMIT: i32 = 100;
 
 #[tauri::command]
-pub async fn get_sessions(limit: i32, offset: i32) -> Result<Vec<SessionListItem>, String> {
+pub async fn get_sessions(limit: i32, offset: i32) -> Result<Vec<SessionListItem>, CommandError> {
     let validated_limit = if limit <= 0 {
         20
     } else if limit > MAX_PAGINATION_LIMIT {
@@ -15,25 +16,26 @@ pub async fn get_sessions(limit: i32, offset: i32) -> Result<Vec<SessionListItem
 
     let validated_offset = if offset < 0 { 0 } else { offset };
 
-    let repo = get_session_repository().ok_or("Session repository not initialized")?;
+    let repo = get_session_repository().ok_or_else(|| CommandError::repo_not_initialized("Session"))?;
 
     repo.get_sessions_with_counts(validated_limit, validated_offset)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 #[tauri::command]
-pub async fn get_session_detail(id: i64) -> Result<Option<SessionDetail>, String> {
+pub async fn get_session_detail(id: i64) -> Result<Option<SessionDetail>, CommandError> {
     if id <= 0 {
-        return Err("Invalid session ID".to_string());
+        return Err(CommandError::validation("Invalid session ID"));
     }
 
-    let session_repo = get_session_repository().ok_or("Session repository not initialized")?;
+    let session_repo =
+        get_session_repository().ok_or_else(|| CommandError::repo_not_initialized("Session"))?;
 
     let session = match session_repo
         .get_session(id)
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|e| CommandError::internal(e.to_string()))?
     {
         Some(s) => s,
         None => return Ok(None),
@@ -95,19 +97,23 @@ pub async fn get_session_detail(id: i64) -> Result<Option<SessionDetail>, String
 }
 
 #[tauri::command]
-pub async fn delete_session(id: i64) -> Result<(), String> {
+pub async fn delete_session(id: i64) -> Result<(), CommandError> {
     if id <= 0 {
-        return Err("Invalid session ID".to_string());
+        return Err(CommandError::validation("Invalid session ID"));
     }
 
-    let repo = get_session_repository().ok_or("Session repository not initialized")?;
+    let repo = get_session_repository().ok_or_else(|| CommandError::repo_not_initialized("Session"))?;
 
-    repo.delete_session(id).await.map_err(|e| e.to_string())
+    repo.delete_session(id)
+        .await
+        .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 #[tauri::command]
-pub async fn get_session_count() -> Result<i64, String> {
-    let repo = get_session_repository().ok_or("Session repository not initialized")?;
+pub async fn get_session_count() -> Result<i64, CommandError> {
+    let repo = get_session_repository().ok_or_else(|| CommandError::repo_not_initialized("Session"))?;
 
-    repo.get_session_count().await.map_err(|e| e.to_string())
+    repo.get_session_count()
+        .await
+        .map_err(|e| CommandError::internal(e.to_string()))
 }
