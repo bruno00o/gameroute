@@ -1,8 +1,10 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import type {
+  DashboardData,
   DetectedGame,
   GameEndedEvent,
+  GameListItem,
   IpMetadataCacheStats,
   MonitoringStatusResponse,
   PruneCacheResult,
@@ -12,6 +14,7 @@ import type {
   ServerIpCapturedEvent,
   SessionDetail,
   SessionListItem,
+  ScanResult,
   TracerouteAllCompleteEvent,
   TracerouteHopEvent,
   TracerouteProgressEvent,
@@ -36,6 +39,25 @@ export const getSessionDetail = (id: number) =>
   invoke<SessionDetail | null>('get_session_detail', { id })
 export const getSessionCount = () => invoke<number>('get_session_count')
 export const deleteSession = (id: number) => invoke<void>('delete_session', { id })
+
+// ===== Games =====
+export const scanSteamGames = () => invoke<ScanResult>('scan_steam_games')
+export const scanEpicGames = () => invoke<ScanResult>('scan_epic_games')
+export const scanAllGames = () => invoke<ScanResult>('scan_all_games')
+export const getGames = (limit: number, offset: number) =>
+  invoke<GameListItem[]>('get_games', { limit, offset })
+export const getGameCount = () => invoke<number>('get_game_count')
+export const addManualGame = (name: string, executablePath: string) =>
+  invoke<number>('add_manual_game', { name, executablePath })
+export const removeGame = (id: number) => invoke<void>('remove_game', { id })
+export const toggleGameMonitored = (id: number, monitored: boolean) =>
+  invoke<void>('toggle_game_monitored', { id, monitored })
+export const searchGames = (query: string, limit: number, offset: number) =>
+  invoke<GameListItem[]>('search_games', { query, limit, offset })
+export const searchGameCount = (query: string) => invoke<number>('search_game_count', { query })
+
+// ===== Dashboard =====
+export const getDashboardData = () => invoke<DashboardData>('get_dashboard_data')
 
 // ===== ASN / Cache =====
 export const resolveAsn = (ips: string[]) => invoke<ResolvedIpData[]>('resolve_asn', { ips })

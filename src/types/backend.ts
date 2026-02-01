@@ -97,6 +97,41 @@ export type TracerouteWithHops = {
   hops: DbHop[]
 }
 
+// ===== Game Library =====
+export type GameListItem = {
+  id: number
+  name: string
+  executableName: string
+  source: string
+  iconUrl: string | null
+  monitored: boolean
+  lastPlayedAt: string | null
+  sessionCount: number
+  totalPlayTimeSecs: number
+}
+
+export type ScanResult = {
+  gamesFound: number
+  gamesAdded: number
+  gamesUpdated: number
+}
+
+// ===== Dashboard =====
+export type RecentSession = {
+  id: number
+  gameName: string
+  startedAt: string
+  endedAt: string | null
+  iconUrl: string | null
+}
+
+export type DashboardData = {
+  totalSessions: number
+  totalPlayTimeSecs: number
+  uniqueGames: number
+  recentSessions: RecentSession[]
+}
+
 // ===== Game / Monitoring =====
 export type DetectedGame = {
   gameName: string
