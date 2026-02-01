@@ -1,0 +1,82 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct IpPeriod {
+    pub id: i64,
+    pub session_id: i64,
+    pub ip: String,
+    pub started_at: String,
+    pub ended_at: String,
+    pub packet_count: i32,
+}
+
+#[derive(Debug, Clone)]
+pub struct IpPeriodData {
+    pub session_id: i64,
+    pub ip: String,
+    pub started_at: String,
+    pub ended_at: String,
+    pub packet_count: i32,
+}
+
+impl IpPeriodData {
+    pub fn new(session_id: i64, ip: String, timestamp: String) -> Self {
+        Self {
+            session_id,
+            ip,
+            started_at: timestamp.clone(),
+            ended_at: timestamp,
+            packet_count: 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct IpPeriodSummary {
+    pub ip: String,
+
+    pub total_duration_secs: i64,
+
+    pub total_packet_count: i32,
+
+    pub period_count: i32,
+
+    pub first_seen_at: String,
+
+    pub last_seen_at: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ip_period_serialization() {
+        let period = IpPeriod {
+            id: 1,
+            session_id: 1,
+            ip: "185.60.112.157".to_string(),
+            started_at: "2026-01-25T10:00:00Z".to_string(),
+            ended_at: "2026-01-25T10:30:00Z".to_string(),
+            packet_count: 1500,
+        };
+
+        let json = serde_json::to_string(&period).unwrap();
+        assert!(json.contains("sessionId"));
+        assert!(json.contains("startedAt"));
+        assert!(json.contains("endedAt"));
+        assert!(json.contains("packetCount"));
+    }
+
+    #[test]
+    fn test_ip_period_data_new() {
+        let data = IpPeriodData::new(1, "8.8.8.8".to_string(), "2026-01-25T10:00:00Z".to_string());
+
+        assert_eq!(data.session_id, 1);
+        assert_eq!(data.ip, "8.8.8.8");
+        assert_eq!(data.started_at, data.ended_at);
+        assert_eq!(data.packet_count, 1);
+    }
+}
