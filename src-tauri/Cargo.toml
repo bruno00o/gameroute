@@ -27,13 +27,13 @@ tauri-plugin-opener = "2"
 tokio = { version = "1", features = ["sync", "time", "macros", "rt-multi-thread"] }
 chrono = "0.4"
 netstat2 = "0.11.2"
-trippy-core = "=0.13.0"
+trippy-core = "^0.13.0"
 futures = "0.3"
 reqwest = { version = "0.13.1", features = ["json"] }
 thiserror = "2.0"
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "migrate"] }
-lru = "0.12"
-sysinfo = "0.33"
+lru = "0.16.3"
+sysinfo = "0.38.0"
 steamlocate = "2"
 tauri-plugin-dialog = "2"
 
