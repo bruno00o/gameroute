@@ -16,6 +16,7 @@ pub struct IpMetadata {
 
 #[allow(dead_code)]
 impl IpMetadata {
+    #[allow(clippy::too_many_arguments)]
     pub fn from_resolution(
         ip: String,
         asn: Option<String>,

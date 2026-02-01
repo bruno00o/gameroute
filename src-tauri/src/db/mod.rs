@@ -1,5 +1,5 @@
 use sqlx::sqlite::SqlitePool;
-use std::path::PathBuf;
+use std::path::Path;
 use thiserror::Error;
 
 pub mod analytics;
@@ -33,7 +33,7 @@ pub enum DbError {
     Validation(String),
 }
 
-pub async fn init_database(app_data_dir: &PathBuf) -> Result<SqlitePool, DbError> {
+pub async fn init_database(app_data_dir: &Path) -> Result<SqlitePool, DbError> {
     let db_path = app_data_dir.join("gameroute.db");
 
     if let Some(parent) = db_path.parent() {
