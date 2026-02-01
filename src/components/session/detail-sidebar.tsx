@@ -118,7 +118,7 @@ export function DetailSidebar({
             onChange={onSortChange}
             onDirectionChange={onSortDirectionChange}
           />
-          <SidebarMenu>
+          <SidebarMenu className="mt-2 gap-0.5">
             {sortedPeriods.map(period => {
               const durationSecs = computeDurationSecs(period.startedAt, period.endedAt)
               return (

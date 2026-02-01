@@ -5,15 +5,21 @@ import type {
   DetectedGame,
   GameEndedEvent,
   GameListItem,
+  HourlyQuality,
   IpMetadataCacheStats,
   MonitoringStatusResponse,
+  NetworkMapEntry,
+  NetworkOverviewStats,
   PruneCacheResult,
+  RecurringProblemHop,
   ResolvedIpData,
   RunningApp,
   RunningProcess,
   ServerIpCapturedEvent,
+  ServerStability,
   SessionDetail,
   SessionListItem,
+  SessionQualityPoint,
   ScanResult,
   TracerouteAllCompleteEvent,
   TracerouteHopEvent,
@@ -58,6 +64,19 @@ export const searchGameCount = (query: string) => invoke<number>('search_game_co
 
 // ===== Dashboard =====
 export const getDashboardData = () => invoke<DashboardData>('get_dashboard_data')
+
+// ===== Network =====
+export const getNetworkMapData = () => invoke<NetworkMapEntry[]>('get_network_map_data')
+export const getRecurringProblemHops = () =>
+  invoke<RecurringProblemHop[]>('get_recurring_problem_hops')
+export const getNetworkOverviewStats = () =>
+  invoke<NetworkOverviewStats>('get_network_overview_stats')
+
+// ===== Insights =====
+export const getNetworkQualityOverTime = () =>
+  invoke<SessionQualityPoint[]>('get_network_quality_over_time')
+export const getServerStability = () => invoke<ServerStability[]>('get_server_stability')
+export const getHourlyQuality = () => invoke<HourlyQuality[]>('get_hourly_quality')
 
 // ===== ASN / Cache =====
 export const resolveAsn = (ips: string[]) => invoke<ResolvedIpData[]>('resolve_asn', { ips })

@@ -1,8 +1,16 @@
-import { RiGlobalLine, RiRouteLine, RiTimeLine } from '@remixicon/react'
+import { useMemo } from 'react'
+import {
+  RiAlertLine,
+  RiGlobalLine,
+  RiRouteLine,
+  RiSpeedLine,
+  RiStackLine,
+  RiTimeLine,
+} from '@remixicon/react'
 
 import * as m from '@/paraglide/messages'
 import type { SessionDetail } from '@/types/backend'
-import { formatDate, formatDuration, computeDurationSecs } from '@/lib/format'
+import { formatDate, formatDuration, formatMs, latencyColor, computeDurationSecs } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
@@ -10,6 +18,28 @@ import { Separator } from '@/components/ui/separator'
 export function SessionOverview({ detail }: { detail: SessionDetail }) {
   const isActive = detail.endedAt === null
   const durationSecs = computeDurationSecs(detail.startedAt, detail.endedAt)
+
+  const stats = useMemo(() => {
+    const totalPackets = detail.ipSummaries.reduce((sum, s) => sum + s.totalPacketCount, 0)
+
+    let problemHopCount = 0
+    let latencySum = 0
+    let latencyCount = 0
+
+    for (const tr of detail.traceroutes) {
+      for (const hop of tr.hops) {
+        if (hop.isProblemHop) problemHopCount++
+        if (hop.latencyAvg != null) {
+          latencySum += hop.latencyAvg
+          latencyCount++
+        }
+      }
+    }
+
+    const avgLatency = latencyCount > 0 ? latencySum / latencyCount : null
+
+    return { totalPackets, problemHopCount, avgLatency }
+  }, [detail])
 
   return (
     <div className="space-y-4">
@@ -62,6 +92,50 @@ export function SessionOverview({ detail }: { detail: SessionDetail }) {
           </CardHeader>
           <CardContent>
             <p className="text-lg font-medium">{detail.traceroutes.length}</p>
+          </CardContent>
+        </Card>
+
+        <Card size="sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <RiStackLine className="text-muted-foreground size-3.5" />
+              {m.session_total_packets()}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-lg font-medium tabular-nums">
+              {stats.totalPackets.toLocaleString()}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card size="sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <RiSpeedLine className="text-muted-foreground size-3.5" />
+              {m.session_avg_latency()}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className={`text-lg font-medium ${latencyColor(stats.avgLatency)}`}>
+              {stats.avgLatency != null ? `${formatMs(stats.avgLatency)} ms` : '-'}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card size="sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <RiAlertLine className="text-muted-foreground size-3.5" />
+              {m.session_problem_hops()}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {stats.problemHopCount > 0 ? (
+              <p className="text-destructive text-lg font-medium">{stats.problemHopCount}</p>
+            ) : (
+              <p className="text-emerald-500 text-sm font-medium">{m.session_no_problems()}</p>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -269,6 +269,64 @@ export type TracerouteAllCompleteEvent = {
   completedAt: string
 }
 
+// ===== Network =====
+export type NetworkMapEntry = {
+  ip: string
+  country: string | null
+  city: string | null
+  lat: number | null
+  lon: number | null
+  asn: string | null
+  isp: string | null
+  sessionCount: number
+  totalDurationSecs: number
+  totalPackets: number
+}
+
+export type RecurringProblemHop = {
+  ip: string
+  asn: string | null
+  isp: string | null
+  occurrenceCount: number
+  avgLatency: number | null
+  avgPacketLoss: number | null
+}
+
+export type NetworkOverviewStats = {
+  uniqueServerIps: number
+  totalTraceroutes: number
+  totalProblemHops: number
+  avgLatency: number | null
+}
+
+// ===== Insights =====
+export type SessionQualityPoint = {
+  sessionId: number
+  gameName: string
+  startedAt: string
+  avgLatency: number | null
+  problemHopRatio: number
+  ipCount: number
+}
+
+export type ServerStability = {
+  ip: string
+  asn: string | null
+  isp: string | null
+  country: string | null
+  avgLatency: number | null
+  avgPacketLoss: number | null
+  tracerouteCount: number
+  problemHopRatio: number
+}
+
+export type HourlyQuality = {
+  hour: number
+  sessionCount: number
+  avgLatency: number | null
+  problemHopRatio: number
+}
+
 // ===== Error types =====
 export type MonitoringError = {
   code: string

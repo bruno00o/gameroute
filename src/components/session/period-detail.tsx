@@ -2,9 +2,10 @@ import { useMemo } from 'react'
 
 import * as m from '@/paraglide/messages'
 import type { IpPeriod, IpPeriodSummary, TracerouteWithHops } from '@/types/backend'
-import { formatDate, formatDuration, computeDurationSecs } from '@/lib/format'
+import { formatDate, formatDuration, formatMs, latencyColor, computeDurationSecs } from '@/lib/format'
 import { useAsnResolution } from '@/hooks/use-asn-resolution'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { HopTable } from '@/components/hop-table'
 
@@ -38,6 +39,28 @@ export function PeriodDetail({
         .join(', ')
     : null
 
+  const routeStats = useMemo(() => {
+    if (!traceroute) return null
+
+    const hopCount = traceroute.hops.length
+    const problemHops = traceroute.hops.filter(h => h.isProblemHop).length
+
+    // Latency = last responding hop's avg latency
+    let serverLatency: number | null = null
+    for (let i = traceroute.hops.length - 1; i >= 0; i--) {
+      if (traceroute.hops[i].latencyAvg != null) {
+        serverLatency = traceroute.hops[i].latencyAvg
+        break
+      }
+    }
+
+    return { hopCount, problemHops, serverLatency }
+  }, [traceroute])
+
+  const packetRate = summary && summary.totalDurationSecs > 0
+    ? summary.totalPacketCount / summary.totalDurationSecs
+    : null
+
   return (
     <div className="space-y-6">
       <div>
@@ -46,6 +69,54 @@ export function PeriodDetail({
       </div>
 
       <Separator />
+
+      {routeStats && (
+        <section>
+          <h3 className="mb-3 text-sm font-medium">{m.session_ip_route_info()}</h3>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Card size="sm">
+              <CardHeader>
+                <CardTitle>{m.session_ip_hop_count()}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm font-medium">{routeStats.hopCount}</p>
+              </CardContent>
+            </Card>
+            <Card size="sm">
+              <CardHeader>
+                <CardTitle>{m.session_ip_latency()}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className={`text-sm font-medium ${latencyColor(routeStats.serverLatency)}`}>
+                  {routeStats.serverLatency != null ? `${formatMs(routeStats.serverLatency)} ms` : '-'}
+                </p>
+              </CardContent>
+            </Card>
+            <Card size="sm">
+              <CardHeader>
+                <CardTitle>{m.session_ip_problem_hops()}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {routeStats.problemHops > 0 ? (
+                  <Badge variant="destructive">{routeStats.problemHops}</Badge>
+                ) : (
+                  <p className="text-emerald-500 text-sm font-medium">{m.session_no_problems()}</p>
+                )}
+              </CardContent>
+            </Card>
+            <Card size="sm">
+              <CardHeader>
+                <CardTitle>{m.session_ip_packet_rate()}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm font-medium tabular-nums">
+                  {packetRate != null ? `${packetRate.toFixed(1)}/s` : '-'}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      )}
 
       <section>
         <h3 className="mb-3 text-sm font-medium">{m.session_period()}</h3>
