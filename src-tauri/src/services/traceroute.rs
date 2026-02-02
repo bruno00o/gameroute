@@ -3,6 +3,8 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
+
+#[cfg(not(target_os = "windows"))]
 use trippy_core::{Builder, PortDirection, PrivilegeMode};
 
 use crate::config::{TRACEROUTE_MAX_HOPS, TRACEROUTE_TIMEOUT_SECS};
@@ -137,6 +139,7 @@ impl TracerouteService {
         Some(result)
     }
 
+    #[cfg(not(target_os = "windows"))]
     async fn run_traceroute<H>(&self, job: &TracerouteJob, on_hop: H) -> TracerouteResult
     where
         H: Fn(&HopResult, u32, &str) + Send + Sync + 'static,
@@ -165,14 +168,8 @@ impl TracerouteService {
             }
         };
 
-        let privilege_mode = if cfg!(target_os = "windows") {
-            PrivilegeMode::Privileged
-        } else {
-            PrivilegeMode::Unprivileged
-        };
-
         let tracer = match Builder::new(dst_ip)
-            .privilege_mode(privilege_mode)
+            .privilege_mode(PrivilegeMode::Unprivileged)
             .max_ttl(TRACEROUTE_MAX_HOPS)
             .max_rounds(Some(1))
             .port_direction(PortDirection::new_fixed_dest(33434))
@@ -301,6 +298,102 @@ impl TracerouteService {
         }
     }
 
+    #[cfg(target_os = "windows")]
+    async fn run_traceroute<H>(&self, job: &TracerouteJob, on_hop: H) -> TracerouteResult
+    where
+        H: Fn(&HopResult, u32, &str) + Send + Sync + 'static,
+    {
+        use super::tracert_parser;
+
+        log::info!(
+            "Starting traceroute to {} (index {}) using tracert.exe",
+            job.target_ip,
+            job.index
+        );
+
+        let start_time = Instant::now();
+
+        // Validate target IP
+        if job.target_ip.parse::<IpAddr>().is_err() {
+            log::error!("Invalid target IP {}", job.target_ip);
+            return TracerouteResult {
+                target_ip: job.target_ip.clone(),
+                index: job.index,
+                traceroute_id: job.traceroute_id,
+                success: false,
+                hops: vec![],
+                destination_reached: false,
+                total_hops: 0,
+            };
+        }
+
+        let target_ip_clone = job.target_ip.clone();
+        let job_index = job.index;
+
+        match tracert_parser::run_tracert(
+            &job.target_ip,
+            TRACEROUTE_MAX_HOPS,
+            TRACEROUTE_TIMEOUT_SECS,
+            on_hop,
+            job_index,
+        )
+        .await
+        {
+            Ok(mut hops) => {
+                let elapsed = start_time.elapsed();
+                let mut destination_reached = false;
+                let mut last_responding_index: Option<usize> = None;
+
+                for (idx, hop) in hops.iter().enumerate() {
+                    if let Some(ref ip) = hop.ip {
+                        if ip == &target_ip_clone {
+                            destination_reached = true;
+                        }
+                        last_responding_index = Some(idx);
+                    }
+                }
+
+                // Trim trailing timeout hops after destination or last responding hop
+                if let Some(trim_after) = last_responding_index {
+                    hops.truncate(trim_after + 1);
+                }
+
+                let total_hops = hops.len() as u32;
+
+                log::info!(
+                    "Completed traceroute to {} (index {}) in {:.2}s - {} hops, destination_reached: {}",
+                    target_ip_clone,
+                    job.index,
+                    elapsed.as_secs_f64(),
+                    total_hops,
+                    destination_reached
+                );
+
+                TracerouteResult {
+                    target_ip: target_ip_clone,
+                    index: job.index,
+                    traceroute_id: job.traceroute_id,
+                    success: total_hops > 0,
+                    hops,
+                    destination_reached,
+                    total_hops,
+                }
+            }
+            Err(e) => {
+                log::error!("Traceroute to {} failed: {}", target_ip_clone, e);
+                TracerouteResult {
+                    target_ip: target_ip_clone,
+                    index: job.index,
+                    traceroute_id: job.traceroute_id,
+                    success: false,
+                    hops: vec![],
+                    destination_reached: false,
+                    total_hops: 0,
+                }
+            }
+        }
+    }
+
     pub async fn is_running(&self) -> bool {
         self.state.read().await.is_running
     }
@@ -325,6 +418,7 @@ impl TracerouteService {
     }
 }
 
+#[cfg(not(target_os = "windows"))]
 fn trippy_hop_to_result(hop: &trippy_core::Hop) -> HopResult {
     let ttl = hop.ttl() as u32;
     let ip = hop.addrs().next().map(|a| a.to_string());
