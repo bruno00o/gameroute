@@ -191,6 +191,15 @@ impl TracerouteRepository {
 
         Ok(())
     }
+
+    pub async fn delete_traceroutes_for_session(&self, session_id: i64) -> Result<(), DbError> {
+        sqlx::query("DELETE FROM traceroutes WHERE session_id = $1")
+            .bind(session_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, sqlx::FromRow)]

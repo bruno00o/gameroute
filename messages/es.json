@@ -58,6 +58,7 @@
   "session_duration": "Duración",
   "session_ips_count": "IPs",
   "session_traceroutes_count": "Trazas",
+  "session_retry_traceroutes": "Reintentar traceroutes",
   "session_total_packets": "Paquetes totales",
   "session_problem_hops": "Saltos problemáticos",
   "session_avg_latency": "Latencia prom.",

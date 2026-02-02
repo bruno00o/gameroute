@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import * as m from '@/paraglide/messages'
-import { getSessionDetail, deleteSession } from '@/lib/tauri'
+import { getSessionDetail, deleteSession, retryTraceroutes } from '@/lib/tauri'
 import { useBreadcrumbStore, type BreadcrumbSegment } from '@/stores/breadcrumb-store'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { DetailSidebar, type SortMode } from '@/components/session/detail-sidebar'
@@ -50,6 +50,13 @@ function SessionDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] })
       navigate({ to: '/sessions' })
+    },
+  })
+
+  const retryMutation = useMutation({
+    mutationFn: () => retryTraceroutes(numericId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['session', numericId] })
     },
   })
 
@@ -132,7 +139,11 @@ function SessionDetailPage() {
               traceroute={detail.traceroutes.find(t => t.targetIp === selectedPeriod.ip)}
             />
           ) : (
-            <SessionOverview detail={detail} />
+            <SessionOverview
+              detail={detail}
+              onRetry={() => retryMutation.mutate()}
+              isRetrying={retryMutation.isPending}
+            />
           )}
         </div>
       </SidebarProvider>

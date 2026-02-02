@@ -21,7 +21,9 @@ use commands::monitoring::{
 use commands::network::{
     get_network_map_data, get_network_overview_stats, get_recurring_problem_hops,
 };
-use commands::sessions::{delete_session, get_session_count, get_session_detail, get_sessions};
+use commands::sessions::{
+    delete_session, get_session_count, get_session_detail, get_sessions, retry_traceroutes,
+};
 use config::CACHE_MAX_TTL_DAYS;
 use db::get_ip_metadata_repository;
 use tauri::Manager;
@@ -105,6 +107,7 @@ pub fn run() {
             get_session_detail,
             delete_session,
             get_session_count,
+            retry_traceroutes,
             scan_steam_games,
             scan_epic_games,
             scan_all_games,

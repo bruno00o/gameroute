@@ -1,6 +1,8 @@
+use crate::commands::monitoring::{execute_traceroute_queue, AppMonitoringState};
 use crate::commands::CommandError;
 use crate::db::{get_ip_period_repository, get_session_repository, get_traceroute_repository};
 use crate::models::session::{SessionDetail, SessionListItem};
+use tauri::{AppHandle, State};
 
 const MAX_PAGINATION_LIMIT: i32 = 100;
 
@@ -116,4 +118,52 @@ pub async fn get_session_count() -> Result<i64, CommandError> {
     repo.get_session_count()
         .await
         .map_err(|e| CommandError::internal(e.to_string()))
+}
+
+#[tauri::command]
+pub async fn retry_traceroutes(
+    app: AppHandle,
+    state: State<'_, AppMonitoringState>,
+    session_id: i64,
+) -> Result<(), CommandError> {
+    if session_id <= 0 {
+        return Err(CommandError::validation("Invalid session ID"));
+    }
+
+    {
+        let traceroute_state = state.traceroute_service.state.read().await;
+        if traceroute_state.is_running {
+            return Err(CommandError {
+                code: "TRACEROUTE_RUNNING".to_string(),
+                message: "A traceroute is already running".to_string(),
+            });
+        }
+    }
+
+    let ip_period_repo = get_ip_period_repository()
+        .ok_or_else(|| CommandError::repo_not_initialized("IpPeriod"))?;
+
+    let unique_ips = ip_period_repo
+        .get_unique_ips_for_session(session_id)
+        .await
+        .map_err(|e| CommandError::internal(e.to_string()))?;
+
+    if unique_ips.is_empty() {
+        return Err(CommandError::validation("No IPs found for this session"));
+    }
+
+    let traceroute_repo = get_traceroute_repository()
+        .ok_or_else(|| CommandError::repo_not_initialized("Traceroute"))?;
+
+    traceroute_repo
+        .delete_traceroutes_for_session(session_id)
+        .await
+        .map_err(|e| CommandError::internal(e.to_string()))?;
+
+    let traceroute_service = state.traceroute_service.clone();
+    tokio::spawn(async move {
+        execute_traceroute_queue(app, traceroute_service, session_id, unique_ips).await;
+    });
+
+    Ok(())
 }

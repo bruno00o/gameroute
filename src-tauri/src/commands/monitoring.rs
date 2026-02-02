@@ -88,41 +88,12 @@ fn identify_problem_hop(hops: &[HopResult]) -> Option<i32> {
     None
 }
 
-async fn run_traceroute_queue(
+pub async fn execute_traceroute_queue(
     app_handle: AppHandle,
     traceroute_service: Arc<TracerouteService>,
-    event: GameEndedEvent,
+    session_id: i64,
+    unique_ips: Vec<String>,
 ) {
-    if event.server_ips.is_empty() {
-        log::debug!("No server IPs to traceroute - skipping");
-        return;
-    }
-
-    let unique_ips: Vec<String> = if let (Some(session_id), Some(ip_period_repo)) =
-        (event.session_id, get_ip_period_repository())
-    {
-        match ip_period_repo.get_unique_ips_for_session(session_id).await {
-            Ok(ips) => ips,
-            Err(e) => {
-                log::warn!(
-                    "Failed to get unique IPs from periods: {}, using event data",
-                    e
-                );
-                event
-                    .server_ips
-                    .iter()
-                    .map(|ip| ip.server_ip.clone())
-                    .collect()
-            }
-        }
-    } else {
-        event
-            .server_ips
-            .iter()
-            .map(|ip| ip.server_ip.clone())
-            .collect()
-    };
-
     if unique_ips.is_empty() {
         log::debug!("No unique IPs to traceroute");
         return;
@@ -135,7 +106,7 @@ async fn run_traceroute_queue(
     for (i, ip) in unique_ips.iter().enumerate() {
         let mut job = TracerouteJob::new(ip.clone(), (i + 1) as u32, None);
 
-        if let (Some(session_id), Some(ref repo)) = (event.session_id, &traceroute_repo) {
+        if let Some(ref repo) = traceroute_repo {
             let data = TracerouteData::new(session_id, ip.clone(), now.clone());
             match repo.insert_traceroute(&data).await {
                 Ok(traceroute_id) => {
@@ -310,6 +281,52 @@ async fn run_traceroute_queue(
         failed
     );
     let _ = app_handle.emit("traceroute-all-complete", all_complete_event);
+}
+
+async fn run_traceroute_queue(
+    app_handle: AppHandle,
+    traceroute_service: Arc<TracerouteService>,
+    event: GameEndedEvent,
+) {
+    if event.server_ips.is_empty() {
+        log::debug!("No server IPs to traceroute - skipping");
+        return;
+    }
+
+    let unique_ips: Vec<String> = if let (Some(session_id), Some(ip_period_repo)) =
+        (event.session_id, get_ip_period_repository())
+    {
+        match ip_period_repo.get_unique_ips_for_session(session_id).await {
+            Ok(ips) => ips,
+            Err(e) => {
+                log::warn!(
+                    "Failed to get unique IPs from periods: {}, using event data",
+                    e
+                );
+                event
+                    .server_ips
+                    .iter()
+                    .map(|ip| ip.server_ip.clone())
+                    .collect()
+            }
+        }
+    } else {
+        event
+            .server_ips
+            .iter()
+            .map(|ip| ip.server_ip.clone())
+            .collect()
+    };
+
+    let session_id = match event.session_id {
+        Some(id) => id,
+        None => {
+            log::warn!("No session_id in GameEndedEvent, cannot run traceroutes");
+            return;
+        }
+    };
+
+    execute_traceroute_queue(app_handle, traceroute_service, session_id, unique_ips).await;
 }
 
 #[tauri::command]

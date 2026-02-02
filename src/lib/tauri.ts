@@ -45,6 +45,8 @@ export const getSessionDetail = (id: number) =>
   invoke<SessionDetail | null>('get_session_detail', { id })
 export const getSessionCount = () => invoke<number>('get_session_count')
 export const deleteSession = (id: number) => invoke<void>('delete_session', { id })
+export const retryTraceroutes = (sessionId: number) =>
+  invoke<void>('retry_traceroutes', { sessionId })
 
 // ===== Games =====
 export const scanSteamGames = () => invoke<ScanResult>('scan_steam_games')

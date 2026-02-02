@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import {
   RiAlertLine,
   RiGlobalLine,
+  RiLoopLeftLine,
   RiRouteLine,
   RiSpeedLine,
   RiStackLine,
@@ -12,10 +13,17 @@ import * as m from '@/paraglide/messages'
 import type { SessionDetail } from '@/types/backend'
 import { formatDate, formatDuration, formatMs, latencyColor, computeDurationSecs } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 
-export function SessionOverview({ detail }: { detail: SessionDetail }) {
+interface SessionOverviewProps {
+  detail: SessionDetail
+  onRetry?: () => void
+  isRetrying?: boolean
+}
+
+export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverviewProps) {
   const isActive = detail.endedAt === null
   const durationSecs = computeDurationSecs(detail.startedAt, detail.endedAt)
 
@@ -91,7 +99,20 @@ export function SessionOverview({ detail }: { detail: SessionDetail }) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-lg font-medium">{detail.traceroutes.length}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-lg font-medium">{detail.traceroutes.length}</p>
+              {!isActive && onRetry && (
+                <Button
+                  variant="outline"
+                  size="xs"
+                  onClick={onRetry}
+                  disabled={isRetrying}
+                >
+                  <RiLoopLeftLine data-icon="inline-start" className={isRetrying ? 'animate-spin' : ''} />
+                  {m.session_retry_traceroutes()}
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
 
