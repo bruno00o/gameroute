@@ -165,8 +165,14 @@ impl TracerouteService {
             }
         };
 
+        let privilege_mode = if cfg!(target_os = "windows") {
+            PrivilegeMode::Privileged
+        } else {
+            PrivilegeMode::Unprivileged
+        };
+
         let tracer = match Builder::new(dst_ip)
-            .privilege_mode(PrivilegeMode::Unprivileged)
+            .privilege_mode(privilege_mode)
             .max_ttl(TRACEROUTE_MAX_HOPS)
             .max_rounds(Some(1))
             .port_direction(PortDirection::new_fixed_dest(33434))
