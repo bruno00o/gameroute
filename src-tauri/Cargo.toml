@@ -24,7 +24,7 @@ log = "0.4"
 tauri = { version = "2.9.5", features = [] }
 tauri-plugin-log = "2"
 tauri-plugin-opener = "2"
-tokio = { version = "1", features = ["sync", "time", "macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["sync", "time", "macros", "rt-multi-thread", "process", "io-util"] }
 chrono = "0.4"
 netstat2 = "0.11.2"
 futures = "0.3"

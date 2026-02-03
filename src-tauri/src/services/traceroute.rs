@@ -1,7 +1,9 @@
 use crate::models::{HopResult, TracedServerIp};
 use std::net::IpAddr;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
+#[cfg(not(target_os = "windows"))]
+use std::time::Duration;
 use tokio::sync::RwLock;
 
 #[cfg(not(target_os = "windows"))]
