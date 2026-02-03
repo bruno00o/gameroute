@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.3...gameroute-v0.1.4) (2026-02-03)
+
+
+### Bug Fixes
+
+* enable tokio process/io-util features and add Windows CI check ([#5](https://github.com/bruno00o/gameroute/issues/5)) ([a37fc50](https://github.com/bruno00o/gameroute/commit/a37fc507cb7f8e6e4dcc638c4468290ec7c6455f))
+
 ## [0.1.3](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.2...gameroute-v0.1.3) (2026-02-03)
 
 
