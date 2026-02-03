@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.4...gameroute-v0.1.5) (2026-02-03)
+
+
+### Bug Fixes
+
+* handle non-UTF-8 tracert output and reduce per-probe timeout ([#7](https://github.com/bruno00o/gameroute/issues/7)) ([89ee9b9](https://github.com/bruno00o/gameroute/commit/89ee9b98e33200a6f97a85b5e9f6cdea5857936a))
+
 ## [0.1.4](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.3...gameroute-v0.1.4) (2026-02-03)
 
 
