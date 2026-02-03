@@ -103,7 +103,6 @@ where
     let timeout_ms = timeout_secs * 1000;
 
     let mut child = {
-        use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
 
         let mut cmd = tokio::process::Command::new("tracert.exe");
