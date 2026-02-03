@@ -89,18 +89,16 @@ pub fn parse_tracert_line(line: &str) -> Option<HopResult> {
 pub async fn run_tracert<H>(
     target_ip: &str,
     max_hops: u8,
-    timeout_secs: u64,
     on_hop: H,
     job_index: u32,
 ) -> Result<Vec<HopResult>, String>
 where
     H: Fn(&HopResult, u32, &str) + Send + Sync + 'static,
 {
+    use crate::config::TRACERT_PER_PROBE_TIMEOUT_MS;
     use std::process::Stdio;
     use tokio::io::{AsyncBufReadExt, BufReader};
     use tokio::time::Duration;
-
-    let timeout_ms = timeout_secs * 1000;
 
     let mut child = {
         const CREATE_NO_WINDOW: u32 = 0x08000000;
@@ -109,7 +107,7 @@ where
         cmd.args([
             "-d",
             "-w",
-            &timeout_ms.to_string(),
+            &TRACERT_PER_PROBE_TIMEOUT_MS.to_string(),
             "-h",
             &max_hops.to_string(),
             target_ip,
@@ -127,18 +125,27 @@ where
         .take()
         .ok_or("Failed to capture tracert stdout")?;
 
-    let mut reader = BufReader::new(stdout).lines();
+    let mut reader = BufReader::new(stdout);
     let mut hops: Vec<HopResult> = Vec::new();
 
-    // Add a generous buffer on top of tracert's own per-hop timeout
-    let overall_timeout = Duration::from_secs(timeout_secs * (max_hops as u64) + 30);
+    // Overall timeout: 3 probes per hop * per-probe timeout + 30s buffer
+    let per_probe_secs = TRACERT_PER_PROBE_TIMEOUT_MS / 1000;
+    let overall_timeout = Duration::from_secs(3 * per_probe_secs * (max_hops as u64) + 30);
 
     let read_result = tokio::time::timeout(overall_timeout, async {
-        while let Some(line) = reader
-            .next_line()
-            .await
-            .map_err(|e| format!("Error reading tracert output: {}", e))?
-        {
+        // Read raw bytes per line to handle non-UTF-8 Windows code pages (e.g. CP437/CP850).
+        // tracert.exe outputs in the system's OEM code page, not UTF-8.
+        let mut buf = Vec::new();
+        loop {
+            buf.clear();
+            let bytes_read = reader
+                .read_until(b'\n', &mut buf)
+                .await
+                .map_err(|e| format!("Error reading tracert output: {}", e))?;
+            if bytes_read == 0 {
+                break;
+            }
+            let line = String::from_utf8_lossy(&buf);
             if let Some(hop_result) = parse_tracert_line(&line) {
                 on_hop(&hop_result, job_index, target_ip);
                 hops.push(hop_result);

@@ -9,7 +9,9 @@ use tokio::sync::RwLock;
 #[cfg(not(target_os = "windows"))]
 use trippy_core::{Builder, PortDirection, PrivilegeMode};
 
-use crate::config::{TRACEROUTE_MAX_HOPS, TRACEROUTE_TIMEOUT_SECS};
+use crate::config::TRACEROUTE_MAX_HOPS;
+#[cfg(not(target_os = "windows"))]
+use crate::config::TRACEROUTE_TIMEOUT_SECS;
 
 #[derive(Debug, Clone)]
 pub struct TracerouteJob {
@@ -335,7 +337,6 @@ impl TracerouteService {
         match tracert_parser::run_tracert(
             &job.target_ip,
             TRACEROUTE_MAX_HOPS,
-            TRACEROUTE_TIMEOUT_SECS,
             on_hop,
             job_index,
         )
