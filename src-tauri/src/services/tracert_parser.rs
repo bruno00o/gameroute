@@ -37,10 +37,9 @@ pub fn parse_tracert_line(line: &str) -> Option<HopResult> {
         if token == "*" {
             rtt_probes.push(None);
             i += 1;
-        } else if token.starts_with('<') {
+        } else if let Some(num_part) = token.strip_prefix('<') {
             // Handle "<1" with separate "ms" token: "<1 ms" → 0.5
             // The number part is after '<'
-            let num_part = &token[1..];
             if let Ok(_val) = num_part.parse::<f64>() {
                 rtt_probes.push(Some(0.5));
             }
