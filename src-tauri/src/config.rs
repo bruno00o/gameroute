@@ -24,6 +24,10 @@ pub const TRACEROUTE_MAX_HOPS: u8 = 30;
 /// Overall safety timeout wrapping trippy-core's own trace timeout (seconds).
 pub const TRACEROUTE_TIMEOUT_SECS: u64 = 30;
 
+/// Per-probe wait timeout for tracert.exe on Windows (milliseconds).
+/// Matches the default of `traceroute` on Linux/macOS (5 seconds).
+pub const TRACERT_PER_PROBE_TIMEOUT_MS: u64 = 5000;
+
 // ── Network Analysis ────────────────────────────────────────────────────────
 
 /// Minimum latency increase (ms) between consecutive hops to flag as a problem hop.
