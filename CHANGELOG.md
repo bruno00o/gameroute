@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.3](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.2...gameroute-v0.1.3) (2026-02-03)
+
+
+### Features
+
+* add retry traceroutes button on session detail page ([eefdada](https://github.com/bruno00o/gameroute/commit/eefdada0b7cc62e932aba6285c0cd01b6eaa1efb))
+* use tracert.exe on Windows instead of trippy-core ([36d8e02](https://github.com/bruno00o/gameroute/commit/36d8e024749be45234f72c082b5fb6f016ea379a))
+
+
+### Bug Fixes
+
+* use privileged mode for traceroute on Windows ([2b649fd](https://github.com/bruno00o/gameroute/commit/2b649fdfdae8d14eb10766d17e02a0aca672b2fd))
+* use strip_prefix instead of manual prefix stripping in tracert parser ([#3](https://github.com/bruno00o/gameroute/issues/3)) ([d6c0bc9](https://github.com/bruno00o/gameroute/commit/d6c0bc92b20f9f2165bd3711b9dadec924183ff5))
+
 ## [0.1.2](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.1...gameroute-v0.1.2) (2026-02-01)
 
 
