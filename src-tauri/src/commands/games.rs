@@ -1,3 +1,4 @@
+use crate::commands::validate_pagination;
 use crate::db::get_game_repository;
 use crate::models::game_library::{GameListItem, NewGame, ScanResult};
 use crate::services::epic_scanner;
@@ -45,8 +46,7 @@ pub async fn scan_steam_games() -> Result<ScanResult, GameCommandError> {
 pub async fn get_games(limit: i32, offset: i32) -> Result<Vec<GameListItem>, GameCommandError> {
     let repo = get_game_repository().ok_or_else(GameCommandError::repo_not_initialized)?;
 
-    let limit = limit.clamp(1, 100);
-    let offset = offset.max(0);
+    let (limit, offset) = validate_pagination(limit, offset);
 
     repo.get_games(limit, offset)
         .await
@@ -130,8 +130,7 @@ pub async fn search_games(
 ) -> Result<Vec<GameListItem>, GameCommandError> {
     let repo = get_game_repository().ok_or_else(GameCommandError::repo_not_initialized)?;
 
-    let limit = limit.clamp(1, 100);
-    let offset = offset.max(0);
+    let (limit, offset) = validate_pagination(limit, offset);
 
     repo.search_games(&query, limit, offset)
         .await

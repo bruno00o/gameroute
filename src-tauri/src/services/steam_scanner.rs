@@ -1,5 +1,6 @@
 use crate::db::get_game_repository;
 use crate::models::game_library::{NewGame, ScanResult};
+use crate::services::scanner_utils::scan_executables_in_dir;
 
 #[derive(Debug)]
 pub enum SteamScanError {
@@ -73,14 +74,13 @@ pub async fn scan_steam_games() -> Result<ScanResult, SteamScanError> {
 
             games_found += 1;
 
-            // Derive executable_name from install_dir as best effort.
-            // Steam manifests don't store the actual exe name, so we use the
-            // install_dir as the executable_name hint. Process matching will
-            // compare against the actual process name at runtime.
             let install_dir = app.install_dir.to_string();
-            let executable_name = format!("{}.exe", install_dir.to_lowercase().replace(' ', ""));
-
             let install_path = library.path().join("common").join(&install_dir);
+
+            // Scan the install directory for actual executable files rather
+            // than guessing from the directory name. Uses the game name as a
+            // hint to pick the best candidate when multiple executables exist.
+            let executable_name = scan_executables_in_dir(&install_path, &name);
 
             let icon_url = format!(
                 "https://cdn.cloudflare.steamstatic.com/steam/apps/{}/header.jpg",

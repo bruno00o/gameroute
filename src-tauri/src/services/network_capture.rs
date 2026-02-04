@@ -4,6 +4,9 @@ use std::collections::HashSet;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 /// Capture active TCP connections for a set of PIDs (process tree).
+///
+/// UDP sockets are skipped because `netstat2::UdpSocketInfo` only exposes
+/// local_addr/local_port (no remote peer), so there's no server IP to capture.
 pub fn capture_connections_for_pids(target_pids: &HashSet<u32>) -> Vec<CapturedConnection> {
     let af_flags = AddressFamilyFlags::IPV4 | AddressFamilyFlags::IPV6;
     let proto_flags = ProtocolFlags::UDP | ProtocolFlags::TCP;

@@ -162,7 +162,12 @@ impl GameDetector {
                                     }
                                 }
 
-                                // Always emit — upsert_ip_activity will extend the period
+                                // Always emit for every connection (new or already-seen).
+                                // For already-seen IPs, upsert_ip_activity extends the
+                                // existing activity period. When the capacity limit is hit,
+                                // `break` exits this inner for-loop; on the next poll tick
+                                // the capacity check prevents adding NEW IPs while activity
+                                // tracking for existing IPs continues normally.
                                 on_ip(ServerIpCapturedEvent::from(&conn));
                             }
                         } else if last_detected_pid.is_some() {

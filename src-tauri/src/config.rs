@@ -25,8 +25,12 @@ pub const TRACEROUTE_MAX_HOPS: u8 = 30;
 pub const TRACEROUTE_TIMEOUT_SECS: u64 = 30;
 
 /// Per-probe wait timeout for tracert.exe on Windows (milliseconds).
-/// Matches the default of `traceroute` on Linux/macOS (5 seconds).
-pub const TRACERT_PER_PROBE_TIMEOUT_MS: u64 = 5000;
+/// Game servers typically respond in <500ms; 2s is generous while cutting
+/// max traceroute time significantly.
+pub const TRACERT_PER_PROBE_TIMEOUT_MS: u64 = 2000;
+
+/// Maximum number of concurrent traceroute jobs.
+pub const TRACEROUTE_MAX_CONCURRENT: usize = 4;
 
 // ── Network Analysis ────────────────────────────────────────────────────────
 
@@ -60,3 +64,18 @@ pub const ASN_OFFLINE_RETRY_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Maximum age (days) for IP metadata cache entries before pruning.
 pub const CACHE_MAX_TTL_DAYS: i64 = 30;
+
+// ── Pagination ─────────────────────────────────────────────────────────────
+
+/// Default page size when the caller provides <= 0.
+pub const DEFAULT_PAGE_LIMIT: i32 = 20;
+
+/// Hard upper bound for any paginated query.
+pub const MAX_PAGE_LIMIT: i32 = 100;
+
+// ── IP Periods ─────────────────────────────────────────────────────────────
+
+/// Maximum gap (seconds) between two observations of the same IP before a
+/// new activity period is created. Within this window the existing period
+/// is extended instead.
+pub const ACTIVITY_PERIOD_THRESHOLD_SECS: i64 = 10;

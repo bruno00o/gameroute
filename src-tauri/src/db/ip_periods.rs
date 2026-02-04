@@ -1,10 +1,9 @@
+use crate::config::ACTIVITY_PERIOD_THRESHOLD_SECS;
 use crate::db::DbError;
 use crate::models::ip_period::{IpPeriod, IpPeriodData, IpPeriodSummary};
 use sqlx::sqlite::SqlitePool;
 use std::net::IpAddr;
 use std::sync::{Arc, OnceLock};
-
-const ACTIVITY_PERIOD_THRESHOLD_SECS: i64 = 10;
 
 pub struct IpPeriodRepository {
     pool: SqlitePool,

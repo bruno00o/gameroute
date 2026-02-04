@@ -1,3 +1,4 @@
+use crate::config::TRACEROUTE_MAX_CONCURRENT;
 use crate::db::{
     get_game_repository, get_hop_repository, get_ip_period_repository, get_session_repository,
     get_traceroute_repository,
@@ -62,6 +63,114 @@ impl MonitoringError {
 
 use crate::config::{LATENCY_INCREASE_THRESHOLD, PACKET_LOSS_THRESHOLD};
 
+/// Build the `on_game_ended` callback shared by both auto and manual monitoring.
+fn make_on_game_ended(
+    app: AppHandle,
+    traceroute_service: Arc<TracerouteService>,
+) -> impl Fn(GameEndedEvent) + Send + Sync + 'static {
+    move |event: GameEndedEvent| {
+        log::info!(
+            "Emitting game-ended event for: {} ({} server IPs, {}s duration)",
+            event.game_name,
+            event.server_ip_count,
+            event.session_duration
+        );
+
+        if let Some(session_id) = event.session_id {
+            tokio::spawn(async move {
+                if let Some(session_repo) = get_session_repository() {
+                    let ended_at = chrono::Utc::now().to_rfc3339();
+                    if let Err(e) = session_repo
+                        .update_session_ended(session_id, &ended_at)
+                        .await
+                    {
+                        log::error!("Failed to update session ended: {}", e);
+                    }
+                }
+            });
+        }
+
+        let _ = app.emit("game-ended", event.clone());
+
+        if !event.server_ips.is_empty() {
+            let app = app.clone();
+            let service = traceroute_service.clone();
+            tokio::spawn(async move {
+                run_traceroute_queue(app, service, event).await;
+            });
+        }
+    }
+}
+
+/// Build the `on_ip_captured` callback shared by both auto and manual monitoring.
+fn make_on_ip_captured(
+    app: AppHandle,
+    monitoring_state: Arc<RwLock<MonitoringState>>,
+) -> impl Fn(ServerIpCapturedEvent) + Send + Sync + 'static {
+    move |event: ServerIpCapturedEvent| {
+        log::debug!("Emitting server-ip-captured event for: {}", event.ip);
+
+        let state_clone = monitoring_state.clone();
+        let ip_clone = event.ip.clone();
+        let captured_at = event.captured_at.clone();
+        tokio::spawn(async move {
+            let session_id = {
+                let state_guard = state_clone.read().await;
+                state_guard.current_session_id
+            };
+
+            if let Some(session_id) = session_id {
+                if let Some(ip_period_repo) = get_ip_period_repository() {
+                    match ip_period_repo
+                        .upsert_ip_activity(session_id, &ip_clone, &captured_at)
+                        .await
+                    {
+                        Ok((period_id, is_new)) => {
+                            if is_new {
+                                log::debug!(
+                                    "IP period {} created for {}",
+                                    period_id,
+                                    ip_clone
+                                );
+                            } else {
+                                log::debug!(
+                                    "IP period {} extended for {}",
+                                    period_id,
+                                    ip_clone
+                                );
+                            }
+                            let mut state_guard = state_clone.write().await;
+                            if let Some(traced_ip) = state_guard
+                                .traced_server_ips
+                                .iter_mut()
+                                .find(|ip| ip.server_ip == ip_clone)
+                            {
+                                traced_ip.set_period_id(period_id);
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("Failed to upsert IP activity {}: {}", ip_clone, e)
+                        }
+                    }
+                }
+            }
+        });
+
+        let _ = app.emit("server-ip-captured", event);
+    }
+}
+
+/// Build the `on_capacity_reached` callback shared by both auto and manual monitoring.
+fn make_on_capacity_reached(
+    app: AppHandle,
+) -> impl Fn(usize) + Send + Sync + 'static {
+    move |max_ips: usize| {
+        log::warn!("IP capacity reached: {} IPs", max_ips);
+        let event = IpCapacityReachedEvent::new(max_ips);
+        let _ = app.emit("ip-capacity-reached", event);
+    }
+}
+
 fn identify_problem_hop(hops: &[HopResult]) -> Option<i32> {
     let mut prev_latency: Option<f64> = None;
 
@@ -104,6 +213,11 @@ pub async fn execute_traceroute_queue(
     let now = chrono::Utc::now().to_rfc3339();
 
     for (i, ip) in unique_ips.iter().enumerate() {
+        if ip.parse::<std::net::IpAddr>().is_err() {
+            log::warn!("Skipping invalid IP for traceroute: {}", ip);
+            continue;
+        }
+
         let mut job = TracerouteJob::new(ip.clone(), (i + 1) as u32, None);
 
         if let Some(ref repo) = traceroute_repo {
@@ -122,6 +236,11 @@ pub async fn execute_traceroute_queue(
         jobs.push(job);
     }
 
+    if jobs.is_empty() {
+        log::debug!("No valid IPs to traceroute after validation");
+        return;
+    }
+
     {
         let state = traceroute_service.state.read().await;
         if state.is_running {
@@ -138,147 +257,176 @@ pub async fn execute_traceroute_queue(
         state_guard.is_running = true;
     }
 
+    let total_ips = unique_ips.len() as u32;
     let server_ips: Vec<String> = unique_ips.clone();
-    let started_event = TracerouteStartedEvent::new(unique_ips.len() as u32, server_ips);
+    let started_event = TracerouteStartedEvent::new(total_ips, server_ips);
     log::info!(
         "Emitting traceroute-started event: {} IPs to trace",
         unique_ips.len()
     );
     let _ = app_handle.emit("traceroute-started", started_event);
 
-    let mut successful = 0u32;
-    let mut failed = 0u32;
-    let app_for_progress = app_handle.clone();
-    let app_for_complete = app_handle.clone();
-    let app_for_hop = app_handle.clone();
+    let successful = Arc::new(std::sync::atomic::AtomicU32::new(0));
+    let failed = Arc::new(std::sync::atomic::AtomicU32::new(0));
+    let semaphore = Arc::new(tokio::sync::Semaphore::new(TRACEROUTE_MAX_CONCURRENT));
+    let mut join_set = tokio::task::JoinSet::new();
 
-    loop {
-        let app_clone = app_for_progress.clone();
-        let app_hop_clone = app_for_hop.clone();
-        let result = traceroute_service
-            .process_next_job(
-                move |current, total, ip| {
-                    let progress_event =
-                        TracerouteProgressEvent::new(ip.to_string(), current, total);
-                    log::debug!(
-                        "Emitting traceroute-progress: {}/{} - {}",
-                        current,
-                        total,
-                        ip
-                    );
-                    let _ = app_clone.emit("traceroute-progress", progress_event);
-                },
-                move |hop: &HopResult, index: u32, target_ip: &str| {
-                    let hop_event = TracerouteHopEvent::from_hop_result(index, target_ip, hop);
-                    log::debug!(
-                        "Emitting traceroute-hop: hop {} to {} (ip: {:?}, rtt: {:?})",
-                        hop.hop_number,
-                        target_ip,
-                        hop.ip,
-                        hop.rtt_avg
-                    );
-                    let _ = app_hop_clone.emit("traceroute-hop", hop_event);
-                },
-            )
-            .await;
+    for _worker in 0..TRACEROUTE_MAX_CONCURRENT {
+        let service = traceroute_service.clone();
+        let app = app_handle.clone();
+        let sem = semaphore.clone();
+        let ok_count = successful.clone();
+        let fail_count = failed.clone();
 
-        match result {
-            Some(trace_result) => {
-                if let Some(traceroute_id) = trace_result.traceroute_id {
-                    let problem_hop_index = identify_problem_hop(&trace_result.hops);
+        join_set.spawn(async move {
+            loop {
+                let _permit = match sem.acquire().await {
+                    Ok(p) => p,
+                    Err(_) => break,
+                };
 
-                    if let Some(hop_repo) = get_hop_repository() {
-                        let hop_data: Vec<HopData> = trace_result
-                            .hops
-                            .iter()
-                            .map(|hop| {
-                                let packet_loss = if hop.probe_count > 0 {
-                                    (hop.timeout_count as f64 / hop.probe_count as f64) * 100.0
-                                } else {
-                                    0.0
-                                };
+                let app_progress = app.clone();
+                let app_hop = app.clone();
+                let result = service
+                    .process_next_job(
+                        move |current, total, ip| {
+                            let progress_event =
+                                TracerouteProgressEvent::new(ip.to_string(), current, total);
+                            log::debug!(
+                                "Emitting traceroute-progress: {}/{} - {}",
+                                current,
+                                total,
+                                ip
+                            );
+                            let _ = app_progress.emit("traceroute-progress", progress_event);
+                        },
+                        move |hop: &HopResult, index: u32, target_ip: &str| {
+                            let hop_event =
+                                TracerouteHopEvent::from_hop_result(index, target_ip, hop);
+                            log::debug!(
+                                "Emitting traceroute-hop: hop {} to {} (ip: {:?}, rtt: {:?})",
+                                hop.hop_number,
+                                target_ip,
+                                hop.ip,
+                                hop.rtt_avg
+                            );
+                            let _ = app_hop.emit("traceroute-hop", hop_event);
+                        },
+                    )
+                    .await;
 
-                                let is_problem = problem_hop_index == Some(hop.hop_number as i32);
+                match result {
+                    Some(trace_result) => {
+                        if let Some(traceroute_id) = trace_result.traceroute_id {
+                            let problem_hop_index = identify_problem_hop(&trace_result.hops);
 
-                                HopData {
-                                    hop_number: hop.hop_number as i32,
-                                    ip: hop.ip.clone(),
-                                    hostname: hop.hostname.clone(),
-                                    latency_min: hop.rtt_min,
-                                    latency_avg: hop.rtt_avg,
-                                    latency_max: hop.rtt_max,
-                                    packet_loss: Some(packet_loss),
-                                    is_problem_hop: is_problem,
+                            if let Some(hop_repo) = get_hop_repository() {
+                                let hop_data: Vec<HopData> = trace_result
+                                    .hops
+                                    .iter()
+                                    .map(|hop| {
+                                        let packet_loss = if hop.probe_count > 0 {
+                                            (hop.timeout_count as f64 / hop.probe_count as f64)
+                                                * 100.0
+                                        } else {
+                                            0.0
+                                        };
+
+                                        let is_problem =
+                                            problem_hop_index == Some(hop.hop_number as i32);
+
+                                        HopData {
+                                            hop_number: hop.hop_number as i32,
+                                            ip: hop.ip.clone(),
+                                            hostname: hop.hostname.clone(),
+                                            latency_min: hop.rtt_min,
+                                            latency_avg: hop.rtt_avg,
+                                            latency_max: hop.rtt_max,
+                                            packet_loss: Some(packet_loss),
+                                            is_problem_hop: is_problem,
+                                        }
+                                    })
+                                    .collect();
+
+                                if !hop_data.is_empty() {
+                                    if let Err(e) =
+                                        hop_repo.insert_hops_batch(traceroute_id, &hop_data).await
+                                    {
+                                        log::error!(
+                                            "Failed to persist hops for traceroute {}: {}",
+                                            traceroute_id,
+                                            e
+                                        );
+                                    } else {
+                                        log::debug!(
+                                            "Persisted {} hops for traceroute {}",
+                                            hop_data.len(),
+                                            traceroute_id
+                                        );
+                                    }
                                 }
-                            })
-                            .collect();
+                            }
 
-                        if !hop_data.is_empty() {
-                            if let Err(e) =
-                                hop_repo.insert_hops_batch(traceroute_id, &hop_data).await
-                            {
-                                log::error!(
-                                    "Failed to persist hops for traceroute {}: {}",
-                                    traceroute_id,
-                                    e
-                                );
-                            } else {
-                                log::debug!(
-                                    "Persisted {} hops for traceroute {}",
-                                    hop_data.len(),
-                                    traceroute_id
-                                );
+                            if let Some(traceroute_repo) = get_traceroute_repository() {
+                                let completed_at = chrono::Utc::now().to_rfc3339();
+                                if let Err(e) = traceroute_repo
+                                    .update_traceroute_completed(
+                                        traceroute_id,
+                                        &completed_at,
+                                        problem_hop_index,
+                                    )
+                                    .await
+                                {
+                                    log::error!(
+                                        "Failed to update traceroute {}: {}",
+                                        traceroute_id,
+                                        e
+                                    );
+                                }
                             }
                         }
-                    }
 
-                    if let Some(traceroute_repo) = get_traceroute_repository() {
-                        let completed_at = chrono::Utc::now().to_rfc3339();
-                        if let Err(e) = traceroute_repo
-                            .update_traceroute_completed(
-                                traceroute_id,
-                                &completed_at,
-                                problem_hop_index,
-                            )
-                            .await
-                        {
-                            log::error!("Failed to update traceroute {}: {}", traceroute_id, e);
+                        let complete_event = TracerouteServerIpCompleteEvent::new(
+                            trace_result.index,
+                            trace_result.target_ip.clone(),
+                            trace_result.success,
+                        );
+                        log::info!(
+                            "Emitting traceroute-server-ip-complete: index {} ({}) - success={}",
+                            trace_result.index,
+                            trace_result.target_ip,
+                            trace_result.success
+                        );
+                        let _ = app.emit("traceroute-server-ip-complete", complete_event);
+
+                        if trace_result.success {
+                            ok_count
+                                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        } else {
+                            fail_count
+                                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         }
                     }
-                }
-
-                let complete_event = TracerouteServerIpCompleteEvent::new(
-                    trace_result.index,
-                    trace_result.target_ip.clone(),
-                    trace_result.success,
-                );
-                log::info!(
-                    "Emitting traceroute-server-ip-complete: index {} ({}) - success={}",
-                    trace_result.index,
-                    trace_result.target_ip,
-                    trace_result.success
-                );
-                let _ = app_for_complete.emit("traceroute-server-ip-complete", complete_event);
-
-                if trace_result.success {
-                    successful += 1;
-                } else {
-                    failed += 1;
+                    None => {
+                        // No more jobs in the queue
+                        break;
+                    }
                 }
             }
-            None => {
-                break;
-            }
-        }
+        });
     }
 
-    let all_complete_event =
-        TracerouteAllCompleteEvent::new(unique_ips.len() as u32, successful, failed);
+    // Wait for all workers to finish
+    while join_set.join_next().await.is_some() {}
+
+    let ok = successful.load(std::sync::atomic::Ordering::Relaxed);
+    let fail = failed.load(std::sync::atomic::Ordering::Relaxed);
+    let all_complete_event = TracerouteAllCompleteEvent::new(total_ips, ok, fail);
     log::info!(
         "Emitting traceroute-all-complete: {}/{} successful, {} failed",
-        successful,
+        ok,
         unique_ips.len(),
-        failed
+        fail
     );
     let _ = app_handle.emit("traceroute-all-complete", all_complete_event);
 }
@@ -357,13 +505,11 @@ pub async fn start_monitoring(
     let mut detector = GameDetector::new(state.monitoring_state.clone(), game_repo);
 
     let app_handle_detected = app.clone();
-    let app_handle_ended = app.clone();
-    let app_handle_ip = app.clone();
-    let app_handle_cap = app.clone();
-
-    let traceroute_service = state.traceroute_service.clone();
     let monitoring_state_for_detected = state.monitoring_state.clone();
-    let monitoring_state_for_ip = state.monitoring_state.clone();
+
+    let on_ended = make_on_game_ended(app.clone(), state.traceroute_service.clone());
+    let on_ip = make_on_ip_captured(app.clone(), state.monitoring_state.clone());
+    let on_cap = make_on_capacity_reached(app.clone());
 
     detector
         .start(
@@ -392,95 +538,9 @@ pub async fn start_monitoring(
 
                 let _ = app_handle_detected.emit("game-detected", game);
             },
-            move |event: GameEndedEvent| {
-                log::info!(
-                    "Emitting game-ended event for: {} ({} server IPs, {}s duration)",
-                    event.game_name,
-                    event.server_ip_count,
-                    event.session_duration
-                );
-
-                if let Some(session_id) = event.session_id {
-                    tokio::spawn(async move {
-                        if let Some(session_repo) = get_session_repository() {
-                            let ended_at = chrono::Utc::now().to_rfc3339();
-                            if let Err(e) = session_repo
-                                .update_session_ended(session_id, &ended_at)
-                                .await
-                            {
-                                log::error!("Failed to update session ended: {}", e);
-                            }
-                        }
-                    });
-                }
-
-                let _ = app_handle_ended.emit("game-ended", event.clone());
-
-                if !event.server_ips.is_empty() {
-                    let app = app_handle_ended.clone();
-                    let service = traceroute_service.clone();
-                    tokio::spawn(async move {
-                        run_traceroute_queue(app, service, event).await;
-                    });
-                }
-            },
-            move |event: ServerIpCapturedEvent| {
-                log::debug!("Emitting server-ip-captured event for: {}", event.ip);
-
-                let state_clone = monitoring_state_for_ip.clone();
-                let ip_clone = event.ip.clone();
-                let captured_at = event.captured_at.clone();
-                tokio::spawn(async move {
-                    let session_id = {
-                        let state_guard = state_clone.read().await;
-                        state_guard.current_session_id
-                    };
-
-                    if let Some(session_id) = session_id {
-                        if let Some(ip_period_repo) = get_ip_period_repository() {
-                            match ip_period_repo
-                                .upsert_ip_activity(session_id, &ip_clone, &captured_at)
-                                .await
-                            {
-                                Ok((period_id, is_new)) => {
-                                    if is_new {
-                                        log::debug!(
-                                            "IP period {} created for {}",
-                                            period_id,
-                                            ip_clone
-                                        );
-                                    } else {
-                                        log::debug!(
-                                            "IP period {} extended for {}",
-                                            period_id,
-                                            ip_clone
-                                        );
-                                    }
-
-                                    let mut state_guard = state_clone.write().await;
-                                    if let Some(traced_ip) = state_guard
-                                        .traced_server_ips
-                                        .iter_mut()
-                                        .find(|ip| ip.server_ip == ip_clone)
-                                    {
-                                        traced_ip.set_period_id(period_id);
-                                    }
-                                }
-                                Err(e) => {
-                                    log::error!("Failed to upsert IP activity {}: {}", ip_clone, e)
-                                }
-                            }
-                        }
-                    }
-                });
-
-                let _ = app_handle_ip.emit("server-ip-captured", event);
-            },
-            move |max_ips: usize| {
-                log::warn!("IP capacity reached: {} IPs", max_ips);
-                let event = IpCapacityReachedEvent::new(max_ips);
-                let _ = app_handle_cap.emit("ip-capacity-reached", event);
-            },
+            on_ended,
+            on_ip,
+            on_cap,
         )
         .await;
 
@@ -703,13 +763,11 @@ pub async fn start_manual_monitoring(
     let mut detector = GameDetector::new(state.monitoring_state.clone(), game_repo);
 
     let app_handle_detected = app.clone();
-    let app_handle_ended = app.clone();
-    let app_handle_ip = app.clone();
-    let app_handle_cap_manual = app.clone();
-
-    let traceroute_service = state.traceroute_service.clone();
     let monitoring_state_for_detected = state.monitoring_state.clone();
-    let monitoring_state_for_ip = state.monitoring_state.clone();
+
+    let on_ended = make_on_game_ended(app.clone(), state.traceroute_service.clone());
+    let on_ip = make_on_ip_captured(app.clone(), state.monitoring_state.clone());
+    let on_cap = make_on_capacity_reached(app.clone());
 
     if let Some(session_repo) = get_session_repository() {
         let detected_at = game.detected_at.clone();
@@ -757,94 +815,9 @@ pub async fn start_manual_monitoring(
 
                 let _ = app_handle_detected.emit("game-detected", game);
             },
-            move |event: GameEndedEvent| {
-                log::info!(
-                    "Emitting game-ended event for manual game: {} ({} server IPs, {}s duration)",
-                    event.game_name,
-                    event.server_ip_count,
-                    event.session_duration
-                );
-
-                if let Some(session_id) = event.session_id {
-                    tokio::spawn(async move {
-                        if let Some(session_repo) = get_session_repository() {
-                            let ended_at = chrono::Utc::now().to_rfc3339();
-                            if let Err(e) = session_repo
-                                .update_session_ended(session_id, &ended_at)
-                                .await
-                            {
-                                log::error!("Failed to update session ended: {}", e);
-                            }
-                        }
-                    });
-                }
-
-                let _ = app_handle_ended.emit("game-ended", event.clone());
-
-                if !event.server_ips.is_empty() {
-                    let app = app_handle_ended.clone();
-                    let service = traceroute_service.clone();
-                    tokio::spawn(async move {
-                        run_traceroute_queue(app, service, event).await;
-                    });
-                }
-            },
-            move |event: ServerIpCapturedEvent| {
-                log::debug!("Emitting server-ip-captured event for: {}", event.ip);
-
-                let state_clone = monitoring_state_for_ip.clone();
-                let ip_clone = event.ip.clone();
-                let captured_at = event.captured_at.clone();
-                tokio::spawn(async move {
-                    let session_id = {
-                        let state_guard = state_clone.read().await;
-                        state_guard.current_session_id
-                    };
-
-                    if let Some(session_id) = session_id {
-                        if let Some(ip_period_repo) = get_ip_period_repository() {
-                            match ip_period_repo
-                                .upsert_ip_activity(session_id, &ip_clone, &captured_at)
-                                .await
-                            {
-                                Ok((period_id, is_new)) => {
-                                    if is_new {
-                                        log::debug!(
-                                            "IP period {} created for {}",
-                                            period_id,
-                                            ip_clone
-                                        );
-                                    } else {
-                                        log::debug!(
-                                            "IP period {} extended for {}",
-                                            period_id,
-                                            ip_clone
-                                        );
-                                    }
-                                    let mut state_guard = state_clone.write().await;
-                                    if let Some(traced_ip) = state_guard
-                                        .traced_server_ips
-                                        .iter_mut()
-                                        .find(|ip| ip.server_ip == ip_clone)
-                                    {
-                                        traced_ip.set_period_id(period_id);
-                                    }
-                                }
-                                Err(e) => {
-                                    log::error!("Failed to upsert IP activity {}: {}", ip_clone, e)
-                                }
-                            }
-                        }
-                    }
-                });
-
-                let _ = app_handle_ip.emit("server-ip-captured", event);
-            },
-            move |max_ips: usize| {
-                log::warn!("IP capacity reached (manual): {} IPs", max_ips);
-                let event = IpCapacityReachedEvent::new(max_ips);
-                let _ = app_handle_cap_manual.emit("ip-capacity-reached", event);
-            },
+            on_ended,
+            on_ip,
+            on_cap,
         )
         .await;
 
