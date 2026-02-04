@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.5...gameroute-v0.1.6) (2026-02-04)
+
+
+### Bug Fixes
+
+* improve network capture, traceroute concurrency, and config consistency ([#9](https://github.com/bruno00o/gameroute/issues/9)) ([c01468d](https://github.com/bruno00o/gameroute/commit/c01468db26504cebce4d79e95509f79b722f1c67))
+
 ## [0.1.5](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.4...gameroute-v0.1.5) (2026-02-03)
 
 
