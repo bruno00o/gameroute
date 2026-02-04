@@ -40,3 +40,4 @@ tauri-plugin-dialog = "2"
 trippy-core = "^0.13.0"
 
 [dev-dependencies]
+tempfile = "3"

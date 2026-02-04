@@ -279,4 +279,64 @@ mod tests {
         assert_eq!(hop.timeout_count, 1);
         assert_eq!(hop.rtt_probes, vec![None, Some(20.0), Some(18.0)]);
     }
+
+    // Locale-independence tests: the parser skips unrecognized tokens,
+    // so localized timeout messages are handled without special-casing.
+
+    #[test]
+    fn test_french_locale_timeout() {
+        // French: "Délai d'attente de la demande dépassé."
+        let line =
+            "  3     *        *        *     Délai d'attente de la demande dépassé.";
+        let hop = parse_tracert_line(line).unwrap();
+
+        assert_eq!(hop.hop_number, 3);
+        assert!(hop.ip.is_none());
+        assert!(!hop.responded);
+        assert_eq!(hop.timeout_count, 3);
+    }
+
+    #[test]
+    fn test_german_locale_timeout() {
+        // German: "Zeitüberschreitung der Anforderung."
+        let line =
+            "  4     *        *        *     Zeitüberschreitung der Anforderung.";
+        let hop = parse_tracert_line(line).unwrap();
+
+        assert_eq!(hop.hop_number, 4);
+        assert!(hop.ip.is_none());
+        assert!(!hop.responded);
+        assert_eq!(hop.timeout_count, 3);
+    }
+
+    #[test]
+    fn test_spanish_locale_timeout() {
+        // Spanish: "Tiempo de espera agotado para esta solicitud."
+        let line =
+            "  5     *        *        *     Tiempo de espera agotado para esta solicitud.";
+        let hop = parse_tracert_line(line).unwrap();
+
+        assert_eq!(hop.hop_number, 5);
+        assert!(hop.ip.is_none());
+        assert!(!hop.responded);
+        assert_eq!(hop.timeout_count, 3);
+    }
+
+    #[test]
+    fn test_localized_header_lines_return_none() {
+        // French header
+        assert!(parse_tracert_line(
+            "Détermination de l'itinéraire vers 8.8.8.8 avec un maximum de 30 sauts :"
+        )
+        .is_none());
+
+        // German header
+        assert!(parse_tracert_line(
+            "Routenverfolgung zu 8.8.8.8 über maximal 30 Hops:"
+        )
+        .is_none());
+
+        // Spanish footer
+        assert!(parse_tracert_line("Traza completa.").is_none());
+    }
 }

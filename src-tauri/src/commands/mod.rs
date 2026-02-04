@@ -6,6 +6,19 @@ pub mod monitoring;
 pub mod network;
 pub mod sessions;
 
+use crate::config::{DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT};
+
+/// Clamp pagination parameters to safe defaults.
+pub fn validate_pagination(limit: i32, offset: i32) -> (i32, i32) {
+    let limit = if limit <= 0 {
+        DEFAULT_PAGE_LIMIT
+    } else {
+        limit.min(MAX_PAGE_LIMIT)
+    };
+    let offset = offset.max(0);
+    (limit, offset)
+}
+
 /// Shared structured error type for Tauri commands that previously used `String`.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct CommandError {

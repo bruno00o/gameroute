@@ -1,26 +1,16 @@
 use crate::commands::monitoring::{execute_traceroute_queue, AppMonitoringState};
-use crate::commands::CommandError;
+use crate::commands::{validate_pagination, CommandError};
 use crate::db::{get_ip_period_repository, get_session_repository, get_traceroute_repository};
 use crate::models::session::{SessionDetail, SessionListItem};
 use tauri::{AppHandle, State};
 
-const MAX_PAGINATION_LIMIT: i32 = 100;
-
 #[tauri::command]
 pub async fn get_sessions(limit: i32, offset: i32) -> Result<Vec<SessionListItem>, CommandError> {
-    let validated_limit = if limit <= 0 {
-        20
-    } else if limit > MAX_PAGINATION_LIMIT {
-        MAX_PAGINATION_LIMIT
-    } else {
-        limit
-    };
-
-    let validated_offset = if offset < 0 { 0 } else { offset };
+    let (limit, offset) = validate_pagination(limit, offset);
 
     let repo = get_session_repository().ok_or_else(|| CommandError::repo_not_initialized("Session"))?;
 
-    repo.get_sessions_with_counts(validated_limit, validated_offset)
+    repo.get_sessions_with_counts(limit, offset)
         .await
         .map_err(|e| CommandError::internal(e.to_string()))
 }
