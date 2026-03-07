@@ -25,6 +25,7 @@ import type {
   TracerouteHopEvent,
   TracerouteProgressEvent,
   TracerouteServerIpCompleteEvent,
+  ServiceStatus,
   TracerouteStartedEvent,
 } from '@/types/backend'
 
@@ -85,6 +86,12 @@ export const resolveAsn = (ips: string[]) => invoke<ResolvedIpData[]>('resolve_a
 export const clearIpMetadataCache = () => invoke<void>('clear_ip_metadata_cache')
 export const getIpMetadataStats = () => invoke<IpMetadataCacheStats>('get_ip_metadata_stats')
 export const pruneIpMetadataCache = () => invoke<PruneCacheResult>('prune_ip_metadata_cache')
+
+// ===== Service =====
+export const checkCaptureServiceStatus = () =>
+  invoke<ServiceStatus>('check_capture_service_status')
+export const setMinimizeToTray = (enabled: boolean) =>
+  invoke<void>('set_minimize_to_tray', { enabled })
 
 // ===== Event listeners =====
 export const onGameDetected = (cb: (game: DetectedGame) => void): Promise<UnlistenFn> =>

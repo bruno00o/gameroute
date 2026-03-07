@@ -26,7 +26,7 @@ tauri-build = { version = "2.5.3", features = [] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-tauri = { version = "2.9.5", features = [] }
+tauri = { version = "2.9.5", features = ["tray-icon"] }
 tauri-plugin-log = "2"
 tauri-plugin-opener = "2"
 tokio = { version = "1", features = ["sync", "time", "macros", "rt-multi-thread", "process", "io-util"] }
@@ -47,6 +47,7 @@ interprocess = "2"
 etherparse = "0.18"
 uuid = { version = "1", features = ["v4"] }
 ctrlc = "3.4"
+tauri-plugin-notification = "2.3.3"
 
 [profile.release]
 strip = true

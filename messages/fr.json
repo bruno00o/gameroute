@@ -291,5 +291,21 @@
   "games_add_name_placeholder": "Counter-Strike 2",
   "games_add_path_placeholder": "C:\\Games\\game.exe",
   "games_delete_game": "Supprimer le jeu",
-  "monitoring_manual_select": "Sélectionner un processus"
+  "monitoring_manual_select": "Sélectionner un processus",
+
+  "welcome_title": "Bienvenue sur GameRoute",
+  "welcome_subtitle": "Surveillez vos connexions réseau de jeu en temps réel.",
+  "welcome_admin_title": "Pourquoi des privilèges administrateur ?",
+  "welcome_admin_body": "La capture de paquets réseau (pktmon) et le traceroute nécessitent des privilèges élevés. Le service de capture s'exécute en tant que service Windows — vous ne voyez l'invite UAC qu'à l'installation.",
+  "welcome_privacy_title": "Vos données restent locales",
+  "welcome_privacy_body": "Toutes les données de session sont stockées dans une base SQLite locale sur votre machine. Le seul appel externe est vers ip-api.com pour la géolocalisation et la résolution ASN.",
+  "welcome_no_collection_title": "Ce que l'application ne fait PAS",
+  "welcome_no_collection_body": "Pas de télémétrie, pas de comptes utilisateur, pas de synchronisation cloud, pas de collecte de données personnelles. GameRoute est entièrement hors ligne sauf pour les recherches d'IP.",
+  "welcome_launch_button": "J'ai compris, lancer",
+
+  "service_warning_title": "Service de capture indisponible",
+  "service_warning_body": "Le service de capture n'est pas en cours d'exécution. La capture UDP et les traceroutes privilégiés sont désactivés. Les connexions TCP seront toujours détectées.",
+
+  "settings_minimize_to_tray": "Réduire dans la zone de notification",
+  "settings_minimize_to_tray_description": "Garder l'application active dans la zone de notification lorsque la fenêtre est fermée."
 }

@@ -4,6 +4,7 @@ pub mod games;
 pub mod insights;
 pub mod monitoring;
 pub mod network;
+pub mod service;
 pub mod sessions;
 
 use crate::config::{DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT};

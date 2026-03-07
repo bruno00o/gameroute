@@ -291,5 +291,21 @@
   "games_add_name_placeholder": "Counter-Strike 2",
   "games_add_path_placeholder": "C:\\Games\\game.exe",
   "games_delete_game": "Delete game",
-  "monitoring_manual_select": "Select process"
+  "monitoring_manual_select": "Select process",
+
+  "welcome_title": "Welcome to GameRoute",
+  "welcome_subtitle": "Monitor your game network connections in real time.",
+  "welcome_admin_title": "Why does it need admin privileges?",
+  "welcome_admin_body": "Network packet capture (pktmon) and traceroute require elevated privileges. The capture service runs as a Windows service — you only see a UAC prompt at install time.",
+  "welcome_privacy_title": "Your data stays local",
+  "welcome_privacy_body": "All session data is stored in a local SQLite database on your machine. The only external call is to ip-api.com for IP geolocation and ASN resolution.",
+  "welcome_no_collection_title": "What it does NOT do",
+  "welcome_no_collection_body": "No telemetry, no user accounts, no cloud sync, no personal data collection. GameRoute is fully offline except for IP lookups.",
+  "welcome_launch_button": "I understand, launch",
+
+  "service_warning_title": "Capture service unavailable",
+  "service_warning_body": "The capture service is not running. UDP capture and privileged traceroutes are disabled. TCP connections will still be detected.",
+
+  "settings_minimize_to_tray": "Minimize to tray",
+  "settings_minimize_to_tray_description": "Keep the app running in the system tray when the window is closed."
 }

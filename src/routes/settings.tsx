@@ -35,6 +35,7 @@ function SettingsPage() {
         <LanguageSetting />
         <ThemeSetting />
         <AutoStartSetting />
+        <MinimizeToTraySetting />
         <Separator />
         <SectionTitle>{m.settings_section_cache()}</SectionTitle>
         <CacheSection />
@@ -127,6 +128,20 @@ function AutoStartSetting() {
   return (
     <SettingRow label={m.settings_auto_start()} description={m.settings_auto_start_description()}>
       <Switch checked={autoStart} onCheckedChange={setAutoStart} />
+    </SettingRow>
+  )
+}
+
+function MinimizeToTraySetting() {
+  const minimizeToTray = useSettingsStore(s => s.minimizeToTray)
+  const setMinimizeToTray = useSettingsStore(s => s.setMinimizeToTray)
+
+  return (
+    <SettingRow
+      label={m.settings_minimize_to_tray()}
+      description={m.settings_minimize_to_tray_description()}
+    >
+      <Switch checked={minimizeToTray} onCheckedChange={setMinimizeToTray} />
     </SettingRow>
   )
 }

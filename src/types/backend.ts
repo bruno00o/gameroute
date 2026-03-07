@@ -334,6 +334,12 @@ export type HourlyQuality = {
   problemHopRatio: number
 }
 
+// ===== Service =====
+export type ServiceStatus = {
+  running: boolean
+  error: string | null
+}
+
 // ===== Error types =====
 export type MonitoringError = {
   code: string
