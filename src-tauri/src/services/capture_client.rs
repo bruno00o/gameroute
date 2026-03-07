@@ -4,17 +4,14 @@
 //! traceroute execution from the privileged Windows service via named pipes.
 
 use crate::config::{
-    CAPTURE_SERVICE_PIPE_NAME, CAPTURE_SERVICE_TOTAL_TIMEOUT_MS, UDP_CAPTURE_DURATION_SECS,
+    CAPTURE_SERVICE_PIPE_NAME, CAPTURE_SERVICE_TOTAL_TIMEOUT_MS, TRACEROUTE_SERVICE_TIMEOUT_MS,
+    UDP_CAPTURE_DURATION_SECS,
 };
 use crate::models::capture_protocol::{
-    CaptureRequest, CaptureStatus, CapturedEndpoint, ServiceRequest, ServiceResponse,
-    TracerouteRequest, TracerouteStatus, ServiceHop,
+    CaptureRequest, CaptureStatus, CapturedEndpoint, ServiceHop, ServiceRequest, ServiceResponse,
+    TracerouteRequest, TracerouteStatus,
 };
 use crate::models::HopResult;
-
-#[cfg(target_os = "windows")]
-use crate::config::TRACEROUTE_SERVICE_TIMEOUT_MS;
-#[cfg(target_os = "windows")]
 use tokio::time::{timeout, Duration};
 
 /// Result of a traceroute performed by the capture service.
@@ -31,7 +28,6 @@ pub struct TracerouteServiceResult {
 /// # Graceful Degradation
 /// If the service is not available, this function returns an empty list rather
 /// than failing. This allows the app to continue with TCP-only capture.
-#[cfg(target_os = "windows")]
 pub async fn request_udp_capture(local_ports: Vec<u16>) -> Result<Vec<CapturedEndpoint>, String> {
 
     if local_ports.is_empty() {
@@ -116,9 +112,8 @@ pub async fn request_udp_capture(local_ports: Vec<u16>) -> Result<Vec<CapturedEn
 /// The service runs trippy-core with SYSTEM privileges, supporting TCP/UDP/ICMP
 /// traceroutes on the actual protocol and port the game server uses.
 ///
-/// Used on Windows for the hybrid approach: trippy reaches destinations that block
+/// Used for the hybrid approach: trippy reaches destinations that block
 /// ICMP while tracert.exe provides intermediate hops.
-#[cfg(target_os = "windows")]
 pub async fn request_traceroute(
     target_ip: String,
     protocol: String,
@@ -202,7 +197,6 @@ fn convert_service_hops(service_hops: &[ServiceHop]) -> Vec<HopResult> {
         .collect()
 }
 
-#[cfg(target_os = "windows")]
 fn connect_and_communicate(
     request_len: &[u8; 4],
     request_json: &[u8],
@@ -244,23 +238,6 @@ fn connect_and_communicate(
     serde_json::from_slice(&response_buf).map_err(|e| format!("Failed to parse response: {}", e))
 }
 
-// ── Non-Windows stubs ────────────────────────────────────────────────────────
-
-#[cfg(not(target_os = "windows"))]
-pub async fn request_udp_capture(_local_ports: Vec<u16>) -> Result<Vec<CapturedEndpoint>, String> {
-    Ok(Vec::new())
-}
-
-#[cfg(not(target_os = "windows"))]
-pub async fn request_traceroute(
-    _target_ip: String,
-    _protocol: String,
-    _port: u16,
-    _max_hops: u8,
-) -> Result<TracerouteServiceResult, String> {
-    Err("Not supported on this platform".to_string())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -273,7 +250,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[cfg(target_os = "windows")]
     async fn test_service_unavailable_returns_error() {
         // When service is not running, we expect an error (graceful degradation
         // happens at the call site in game_detection.rs)

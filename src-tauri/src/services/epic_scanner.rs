@@ -37,21 +37,11 @@ struct EpicManifest {
 }
 
 fn get_manifests_dir() -> Option<PathBuf> {
-    #[cfg(target_os = "windows")]
-    {
-        let path =
-            PathBuf::from(r"C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests");
-        if path.is_dir() {
-            return Some(path);
-        }
-        None
+    let path = PathBuf::from(r"C:\ProgramData\Epic\EpicGamesLauncher\Data\Manifests");
+    if path.is_dir() {
+        return Some(path);
     }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        // Epic Games Store is Windows-only (discontinued on macOS)
-        None
-    }
+    None
 }
 
 pub async fn scan_epic_games() -> Result<ScanResult, EpicScanError> {

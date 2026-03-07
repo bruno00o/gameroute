@@ -4,20 +4,8 @@ use sysinfo::{Pid, ProcessRefreshKind, RefreshKind, System, UpdateKind};
 
 use crate::models::{DetectedGame, MonitoredGameEntry, RunningApp, RunningProcess};
 
-#[cfg(target_os = "macos")]
-mod macos;
-#[cfg(target_os = "macos")]
-use macos as os;
-
-#[cfg(target_os = "windows")]
 mod windows;
-#[cfg(target_os = "windows")]
 use windows as os;
-
-#[cfg(target_os = "linux")]
-mod linux;
-#[cfg(target_os = "linux")]
-use linux as os;
 
 fn system() -> &'static Mutex<System> {
     static SYSTEM: OnceLock<Mutex<System>> = OnceLock::new();

@@ -72,34 +72,7 @@ jobs:
       - run: pnpm build
 
   rust-check:
-    name: Rust Check & Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri -> target
-
-      - name: Cargo check (lib)
-        working-directory: src-tauri
-        run: cargo check --lib
-
-      - name: Clippy (lib)
-        working-directory: src-tauri
-        run: cargo clippy --lib -- -D warnings
-
-  rust-check-windows:
-    name: Rust Check & Clippy (Windows)
+    name: Rust Check, Clippy & Tests
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -112,6 +85,12 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
+      - name: Create stub binary for Tauri build script
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path src-tauri/binaries -Force
+          New-Item -ItemType File -Path src-tauri/binaries/gameroute-capture-service-x86_64-pc-windows-msvc.exe -Force
+
       - name: Build capture service
         working-directory: src-tauri
         run: cargo build --release --bin gameroute-capture-service
@@ -119,10 +98,9 @@ jobs:
       - name: Copy service binary for Tauri bundling
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Path src-tauri/binaries -Force
-          Copy-Item src-tauri/target/release/gameroute-capture-service.exe src-tauri/binaries/gameroute-capture-service-x86_64-pc-windows-msvc.exe
+          Copy-Item src-tauri/target/release/gameroute-capture-service.exe src-tauri/binaries/gameroute-capture-service-x86_64-pc-windows-msvc.exe -Force
 
-      - name: Cargo check (lib + app)
+      - name: Cargo check
         working-directory: src-tauri
         run: cargo check
 
@@ -134,23 +112,6 @@ jobs:
         working-directory: src-tauri
         run: cargo clippy --bin gameroute-capture-service -- -D warnings
 
-  rust-tests:
-    name: Rust Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri -> target
-
-      - name: Run tests
+      - name: Tests
         working-directory: src-tauri
         run: cargo test --lib

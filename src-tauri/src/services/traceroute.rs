@@ -1,22 +1,11 @@
-use crate::config::{LATENCY_INCREASE_THRESHOLD, PACKET_LOSS_THRESHOLD};
+use crate::config::{LATENCY_INCREASE_THRESHOLD, PACKET_LOSS_THRESHOLD, TRACEROUTE_MAX_HOPS};
 use crate::db::{get_hop_repository, get_traceroute_repository};
 use crate::models::session::HopData;
 use crate::models::{HopResult, TracedServerIp};
 use std::collections::VecDeque;
-#[cfg(not(target_os = "windows"))]
-use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Instant;
-#[cfg(not(target_os = "windows"))]
-use std::time::Duration;
 use tokio::sync::RwLock;
-
-#[cfg(not(target_os = "windows"))]
-use trippy_core::{Builder, PortDirection, PrivilegeMode};
-
-use crate::config::TRACEROUTE_MAX_HOPS;
-#[cfg(not(target_os = "windows"))]
-use crate::config::TRACEROUTE_TIMEOUT_SECS;
 
 #[derive(Debug, Clone)]
 pub struct TracerouteJob {
@@ -161,175 +150,11 @@ impl TracerouteService {
         Some(result)
     }
 
-    #[cfg(not(target_os = "windows"))]
-    async fn run_traceroute<H>(&self, job: &TracerouteJob, on_hop: H) -> TracerouteResult
-    where
-        H: Fn(&HopResult, u32, &str) + Send + Sync + 'static,
-    {
-        log::info!(
-            "Starting traceroute to {} (index {}) using trippy-core",
-            job.target_ip,
-            job.index
-        );
-
-        let start_time = Instant::now();
-
-        let dst_ip: IpAddr = match job.target_ip.parse() {
-            Ok(ip) => ip,
-            Err(_) => {
-                log::error!("Invalid target IP {}", job.target_ip);
-                return TracerouteResult {
-                    target_ip: job.target_ip.clone(),
-                    index: job.index,
-                    traceroute_id: job.traceroute_id,
-                    success: false,
-                    hops: vec![],
-                    destination_reached: false,
-                    total_hops: 0,
-                };
-            }
-        };
-
-        let tracer = match Builder::new(dst_ip)
-            .privilege_mode(PrivilegeMode::Unprivileged)
-            .max_ttl(TRACEROUTE_MAX_HOPS)
-            .max_rounds(Some(1))
-            .port_direction(PortDirection::new_fixed_dest(33434))
-            .build()
-        {
-            Ok(t) => t,
-            Err(e) => {
-                log::error!("Failed to create tracer for {}: {}", job.target_ip, e);
-                return TracerouteResult {
-                    target_ip: job.target_ip.clone(),
-                    index: job.index,
-                    traceroute_id: job.traceroute_id,
-                    success: false,
-                    hops: vec![],
-                    destination_reached: false,
-                    total_hops: 0,
-                };
-            }
-        };
-
-        let job_index = job.index;
-        let target_ip_clone = job.target_ip.clone();
-
-        // Tracer is Clone; clone for the blocking thread, keep original for snapshot
-        let tracer_clone = tracer.clone();
-        let trace_result = tokio::time::timeout(
-            Duration::from_secs(TRACEROUTE_TIMEOUT_SECS),
-            tokio::task::spawn_blocking(move || tracer_clone.run()),
-        )
-        .await;
-
-        let elapsed = start_time.elapsed();
-
-        match trace_result {
-            Ok(Ok(Ok(()))) => {
-                let snapshot = tracer.snapshot();
-                let mut hops: Vec<HopResult> = Vec::new();
-                let mut destination_reached = false;
-                let mut last_responding_index: Option<usize> = None;
-
-                for hop in snapshot.hops() {
-                    let hop_result = trippy_hop_to_result(hop);
-                    let idx = hops.len();
-
-                    if let Some(ref ip) = hop_result.ip {
-                        if ip == &target_ip_clone {
-                            destination_reached = true;
-                        }
-                        last_responding_index = Some(idx);
-                    }
-
-                    on_hop(&hop_result, job_index, &target_ip_clone);
-                    hops.push(hop_result);
-                }
-
-                // Trim trailing timeout hops after destination or last responding hop
-                if let Some(trim_after) = last_responding_index {
-                    hops.truncate(trim_after + 1);
-                }
-
-                let total_hops = hops.len() as u32;
-
-                log::info!(
-                    "Completed traceroute to {} (index {}) in {:.2}s - {} hops, destination_reached: {}",
-                    target_ip_clone,
-                    job.index,
-                    elapsed.as_secs_f64(),
-                    total_hops,
-                    destination_reached
-                );
-
-                TracerouteResult {
-                    target_ip: target_ip_clone,
-                    index: job.index,
-                    traceroute_id: job.traceroute_id,
-                    success: total_hops > 0,
-                    hops,
-                    destination_reached,
-                    total_hops,
-                    method: "ICMP (trippy)".to_string(),
-                }
-            }
-            Ok(Ok(Err(e))) => {
-                log::error!("Traceroute to {} failed: {}", target_ip_clone, e);
-                TracerouteResult {
-                    target_ip: target_ip_clone,
-                    index: job.index,
-                    traceroute_id: job.traceroute_id,
-                    success: false,
-                    hops: vec![],
-                    destination_reached: false,
-                    total_hops: 0,
-                    method: "ICMP (trippy)".to_string(),
-                }
-            }
-            Ok(Err(e)) => {
-                log::error!(
-                    "Traceroute blocking task for {} panicked: {}",
-                    target_ip_clone,
-                    e
-                );
-                TracerouteResult {
-                    target_ip: target_ip_clone,
-                    index: job.index,
-                    traceroute_id: job.traceroute_id,
-                    success: false,
-                    hops: vec![],
-                    destination_reached: false,
-                    total_hops: 0,
-                    method: "ICMP (trippy)".to_string(),
-                }
-            }
-            Err(_) => {
-                log::warn!(
-                    "Traceroute to {} timed out after {}s",
-                    target_ip_clone,
-                    TRACEROUTE_TIMEOUT_SECS
-                );
-                TracerouteResult {
-                    target_ip: target_ip_clone,
-                    index: job.index,
-                    traceroute_id: job.traceroute_id,
-                    success: false,
-                    hops: vec![],
-                    destination_reached: false,
-                    total_hops: 0,
-                    method: "ICMP (trippy)".to_string(),
-                }
-            }
-        }
-    }
-
-    /// Hybrid traceroute on Windows:
+    /// Hybrid traceroute:
     /// 1. tracert.exe (ICMP) — provides intermediate hops
     /// 2. trippy via capture service (TCP/UDP) — reaches destinations that block ICMP
     ///
     /// Both run in parallel. Results are merged: tracert hops + destination from probe.
-    #[cfg(target_os = "windows")]
     async fn run_traceroute<H>(&self, job: &TracerouteJob, on_hop: H) -> TracerouteResult
     where
         H: Fn(&HopResult, u32, &str) + Send + Sync + 'static,
@@ -490,31 +315,6 @@ impl TracerouteService {
         state.total_count = 0;
         log::debug!("Traceroute service state reset");
     }
-}
-
-#[cfg(not(target_os = "windows"))]
-fn trippy_hop_to_result(hop: &trippy_core::Hop) -> HopResult {
-    let ttl = hop.ttl() as u32;
-    let ip = hop.addrs().next().map(|a| a.to_string());
-    let total_sent = hop.total_sent() as u32;
-    let total_recv = hop.total_recv() as u32;
-
-    if ip.is_none() || total_recv == 0 {
-        return HopResult::timeout(ttl, total_sent.max(1));
-    }
-
-    let mut rtt_probes: Vec<Option<f64>> = hop
-        .samples()
-        .iter()
-        .map(|d| Some(d.as_secs_f64() * 1000.0))
-        .collect();
-
-    let timeout_count = total_sent.saturating_sub(total_recv);
-    for _ in 0..timeout_count {
-        rtt_probes.push(None);
-    }
-
-    HopResult::new(ttl, ip, None, rtt_probes)
 }
 
 /// Identify the first hop that shows a significant quality degradation.

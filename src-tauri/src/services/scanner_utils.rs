@@ -142,39 +142,9 @@ pub fn scan_executables_in_dir(dir: &Path, hint: &str) -> String {
     candidates.into_iter().next().unwrap()
 }
 
-/// Check if a file is a platform-appropriate executable.
+/// Check if a file is an executable (.exe).
 fn is_executable_file(file_name: &str, _path: &Path) -> bool {
-    #[cfg(target_os = "windows")]
-    {
-        file_name.to_lowercase().ends_with(".exe")
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        if file_name.ends_with(".app") {
-            return true;
-        }
-        // Check if file has no extension (likely a binary)
-        !file_name.contains('.') || {
-            use std::os::unix::fs::PermissionsExt;
-            _path
-                .metadata()
-                .map(|m| m.permissions().mode() & 0o111 != 0)
-                .unwrap_or(false)
-        }
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        // Check for no extension or executable permission
-        !file_name.contains('.') || {
-            use std::os::unix::fs::PermissionsExt;
-            _path
-                .metadata()
-                .map(|m| m.permissions().mode() & 0o111 != 0)
-                .unwrap_or(false)
-        }
-    }
+    file_name.to_lowercase().ends_with(".exe")
 }
 
 #[cfg(test)]
@@ -195,20 +165,9 @@ mod tests {
     fn test_scan_filters_non_game_executables() {
         let dir = TempDir::new().unwrap();
 
-        #[cfg(target_os = "windows")]
-        {
-            fs::write(dir.path().join("mygame.exe"), "").unwrap();
-            fs::write(dir.path().join("UnityCrashHandler64.exe"), "").unwrap();
-            fs::write(dir.path().join("unins000.exe"), "").unwrap();
-        }
-
-        #[cfg(not(target_os = "windows"))]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let game_path = dir.path().join("mygame");
-            fs::write(&game_path, "").unwrap();
-            fs::set_permissions(&game_path, fs::Permissions::from_mode(0o755)).unwrap();
-        }
+        fs::write(dir.path().join("mygame.exe"), "").unwrap();
+        fs::write(dir.path().join("UnityCrashHandler64.exe"), "").unwrap();
+        fs::write(dir.path().join("unins000.exe"), "").unwrap();
 
         let result = scan_executables_in_dir(dir.path(), "mygame");
         let lower = result.to_lowercase();
@@ -223,22 +182,9 @@ mod tests {
     fn test_scan_prefers_hint_match() {
         let dir = TempDir::new().unwrap();
 
-        #[cfg(target_os = "windows")]
-        {
-            fs::write(dir.path().join("launcher.exe"), "").unwrap();
-            fs::write(dir.path().join("coolshooter.exe"), "").unwrap();
-            fs::write(dir.path().join("server.exe"), "").unwrap();
-        }
-
-        #[cfg(not(target_os = "windows"))]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            for name in &["launcher", "coolshooter", "server"] {
-                let p = dir.path().join(name);
-                fs::write(&p, "").unwrap();
-                fs::set_permissions(&p, fs::Permissions::from_mode(0o755)).unwrap();
-            }
-        }
+        fs::write(dir.path().join("launcher.exe"), "").unwrap();
+        fs::write(dir.path().join("coolshooter.exe"), "").unwrap();
+        fs::write(dir.path().join("server.exe"), "").unwrap();
 
         let result = scan_executables_in_dir(dir.path(), "Cool Shooter");
         let lower = result.to_lowercase();
@@ -253,21 +199,8 @@ mod tests {
     fn test_scan_handles_trademark_in_hint() {
         let dir = TempDir::new().unwrap();
 
-        #[cfg(target_os = "windows")]
-        {
-            fs::write(dir.path().join("FC26.exe"), "").unwrap();
-            fs::write(dir.path().join("FC26_Trial.exe"), "").unwrap();
-        }
-
-        #[cfg(not(target_os = "windows"))]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            for name in &["FC26", "FC26_Trial"] {
-                let p = dir.path().join(name);
-                fs::write(&p, "").unwrap();
-                fs::set_permissions(&p, fs::Permissions::from_mode(0o755)).unwrap();
-            }
-        }
+        fs::write(dir.path().join("FC26.exe"), "").unwrap();
+        fs::write(dir.path().join("FC26_Trial.exe"), "").unwrap();
 
         // The ™ between "FC" and "26" must not prevent matching "FC26"
         let result = scan_executables_in_dir(dir.path(), "EA SPORTS FC\u{2122} 26");

@@ -19,7 +19,6 @@
 
 #![allow(dead_code, unused_imports, unused_variables, unused_mut)]
 
-#[cfg(target_os = "windows")]
 mod service {
     use std::collections::{HashMap, HashSet};
     use std::ffi::OsString;
@@ -1021,16 +1020,9 @@ mod service {
     }
 }
 
-#[cfg(target_os = "windows")]
 fn main() {
     if let Err(e) = service::run() {
         eprintln!("Service error: {}", e);
         std::process::exit(1);
     }
-}
-
-#[cfg(not(target_os = "windows"))]
-fn main() {
-    eprintln!("The capture service is only supported on Windows.");
-    std::process::exit(1);
 }

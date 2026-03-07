@@ -84,7 +84,6 @@ pub fn parse_tracert_line(line: &str) -> Option<HopResult> {
 /// Spawns `tracert.exe -d -w {timeout_ms} -h {max_hops} {ip}` as a child
 /// process, reads stdout line-by-line, parses each hop, and calls `on_hop`
 /// for live streaming to the frontend.
-#[cfg(target_os = "windows")]
 pub async fn run_tracert<H>(
     target_ip: &str,
     max_hops: u8,
