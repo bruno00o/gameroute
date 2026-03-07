@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.7](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.6...gameroute-v0.1.7) (2026-03-07)
+
+
+### Features
+
+* add capture service for privileged network operations ([fe5150a](https://github.com/bruno00o/gameroute/commit/fe5150a74db888f60b44a43a58d6fc621260d0c9))
+* add onboarding, service health check, and system tray ([b07fcee](https://github.com/bruno00o/gameroute/commit/b07fceecef29340ff52a945d91fc77ecaf7b5590))
+* protocol-aware hybrid traceroute with early termination ([0e072ba](https://github.com/bruno00o/gameroute/commit/0e072bafbf994c1d833fa6598b6e1552d522addf))
+* show traceroute protocol source and blocked destination in UI ([2110a90](https://github.com/bruno00o/gameroute/commit/2110a900c274ee221f3bf9a0ed0ac6053b0e6009))
+
 ## [0.1.6](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.5...gameroute-v0.1.6) (2026-02-04)
 
 
