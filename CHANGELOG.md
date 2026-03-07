@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.10](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.9...gameroute-v0.1.10) (2026-03-07)
+
+
+### Features
+
+* add Riot Games scanner (VALORANT, LoL, LoR, 2XKO) ([05b7d9f](https://github.com/bruno00o/gameroute/commit/05b7d9f05dedd66575604540b445502eac147df6))
+
+
+### Bug Fixes
+
+* limit bundle targets to NSIS only ([53346ad](https://github.com/bruno00o/gameroute/commit/53346adf51866c3b429a96d093cf973a8bd9e515))
+
 ## [0.1.9](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.8...gameroute-v0.1.9) (2026-03-07)
 
 
