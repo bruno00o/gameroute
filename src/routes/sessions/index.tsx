@@ -130,6 +130,8 @@ function SessionsPage() {
                   <TableRow
                     key={row.id}
                     className="cursor-pointer"
+                    tabIndex={0}
+                    role="link"
                     onClick={() =>
                       navigate({
                         to: '/sessions/$id',
@@ -137,6 +139,16 @@ function SessionsPage() {
                         search: { period: undefined },
                       })
                     }
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        navigate({
+                          to: '/sessions/$id',
+                          params: { id: String(row.original.id) },
+                          search: { period: undefined },
+                        })
+                      }
+                    }}
                   >
                     {row.getVisibleCells().map(cell => (
                       <TableCell key={cell.id}>

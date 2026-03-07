@@ -64,28 +64,34 @@ export const Route = createFileRoute('/insights')({
 
 const STABILITY_PAGE_SIZE = 10
 
-const qualityChartConfig = {
-  avgLatency: {
-    label: 'Avg Latency (ms)',
-    color: 'oklch(0.65 0.15 250)',
-  },
-  problemHopPercent: {
-    label: 'Problem Hop %',
-    color: 'oklch(0.65 0.2 25)',
-  },
-} satisfies ChartConfig
-
-const hourlyChartConfig = {
-  avgLatency: {
-    label: 'Avg Latency (ms)',
-    color: 'oklch(0.65 0.15 250)',
-  },
-} satisfies ChartConfig
-
 const stabilityColumnHelper = createColumnHelper<ServerStability>()
 
 function InsightsPage() {
   const [stabilitySorting, setStabilitySorting] = useState<SortingState>([])
+
+  const qualityChartConfig = useMemo<ChartConfig>(
+    () => ({
+      avgLatency: {
+        label: m.insights_quality_latency(),
+        color: 'oklch(0.65 0.15 250)',
+      },
+      problemHopPercent: {
+        label: m.insights_quality_problems(),
+        color: 'oklch(0.65 0.2 25)',
+      },
+    }),
+    [],
+  )
+
+  const hourlyChartConfig = useMemo<ChartConfig>(
+    () => ({
+      avgLatency: {
+        label: m.insights_hourly_latency(),
+        color: 'oklch(0.65 0.15 250)',
+      },
+    }),
+    [],
+  )
 
   const { data: qualityData, isLoading: qualityLoading } = useQuery({
     queryKey: ['insights-quality'],

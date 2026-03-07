@@ -18,6 +18,11 @@ src/paraglide/
 # TanStack Router auto-generated
 src/routeTree.gen.ts
 
+# Environment files
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -28,3 +33,9 @@ src/routeTree.gen.ts
 *.njsproj
 *.sln
 *.sw?
+
+# Tauri build artifacts and temporary files
+src-tauri/binaries/
+src-tauri/PktMon.etl
+src-tauri/qc
+src-tauri/query

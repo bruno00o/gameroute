@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
 /// Full game row from the database.
-#[allow(dead_code)]
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct Game {
     pub id: i64,

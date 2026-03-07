@@ -7,6 +7,7 @@ pub mod network;
 pub mod sessions;
 
 use crate::config::{DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT};
+use crate::services::asn_resolver;
 
 /// Clamp pagination parameters to safe defaults.
 pub fn validate_pagination(limit: i32, offset: i32) -> (i32, i32) {
@@ -45,6 +46,46 @@ impl CommandError {
         Self {
             code: "INTERNAL_ERROR".to_string(),
             message: msg,
+        }
+    }
+
+    pub fn already_monitoring() -> Self {
+        Self {
+            code: "ALREADY_MONITORING".to_string(),
+            message: "Monitoring is already active".to_string(),
+        }
+    }
+
+    pub fn not_monitoring() -> Self {
+        Self {
+            code: "NOT_MONITORING".to_string(),
+            message: "Monitoring is not active".to_string(),
+        }
+    }
+
+    pub fn process_not_found() -> Self {
+        Self {
+            code: "PROCESS_NOT_FOUND".to_string(),
+            message: "The selected process no longer exists".to_string(),
+        }
+    }
+}
+
+impl From<asn_resolver::AsnError> for CommandError {
+    fn from(e: asn_resolver::AsnError) -> Self {
+        match e {
+            asn_resolver::AsnError::RateLimitExceeded => Self {
+                code: "RATE_LIMIT_EXCEEDED".to_string(),
+                message: "Rate limit reached, please try again in a few moments".to_string(),
+            },
+            asn_resolver::AsnError::HttpError(_) => Self {
+                code: "NETWORK_ERROR".to_string(),
+                message: "Unable to reach the resolution service".to_string(),
+            },
+            asn_resolver::AsnError::InvalidResponse => Self {
+                code: "INVALID_RESPONSE".to_string(),
+                message: "Invalid response from the resolution service".to_string(),
+            },
         }
     }
 }

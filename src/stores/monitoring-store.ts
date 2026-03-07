@@ -6,7 +6,7 @@ type MonitoringStore = {
   currentGame: DetectedGame | null
   isManualMode: boolean
   currentSessionId: number | null
-  capturedIps: ServerIpCapturedEvent[]
+  seenIps: Set<string>
   serverIpCount: number
   setStatus: (status: MonitoringStatusResponse) => void
   addCapturedIp: (event: ServerIpCapturedEvent) => void
@@ -19,7 +19,7 @@ export const useMonitoringStore = create<MonitoringStore>(set => ({
   currentGame: null,
   isManualMode: false,
   currentSessionId: null,
-  capturedIps: [],
+  seenIps: new Set(),
   serverIpCount: 0,
   setStatus: status =>
     set({
@@ -30,15 +30,15 @@ export const useMonitoringStore = create<MonitoringStore>(set => ({
     }),
   addCapturedIp: event =>
     set(state => {
-      const alreadySeen = state.capturedIps.some(e => e.ip === event.ip)
+      if (state.seenIps.has(event.ip)) return state
+      state.seenIps.add(event.ip)
       return {
-        capturedIps: [...state.capturedIps, event],
-        serverIpCount: alreadySeen ? state.serverIpCount : state.serverIpCount + 1,
+        serverIpCount: state.serverIpCount + 1,
       }
     }),
   clearCapturedIps: () =>
     set({
-      capturedIps: [],
+      seenIps: new Set(),
       serverIpCount: 0,
     }),
   reset: () =>
@@ -47,7 +47,7 @@ export const useMonitoringStore = create<MonitoringStore>(set => ({
       currentGame: null,
       isManualMode: false,
       currentSessionId: null,
-      capturedIps: [],
+      seenIps: new Set(),
       serverIpCount: 0,
     }),
 }))

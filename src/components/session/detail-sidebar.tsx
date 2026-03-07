@@ -129,7 +129,14 @@ export function DetailSidebar({
                   >
                     <RiGlobalLine className="shrink-0" />
                     <div className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate font-mono text-xs">{period.ip}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate font-mono text-xs">{period.ip}</span>
+                        {period.protocol && period.port > 0 && (
+                          <Badge variant="outline" className="shrink-0 px-1 py-0 text-[10px] font-normal">
+                            {period.protocol}:{period.port}
+                          </Badge>
+                        )}
+                      </div>
                       <span className="text-muted-foreground text-[10px]">
                         {formatDuration(durationSecs)} &middot; {period.packetCount} pkt
                       </span>

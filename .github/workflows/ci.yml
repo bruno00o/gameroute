@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -87,13 +90,13 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
-      - name: Cargo check
+      - name: Cargo check (lib)
         working-directory: src-tauri
-        run: cargo check
+        run: cargo check --lib
 
-      - name: Clippy
+      - name: Clippy (lib)
         working-directory: src-tauri
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --lib -- -D warnings
 
   rust-check-windows:
     name: Rust Check & Clippy (Windows)
@@ -109,13 +112,27 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
-      - name: Cargo check
+      - name: Build capture service
+        working-directory: src-tauri
+        run: cargo build --release --bin gameroute-capture-service
+
+      - name: Copy service binary for Tauri bundling
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path src-tauri/binaries -Force
+          Copy-Item src-tauri/target/release/gameroute-capture-service.exe src-tauri/binaries/gameroute-capture-service-x86_64-pc-windows-msvc.exe
+
+      - name: Cargo check (lib + app)
         working-directory: src-tauri
         run: cargo check
 
-      - name: Clippy
+      - name: Clippy (lib)
         working-directory: src-tauri
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --lib -- -D warnings
+
+      - name: Clippy (capture service)
+        working-directory: src-tauri
+        run: cargo clippy --bin gameroute-capture-service -- -D warnings
 
   rust-tests:
     name: Rust Tests
@@ -136,4 +153,4 @@ jobs:
 
       - name: Run tests
         working-directory: src-tauri
-        run: cargo test --all-targets
+        run: cargo test --lib

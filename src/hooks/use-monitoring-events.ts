@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 import { getMonitoringStatus, onGameDetected, onGameEnded, onServerIpCaptured } from '@/lib/tauri'
 import { useMonitoringStore } from '@/stores/monitoring-store'
@@ -10,6 +10,7 @@ const SESSION_POLL_MAX_ATTEMPTS = 20
 export function useMonitoringEvents() {
   const setStatus = useMonitoringStore(s => s.setStatus)
   const queryClient = useQueryClient()
+  const activePollRef = useRef<ReturnType<typeof setInterval>>(undefined)
 
   // Sync initial status on mount
   useEffect(() => {
@@ -27,37 +28,39 @@ export function useMonitoringEvents() {
         useMonitoringStore.setState({
           currentGame: game,
           isMonitoring: true,
-          capturedIps: [],
+          seenIps: new Set(),
           serverIpCount: 0,
         })
+        // Clear any previous polling interval
+        clearInterval(activePollRef.current)
         // Poll for session ID instead of blind setTimeout
         let attempts = 0
-        const poll = setInterval(() => {
+        activePollRef.current = setInterval(() => {
           attempts++
           getMonitoringStatus()
             .then(status => {
               if (status.currentSessionId) {
-                clearInterval(poll)
+                clearInterval(activePollRef.current)
                 useMonitoringStore.setState({
                   currentSessionId: status.currentSessionId,
                 })
                 queryClient.invalidateQueries({ queryKey: ['sessions'] })
               } else if (attempts >= SESSION_POLL_MAX_ATTEMPTS) {
-                clearInterval(poll)
+                clearInterval(activePollRef.current)
                 console.warn('[monitoring] Session ID not available after polling')
                 queryClient.invalidateQueries({ queryKey: ['sessions'] })
               }
             })
             .catch(e => {
               console.warn('[monitoring] Failed to poll session status:', e)
-              clearInterval(poll)
+              clearInterval(activePollRef.current)
             })
         }, SESSION_POLL_INTERVAL_MS)
       }),
       onGameEnded(() => {
         useMonitoringStore.setState({
           currentGame: null,
-          capturedIps: [],
+          seenIps: new Set(),
           serverIpCount: 0,
           currentSessionId: null,
         })
@@ -69,6 +72,7 @@ export function useMonitoringEvents() {
     ]
 
     return () => {
+      clearInterval(activePollRef.current)
       for (const unlisten of unlisteners) {
         unlisten.then(fn => fn())
       }

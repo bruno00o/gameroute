@@ -83,7 +83,7 @@ export function AddGameDialog({ children }: { children: React.ReactElement }) {
                 id="game-name"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                placeholder="Counter-Strike 2"
+                placeholder={m.games_add_name_placeholder()}
                 required
               />
             </div>
@@ -94,7 +94,7 @@ export function AddGameDialog({ children }: { children: React.ReactElement }) {
                   id="game-path"
                   value={path}
                   onChange={e => setPath(e.target.value)}
-                  placeholder="/path/to/game.exe"
+                  placeholder={m.games_add_path_placeholder()}
                   required
                   className="flex-1"
                 />
@@ -104,6 +104,7 @@ export function AddGameDialog({ children }: { children: React.ReactElement }) {
                   size="icon"
                   onClick={handleBrowse}
                   title={m.games_add_browse()}
+                  aria-label={m.games_add_browse()}
                 >
                   <RiFolderOpenLine className="size-4" />
                 </Button>

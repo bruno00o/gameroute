@@ -14,33 +14,7 @@ pub struct IpMetadata {
     pub resolved_at: String,
 }
 
-#[allow(dead_code)]
 impl IpMetadata {
-    #[allow(clippy::too_many_arguments)]
-    pub fn from_resolution(
-        ip: String,
-        asn: Option<String>,
-        isp: Option<String>,
-        org: Option<String>,
-        country: Option<String>,
-        city: Option<String>,
-        lat: Option<f64>,
-        lon: Option<f64>,
-        resolved_at: String,
-    ) -> Self {
-        Self {
-            ip,
-            asn,
-            isp,
-            org,
-            country,
-            city,
-            lat,
-            lon,
-            resolved_at,
-        }
-    }
-
     pub fn has_coordinates(&self) -> bool {
         self.lat.is_some() && self.lon.is_some()
     }

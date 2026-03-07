@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS ip_periods (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id INTEGER NOT NULL,
     ip TEXT NOT NULL,
+    protocol TEXT NOT NULL DEFAULT '',
+    port INTEGER NOT NULL DEFAULT 0,
     started_at TEXT NOT NULL,
     ended_at TEXT NOT NULL,
     packet_count INTEGER NOT NULL DEFAULT 1,

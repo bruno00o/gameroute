@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
+import { toast } from 'sonner'
+
 import * as m from '@/paraglide/messages'
 import { getSessionDetail, deleteSession, retryTraceroutes } from '@/lib/tauri'
+import { errorMessage } from '@/lib/utils'
 import { useBreadcrumbStore, type BreadcrumbSegment } from '@/stores/breadcrumb-store'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { DetailSidebar, type SortMode } from '@/components/session/detail-sidebar'
@@ -51,12 +54,18 @@ function SessionDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['sessions'] })
       navigate({ to: '/sessions' })
     },
+    onError: (err: unknown) => {
+      toast.error(errorMessage(err) || m.session_delete_error())
+    },
   })
 
   const retryMutation = useMutation({
     mutationFn: () => retryTraceroutes(numericId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['session', numericId] })
+    },
+    onError: (err: unknown) => {
+      toast.error(errorMessage(err) || m.session_retry_error())
     },
   })
 

@@ -59,66 +59,71 @@ pub async fn scan_epic_games() -> Result<ScanResult, EpicScanError> {
 
     let manifests_dir = get_manifests_dir().ok_or(EpicScanError::NotInstalled)?;
 
-    let entries = std::fs::read_dir(&manifests_dir)
-        .map_err(|e| EpicScanError::IoError(e.to_string()))?;
+    // Read and parse manifests on a blocking thread to avoid blocking the Tokio runtime
+    let parsed_games = tokio::task::spawn_blocking(move || {
+        let entries = std::fs::read_dir(&manifests_dir)
+            .map_err(|e| EpicScanError::IoError(e.to_string()))?;
 
-    let mut games_found: u32 = 0;
+        let mut games = Vec::new();
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("item") {
+                continue;
+            }
+
+            let content = match std::fs::read_to_string(&path) {
+                Ok(c) => c,
+                Err(e) => {
+                    log::debug!("Failed to read Epic manifest {:?}: {}", path, e);
+                    continue;
+                }
+            };
+
+            let manifest: EpicManifest = match serde_json::from_str(&content) {
+                Ok(m) => m,
+                Err(e) => {
+                    log::debug!("Failed to parse Epic manifest {:?}: {}", path, e);
+                    continue;
+                }
+            };
+
+            if manifest.b_is_incomplete_install || manifest.display_name.trim().is_empty() {
+                continue;
+            }
+
+            let executable_path = if let Some(ref launch_exe) = manifest.launch_executable {
+                let full_path = PathBuf::from(&manifest.install_location).join(launch_exe);
+                Some(full_path.to_string_lossy().to_string())
+            } else {
+                Some(manifest.install_location.clone())
+            };
+
+            let executable_name = executable_path
+                .as_deref()
+                .map(resolve_executable_name)
+                .unwrap_or_else(|| manifest.display_name.clone());
+
+            games.push(NewGame {
+                name: manifest.display_name,
+                executable_path,
+                executable_name,
+                source: "epic".to_string(),
+                source_id: Some(manifest.app_name),
+                icon_url: None,
+                auto_detected: true,
+            });
+        }
+        Ok::<_, EpicScanError>(games)
+    })
+    .await
+    .map_err(|e| EpicScanError::IoError(e.to_string()))??;
+
+    let games_found: u32 = parsed_games.len() as u32;
     let mut games_added: u32 = 0;
     let mut games_updated: u32 = 0;
 
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("item") {
-            continue;
-        }
-
-        let content = match std::fs::read_to_string(&path) {
-            Ok(c) => c,
-            Err(e) => {
-                log::debug!("Failed to read Epic manifest {:?}: {}", path, e);
-                continue;
-            }
-        };
-
-        let manifest: EpicManifest = match serde_json::from_str(&content) {
-            Ok(m) => m,
-            Err(e) => {
-                log::debug!("Failed to parse Epic manifest {:?}: {}", path, e);
-                continue;
-            }
-        };
-
-        // Skip incomplete installs and entries with empty display names
-        if manifest.b_is_incomplete_install || manifest.display_name.trim().is_empty() {
-            continue;
-        }
-
-        games_found += 1;
-
-        // Build full executable path
-        let executable_path = if let Some(ref launch_exe) = manifest.launch_executable {
-            let full_path = PathBuf::from(&manifest.install_location).join(launch_exe);
-            Some(full_path.to_string_lossy().to_string())
-        } else {
-            Some(manifest.install_location.clone())
-        };
-
-        let executable_name = executable_path
-            .as_deref()
-            .map(resolve_executable_name)
-            .unwrap_or_else(|| manifest.display_name.clone());
-
-        let new_game = NewGame {
-            name: manifest.display_name,
-            executable_path,
-            executable_name,
-            source: "epic".to_string(),
-            source_id: Some(manifest.app_name),
-            icon_url: None,
-            auto_detected: true,
-        };
-
-        match repo.upsert_game(&new_game).await {
+    for new_game in &parsed_games {
+        match repo.upsert_game(new_game).await {
             Ok((_id, inserted)) => {
                 if inserted {
                     games_added += 1;

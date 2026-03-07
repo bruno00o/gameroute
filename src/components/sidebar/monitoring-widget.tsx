@@ -26,7 +26,7 @@ export function MonitoringWidget() {
           isMonitoring: false,
           currentGame: null,
           isManualMode: false,
-          capturedIps: [],
+          seenIps: new Set(),
           serverIpCount: 0,
           currentSessionId: null,
         })
@@ -136,7 +136,7 @@ export function MonitoringWidget() {
             <Tooltip>
               <TooltipTrigger
                 render={
-                  <Button variant="outline" size="icon-xs" onClick={() => setProcessOpen(true)} />
+                  <Button variant="outline" size="icon-xs" onClick={() => setProcessOpen(true)} aria-label={m.monitoring_manual_select()} />
                 }
               >
                 <RiUserLine className="size-3" />

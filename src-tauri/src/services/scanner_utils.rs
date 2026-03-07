@@ -51,6 +51,7 @@ const NON_GAME_EXECUTABLES: &[&str] = &[
     "ue4prereqsetup",
     "ue4prerequisites",
     "easyanticheat",
+    "eaanticheat",
     "eac_launcher",
     "battleye",
     "beservice",
@@ -58,6 +59,14 @@ const NON_GAME_EXECUTABLES: &[&str] = &[
     "steamapi",
     "steam_api",
 ];
+
+/// Strip all non-ASCII-alphanumeric characters for fuzzy comparison.
+/// Handles trademark symbols (™), registered marks (®), accents, etc.
+fn alphanumeric_only(s: &str) -> String {
+    s.chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .collect()
+}
 
 /// Scan a directory for executable files and return the best candidate name.
 ///
@@ -111,21 +120,25 @@ pub fn scan_executables_in_dir(dir: &Path, hint: &str) -> String {
         return candidates.into_iter().next().unwrap();
     }
 
-    // Prefer the candidate whose name is closest to the hint
-    let hint_lower = hint.to_lowercase().replace(' ', "");
+    // Prefer the candidate whose name is closest to the hint.
+    // Use alphanumeric-only comparison so that special characters
+    // like ™ ® © don't break substring matching (e.g. "EA SPORTS FC™ 26"
+    // normalizes to "easportsfc26" which correctly contains "fc26").
+    let hint_norm = alphanumeric_only(&hint.to_lowercase());
     if let Some(best) = candidates.iter().find(|c| {
         let stem = c
             .strip_suffix(".exe")
             .or_else(|| c.strip_suffix(".app"))
-            .unwrap_or(c)
-            .to_lowercase()
-            .replace(' ', "");
-        stem == hint_lower || hint_lower.contains(&stem) || stem.contains(&hint_lower)
+            .unwrap_or(c);
+        let stem_norm = alphanumeric_only(&stem.to_lowercase());
+        stem_norm == hint_norm || hint_norm.contains(&stem_norm) || stem_norm.contains(&hint_norm)
     }) {
         return best.clone();
     }
 
-    // No match on hint, return the first candidate
+    // No match on hint, return the first candidate alphabetically
+    // for deterministic results across runs.
+    candidates.sort_unstable();
     candidates.into_iter().next().unwrap()
 }
 
@@ -234,5 +247,42 @@ mod tests {
             "Expected 'coolshooter' in result, got: {}",
             result
         );
+    }
+
+    #[test]
+    fn test_scan_handles_trademark_in_hint() {
+        let dir = TempDir::new().unwrap();
+
+        #[cfg(target_os = "windows")]
+        {
+            fs::write(dir.path().join("FC26.exe"), "").unwrap();
+            fs::write(dir.path().join("FC26_Trial.exe"), "").unwrap();
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            for name in &["FC26", "FC26_Trial"] {
+                let p = dir.path().join(name);
+                fs::write(&p, "").unwrap();
+                fs::set_permissions(&p, fs::Permissions::from_mode(0o755)).unwrap();
+            }
+        }
+
+        // The ™ between "FC" and "26" must not prevent matching "FC26"
+        let result = scan_executables_in_dir(dir.path(), "EA SPORTS FC\u{2122} 26");
+        let lower = result.to_lowercase();
+        assert!(
+            lower.starts_with("fc26"),
+            "Expected 'FC26' executable, got: {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_alphanumeric_only() {
+        assert_eq!(alphanumeric_only("EA SPORTS FC\u{2122} 26"), "EASPORTSFC26");
+        assert_eq!(alphanumeric_only("hello-world_123"), "helloworld123");
+        assert_eq!(alphanumeric_only("game\u{00ae}name"), "gamename");
     }
 }

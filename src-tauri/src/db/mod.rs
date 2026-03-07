@@ -1,5 +1,6 @@
-use sqlx::sqlite::SqlitePool;
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
 use std::path::Path;
+use std::str::FromStr;
 use thiserror::Error;
 
 pub mod analytics;
@@ -41,10 +42,13 @@ pub async fn init_database(app_data_dir: &Path) -> Result<SqlitePool, DbError> {
     }
 
     let db_url = format!("sqlite:{}?mode=rwc", db_path.display());
-    let pool = SqlitePool::connect(&db_url).await?;
+    let opts = SqliteConnectOptions::from_str(&db_url)?
+        .pragma("journal_mode", "WAL")
+        .pragma("foreign_keys", "ON");
 
-    sqlx::query("PRAGMA foreign_keys = ON")
-        .execute(&pool)
+    let pool = SqlitePoolOptions::new()
+        .max_connections(4)
+        .connect_with(opts)
         .await?;
 
     sqlx::migrate!("./migrations").run(&pool).await?;
@@ -65,14 +69,16 @@ pub fn init_repositories(pool: &SqlitePool) {
 
 #[cfg(test)]
 pub async fn create_test_pool() -> SqlitePool {
-    let pool = SqlitePool::connect("sqlite::memory:")
+    let opts = SqliteConnectOptions::from_str("sqlite::memory:")
+        .expect("Failed to parse test DB URL")
+        .pragma("journal_mode", "WAL")
+        .pragma("foreign_keys", "ON");
+
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .connect_with(opts)
         .await
         .expect("Failed to create in-memory database");
-
-    sqlx::query("PRAGMA foreign_keys = ON")
-        .execute(&pool)
-        .await
-        .expect("Failed to enable foreign keys");
 
     sqlx::migrate!("./migrations")
         .run(&pool)

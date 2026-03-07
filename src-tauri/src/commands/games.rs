@@ -1,3 +1,4 @@
+use super::CommandError;
 use crate::commands::validate_pagination;
 use crate::db::get_game_repository;
 use crate::models::game_library::{GameListItem, NewGame, ScanResult};
@@ -5,80 +6,51 @@ use crate::services::epic_scanner;
 use crate::services::scanner_utils::resolve_executable_name;
 use crate::services::steam_scanner;
 
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct GameCommandError {
-    pub code: String,
-    pub message: String,
-}
-
-impl GameCommandError {
-    fn repo_not_initialized() -> Self {
-        Self {
-            code: "REPO_NOT_INITIALIZED".to_string(),
-            message: "Game repository not initialized".to_string(),
-        }
-    }
-
-    fn validation(msg: &str) -> Self {
-        Self {
-            code: "VALIDATION_ERROR".to_string(),
-            message: msg.to_string(),
-        }
-    }
-
-    fn internal(msg: String) -> Self {
-        Self {
-            code: "INTERNAL_ERROR".to_string(),
-            message: msg,
-        }
-    }
-}
-
 #[tauri::command]
-pub async fn scan_steam_games() -> Result<ScanResult, GameCommandError> {
+pub async fn scan_steam_games() -> Result<ScanResult, CommandError> {
     log::info!("Starting Steam scan...");
     steam_scanner::scan_steam_games()
         .await
-        .map_err(|e| GameCommandError::internal(e.to_string()))
+        .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 #[tauri::command]
-pub async fn get_games(limit: i32, offset: i32) -> Result<Vec<GameListItem>, GameCommandError> {
-    let repo = get_game_repository().ok_or_else(GameCommandError::repo_not_initialized)?;
+pub async fn get_games(limit: i32, offset: i32) -> Result<Vec<GameListItem>, CommandError> {
+    let repo = get_game_repository().ok_or_else(|| CommandError::repo_not_initialized("Game"))?;
 
     let (limit, offset) = validate_pagination(limit, offset);
 
     repo.get_games(limit, offset)
         .await
-        .map_err(|e| GameCommandError::internal(e.to_string()))
+        .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 #[tauri::command]
-pub async fn get_game_count() -> Result<i64, GameCommandError> {
-    let repo = get_game_repository().ok_or_else(GameCommandError::repo_not_initialized)?;
+pub async fn get_game_count() -> Result<i64, CommandError> {
+    let repo = get_game_repository().ok_or_else(|| CommandError::repo_not_initialized("Game"))?;
 
     repo.get_game_count()
         .await
-        .map_err(|e| GameCommandError::internal(e.to_string()))
+        .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 #[tauri::command]
 pub async fn add_manual_game(
     name: String,
     executable_path: String,
-) -> Result<i64, GameCommandError> {
-    let repo = get_game_repository().ok_or_else(GameCommandError::repo_not_initialized)?;
+) -> Result<i64, CommandError> {
+    let repo = get_game_repository().ok_or_else(|| CommandError::repo_not_initialized("Game"))?;
 
     let name = name.trim().to_string();
     if name.is_empty() || name.len() > 255 {
-        return Err(GameCommandError::validation(
+        return Err(CommandError::validation(
             "Game name must be between 1 and 255 characters",
         ));
     }
 
     let path = executable_path.trim().to_string();
     if path.is_empty() {
-        return Err(GameCommandError::validation(
+        return Err(CommandError::validation(
             "Executable path must not be empty",
         ));
     }
@@ -98,28 +70,28 @@ pub async fn add_manual_game(
     let (id, _) = repo
         .upsert_game(&new_game)
         .await
-        .map_err(|e| GameCommandError::internal(e.to_string()))?;
+        .map_err(|e| CommandError::internal(e.to_string()))?;
 
     log::info!("Manual game added: {} (id: {})", new_game.name, id);
     Ok(id)
 }
 
 #[tauri::command]
-pub async fn remove_game(id: i64) -> Result<(), GameCommandError> {
-    let repo = get_game_repository().ok_or_else(GameCommandError::repo_not_initialized)?;
+pub async fn remove_game(id: i64) -> Result<(), CommandError> {
+    let repo = get_game_repository().ok_or_else(|| CommandError::repo_not_initialized("Game"))?;
 
     repo.delete_game(id)
         .await
-        .map_err(|e| GameCommandError::internal(e.to_string()))
+        .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 #[tauri::command]
-pub async fn toggle_game_monitored(id: i64, monitored: bool) -> Result<(), GameCommandError> {
-    let repo = get_game_repository().ok_or_else(GameCommandError::repo_not_initialized)?;
+pub async fn toggle_game_monitored(id: i64, monitored: bool) -> Result<(), CommandError> {
+    let repo = get_game_repository().ok_or_else(|| CommandError::repo_not_initialized("Game"))?;
 
     repo.set_monitored(id, monitored)
         .await
-        .map_err(|e| GameCommandError::internal(e.to_string()))
+        .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 #[tauri::command]
@@ -127,35 +99,35 @@ pub async fn search_games(
     query: String,
     limit: i32,
     offset: i32,
-) -> Result<Vec<GameListItem>, GameCommandError> {
-    let repo = get_game_repository().ok_or_else(GameCommandError::repo_not_initialized)?;
+) -> Result<Vec<GameListItem>, CommandError> {
+    let repo = get_game_repository().ok_or_else(|| CommandError::repo_not_initialized("Game"))?;
 
     let (limit, offset) = validate_pagination(limit, offset);
 
     repo.search_games(&query, limit, offset)
         .await
-        .map_err(|e| GameCommandError::internal(e.to_string()))
+        .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 #[tauri::command]
-pub async fn search_game_count(query: String) -> Result<i64, GameCommandError> {
-    let repo = get_game_repository().ok_or_else(GameCommandError::repo_not_initialized)?;
+pub async fn search_game_count(query: String) -> Result<i64, CommandError> {
+    let repo = get_game_repository().ok_or_else(|| CommandError::repo_not_initialized("Game"))?;
 
     repo.search_game_count(&query)
         .await
-        .map_err(|e| GameCommandError::internal(e.to_string()))
+        .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 #[tauri::command]
-pub async fn scan_epic_games() -> Result<ScanResult, GameCommandError> {
+pub async fn scan_epic_games() -> Result<ScanResult, CommandError> {
     log::info!("Starting Epic Games scan...");
     epic_scanner::scan_epic_games()
         .await
-        .map_err(|e| GameCommandError::internal(e.to_string()))
+        .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 #[tauri::command]
-pub async fn scan_all_games() -> Result<ScanResult, GameCommandError> {
+pub async fn scan_all_games() -> Result<ScanResult, CommandError> {
     log::info!("Starting full game scan (Steam + Epic)...");
     let mut result = ScanResult::default();
 

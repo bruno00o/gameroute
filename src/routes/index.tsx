@@ -95,7 +95,15 @@ function DashboardPage() {
                   <TableRow
                     key={session.id}
                     className="cursor-pointer"
+                    tabIndex={0}
+                    role="link"
                     onClick={() => navigate({ to: '/sessions/$id', params: { id: String(session.id) }, search: { period: undefined } })}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        navigate({ to: '/sessions/$id', params: { id: String(session.id) }, search: { period: undefined } })
+                      }
+                    }}
                   >
                     <TableCell>
                       <span className="font-medium">{session.gameName}</span>

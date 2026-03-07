@@ -8,7 +8,7 @@ pub struct IpMetadataRepository {
     pool: SqlitePool,
 }
 
-#[allow(dead_code)]
+#[allow(dead_code)] // Methods used via Tauri commands (invisible to clippy)
 impl IpMetadataRepository {
     pub fn new(pool: SqlitePool) -> Self {
         Self { pool }

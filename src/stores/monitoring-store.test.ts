@@ -15,7 +15,7 @@ describe('monitoring-store initial state', () => {
     expect(state.currentGame).toBeNull()
     expect(state.isManualMode).toBe(false)
     expect(state.currentSessionId).toBeNull()
-    expect(state.capturedIps).toEqual([])
+    expect(state.seenIps.size).toBe(0)
     expect(state.serverIpCount).toBe(0)
   })
 })
@@ -104,8 +104,8 @@ describe('addCapturedIp', () => {
 
     getState().addCapturedIp(event)
 
-    expect(getState().capturedIps).toHaveLength(1)
-    expect(getState().capturedIps[0].ip).toBe('192.168.1.1')
+    expect(getState().seenIps.size).toBe(1)
+    expect(getState().seenIps.has('192.168.1.1')).toBe(true)
     expect(getState().serverIpCount).toBe(1)
   })
 
@@ -123,7 +123,7 @@ describe('addCapturedIp', () => {
       capturedAt: '2026-01-31T10:00:05Z',
     })
 
-    expect(getState().capturedIps).toHaveLength(2)
+    expect(getState().seenIps.size).toBe(2)
     expect(getState().serverIpCount).toBe(2)
   })
 })
@@ -145,7 +145,7 @@ describe('clearCapturedIps', () => {
 
     getState().clearCapturedIps()
 
-    expect(getState().capturedIps).toEqual([])
+    expect(getState().seenIps.size).toBe(0)
     expect(getState().serverIpCount).toBe(0)
   })
 })
@@ -178,7 +178,7 @@ describe('reset', () => {
     expect(getState().currentGame).toBeNull()
     expect(getState().isManualMode).toBe(false)
     expect(getState().currentSessionId).toBeNull()
-    expect(getState().capturedIps).toEqual([])
+    expect(getState().seenIps.size).toBe(0)
     expect(getState().serverIpCount).toBe(0)
   })
 })

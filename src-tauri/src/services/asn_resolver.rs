@@ -2,8 +2,8 @@ use crate::db::get_ip_metadata_repository;
 use crate::models::asn::{AsnInfo, GeoLocation, IpApiResponse, ResolvedIpData};
 use crate::models::ip_metadata::IpMetadataData;
 use crate::services::cache_ttl::{now_iso8601, should_use_cache, CacheDecision};
+use super::network_capture::is_private_or_special_ip;
 use lru::LruCache;
-use std::net::{Ipv4Addr, Ipv6Addr};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -107,7 +107,7 @@ impl AsnResolver {
             let mut memory_cache = self.memory_cache.lock().await;
 
             for ip in ips {
-                if is_private_ip(&ip) {
+                if is_private_or_special_ip(&ip) {
                     log::debug!("IP {} is private, skipping resolution", ip);
                     results.push(ResolvedIpData::private_ip(ip));
                     continue;
@@ -361,38 +361,6 @@ impl Default for AsnResolver {
     }
 }
 
-pub fn is_private_ip(ip: &str) -> bool {
-    if let Ok(addr) = ip.parse::<Ipv4Addr>() {
-        let octets = addr.octets();
-        return match octets[0] {
-            10 => true,
-            172 => (16..=31).contains(&octets[1]),
-            192 => octets[1] == 168,
-            127 => true,
-            169 => octets[1] == 254,
-            _ => false,
-        };
-    }
-
-    if let Ok(addr) = ip.parse::<Ipv6Addr>() {
-        if addr.is_loopback() {
-            return true;
-        }
-        let segments = addr.segments();
-
-        if segments[0] & 0xffc0 == 0xfe80 {
-            return true;
-        }
-
-        if segments[0] & 0xfe00 == 0xfc00 {
-            return true;
-        }
-        return false;
-    }
-
-    false
-}
-
 static ASN_RESOLVER: std::sync::OnceLock<Arc<AsnResolver>> = std::sync::OnceLock::new();
 
 pub fn get_resolver() -> Arc<AsnResolver> {
@@ -401,78 +369,3 @@ pub fn get_resolver() -> Arc<AsnResolver> {
         .clone()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_is_private_ip_class_a() {
-        assert!(is_private_ip("10.0.0.1"));
-        assert!(is_private_ip("10.255.255.255"));
-    }
-
-    #[test]
-    fn test_is_private_ip_class_b() {
-        assert!(is_private_ip("172.16.0.1"));
-        assert!(is_private_ip("172.31.255.255"));
-        assert!(!is_private_ip("172.15.0.1"));
-        assert!(!is_private_ip("172.32.0.1"));
-    }
-
-    #[test]
-    fn test_is_private_ip_class_c() {
-        assert!(is_private_ip("192.168.0.1"));
-        assert!(is_private_ip("192.168.255.255"));
-        assert!(!is_private_ip("192.167.0.1"));
-    }
-
-    #[test]
-    fn test_is_private_ip_loopback() {
-        assert!(is_private_ip("127.0.0.1"));
-        assert!(is_private_ip("127.255.255.255"));
-    }
-
-    #[test]
-    fn test_is_private_ip_link_local() {
-        assert!(is_private_ip("169.254.0.1"));
-        assert!(is_private_ip("169.254.255.255"));
-    }
-
-    #[test]
-    fn test_is_private_ip_public() {
-        assert!(!is_private_ip("8.8.8.8"));
-        assert!(!is_private_ip("1.1.1.1"));
-        assert!(!is_private_ip("185.60.112.157"));
-        assert!(!is_private_ip("208.80.152.201"));
-    }
-
-    #[test]
-    fn test_is_private_ip_invalid() {
-        assert!(!is_private_ip("invalid"));
-        assert!(!is_private_ip(""));
-    }
-
-    #[test]
-    fn test_is_private_ip_ipv6_loopback() {
-        assert!(is_private_ip("::1"));
-    }
-
-    #[test]
-    fn test_is_private_ip_ipv6_link_local() {
-        assert!(is_private_ip("fe80::1"));
-        assert!(is_private_ip("fe80::abcd:1234:5678:9abc"));
-    }
-
-    #[test]
-    fn test_is_private_ip_ipv6_unique_local() {
-        assert!(is_private_ip("fc00::1"));
-        assert!(is_private_ip("fd00::1"));
-        assert!(is_private_ip("fdab:cdef:1234::1"));
-    }
-
-    #[test]
-    fn test_is_private_ip_ipv6_public() {
-        assert!(!is_private_ip("2001:4860:4860::8888"));
-        assert!(!is_private_ip("2606:4700:4700::1111"));
-    }
-}

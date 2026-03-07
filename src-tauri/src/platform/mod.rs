@@ -54,10 +54,24 @@ pub fn detect_games_from_processes(
 
         for entry in monitored_games {
             let exe_lower = entry.executable_name.to_lowercase();
+
+            // Strip .exe/.app suffix for stem comparison
+            let name_stem = name_lower
+                .strip_suffix(".exe")
+                .unwrap_or(&name_lower);
+            let exe_stem = exe_lower
+                .strip_suffix(".exe")
+                .or_else(|| exe_lower.strip_suffix(".app"))
+                .unwrap_or(&exe_lower);
+
+            // Fuzzy match: compare alphanumeric-only stems
+            // Handles "FC26.exe" vs "FC 26", "AimLab.exe" vs "Aim Lab", etc.
+            let name_norm: String = name_stem.chars().filter(|c| c.is_alphanumeric()).collect();
+            let exe_norm: String = exe_stem.chars().filter(|c| c.is_alphanumeric()).collect();
+
             let matched = name_lower == exe_lower
-                || (!name_lower.ends_with(".exe") && format!("{}.exe", name_lower) == exe_lower)
-                || (name_lower.ends_with(".exe")
-                    && name_lower[..name_lower.len() - 4] == exe_lower)
+                || name_stem == exe_stem
+                || (!name_norm.is_empty() && name_norm == exe_norm)
                 || (exe_lower.ends_with(".app")
                     && name_lower == exe_lower[..exe_lower.len() - 4]);
 

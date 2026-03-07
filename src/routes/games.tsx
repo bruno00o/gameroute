@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -80,13 +80,13 @@ function GamesPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [isScanning, setIsScanning] = useState(false)
   const queryClient = useQueryClient()
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value)
     setPage(0)
-    // Simple debounce using setTimeout
-    const timeout = setTimeout(() => setDebouncedSearch(value), 300)
-    return () => clearTimeout(timeout)
+    clearTimeout(debounceTimer.current)
+    debounceTimer.current = setTimeout(() => setDebouncedSearch(value), 300)
   }, [])
 
   const isSearching = debouncedSearch.trim().length > 0
@@ -219,6 +219,7 @@ function GamesPage() {
                     variant="ghost"
                     size="icon-sm"
                     onClick={e => e.stopPropagation()}
+                    aria-label={m.games_delete_game()}
                   >
                     <RiDeleteBinLine className="size-3.5" />
                   </Button>

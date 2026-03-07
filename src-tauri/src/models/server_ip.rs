@@ -9,7 +9,6 @@ pub struct TracedServerIp {
     pub total_packet_count: i32,
 }
 
-#[allow(dead_code)]
 impl TracedServerIp {
     pub fn new(server_ip: String) -> Self {
         Self {
@@ -35,13 +34,6 @@ impl TracedServerIp {
 
     pub fn increment_packets(&mut self) {
         self.total_packet_count += 1;
-    }
-}
-
-#[allow(dead_code)]
-impl TracedServerIp {
-    pub fn db_id(&self) -> Option<i64> {
-        self.current_period_id
     }
 }
 

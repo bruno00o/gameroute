@@ -1,10 +1,13 @@
 use crate::config::{MAX_CAPTURED_IPS, MAX_CONSECUTIVE_DB_FAILURES, POLL_INTERVAL_SECS};
 use crate::db::games::GameRepository;
 use crate::models::{
-    DetectedGame, GameEndedEvent, MonitoringState, ServerIpCapturedEvent, TracedServerIp,
+    CapturedConnection, DetectedGame, GameEndedEvent, MonitoringState, ServerIpCapturedEvent,
+    TracedServerIp,
 };
 use crate::platform;
-use crate::services::capture_connections_for_pids;
+use crate::services::capture_client;
+use crate::services::network_capture::{capture_connections_for_pids, is_private_or_special_ip};
+use crate::services::udp_capture;
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
@@ -59,6 +62,13 @@ impl GameDetector {
                 "Game detection started (polling every {}s)",
                 POLL_INTERVAL_SECS,
             );
+
+            // Log monitored games once at startup for debugging detection issues
+            if let Ok(games) = game_repo.get_monitored_games().await {
+                for g in &games {
+                    log::info!("Monitored game: '{}' -> exe='{}'", g.name, g.executable_name);
+                }
+            }
 
             loop {
                 tokio::select! {
@@ -129,7 +139,16 @@ impl GameDetector {
                             }
 
                             let related_pids = platform::get_related_pids(game.pid);
-                            let connections = capture_connections_for_pids(&related_pids);
+
+                            // Capture TCP connections (synchronous, always available)
+                            let tcp_connections = capture_connections_for_pids(&related_pids);
+
+                            // Capture UDP connections via the privileged service (async, graceful degradation)
+                            let udp_connections = capture_udp_connections(&related_pids).await;
+
+                            // Merge TCP and UDP connections
+                            let connections = merge_connections(tcp_connections, udp_connections);
+
                             for conn in connections {
                                 let is_new = !captured_ip_set.contains(&conn.remote_ip);
 
@@ -316,7 +335,16 @@ impl GameDetector {
                         }
 
                         let related_pids = platform::get_related_pids(pid);
-                        let connections = capture_connections_for_pids(&related_pids);
+
+                        // Capture TCP connections (synchronous, always available)
+                        let tcp_connections = capture_connections_for_pids(&related_pids);
+
+                        // Capture UDP connections via the privileged service (async, graceful degradation)
+                        let udp_connections = capture_udp_connections(&related_pids).await;
+
+                        // Merge TCP and UDP connections
+                        let connections = merge_connections(tcp_connections, udp_connections);
+
                         for conn in connections {
                             let is_new = !captured_ip_set.contains(&conn.remote_ip);
 
@@ -369,4 +397,72 @@ impl GameDetector {
         state_guard.manual_pid = None;
         state_guard.reset();
     }
+}
+
+/// Capture UDP connections via the privileged capture service.
+///
+/// This function extracts local UDP ports for the given PIDs and requests
+/// packet capture from the service. Returns an empty list on any error
+/// (graceful degradation - the app continues with TCP-only capture).
+async fn capture_udp_connections(related_pids: &HashSet<u32>) -> Vec<CapturedConnection> {
+    // Get local UDP ports bound by the game processes
+    let local_ports = udp_capture::get_udp_local_ports(related_pids);
+
+    if local_ports.is_empty() {
+        return Vec::new();
+    }
+
+    // Request capture from the privileged service
+    match capture_client::request_udp_capture(local_ports.clone()).await {
+        Ok(endpoints) => {
+            let raw_count = endpoints.len();
+            let connections: Vec<CapturedConnection> = endpoints
+                .into_iter()
+                .filter(|ep| !is_private_or_special_ip(&ep.remote_ip))
+                .map(|ep| CapturedConnection::new(ep.remote_ip, ep.remote_port, "UDP".to_string()))
+                .collect();
+
+            log::info!(
+                "UDP capture result: {} raw endpoints, {} public (ports: {:?})",
+                raw_count,
+                connections.len(),
+                local_ports
+            );
+
+            connections
+        }
+        Err(e) => {
+            log::info!("UDP capture failed for ports {:?}: {}", local_ports, e);
+            Vec::new()
+        }
+    }
+}
+
+/// Merge TCP and UDP connections, deduplicating by remote IP.
+///
+/// TCP connections take priority (they're more reliable indicators of active connections).
+fn merge_connections(
+    tcp_connections: Vec<CapturedConnection>,
+    udp_connections: Vec<CapturedConnection>,
+) -> Vec<CapturedConnection> {
+    let mut seen_ips: HashSet<String> = HashSet::new();
+    let mut result = Vec::with_capacity(tcp_connections.len() + udp_connections.len());
+
+    // Add TCP connections first (higher priority)
+    for conn in tcp_connections {
+        if !seen_ips.contains(&conn.remote_ip) {
+            seen_ips.insert(conn.remote_ip.clone());
+            result.push(conn);
+        }
+    }
+
+    // Add UDP connections that weren't already seen via TCP
+    for conn in udp_connections {
+        if !seen_ips.contains(&conn.remote_ip) {
+            seen_ips.insert(conn.remote_ip.clone());
+            result.push(conn);
+        }
+    }
+
+    result
 }

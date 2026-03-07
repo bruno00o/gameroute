@@ -1,3 +1,4 @@
+use super::CommandError;
 use crate::db::get_ip_metadata_repository;
 use crate::models::ResolvedIpData;
 use crate::services::asn_resolver;
@@ -5,33 +6,8 @@ use std::net::IpAddr;
 
 const MAX_RESOLVE_BATCH: usize = 500;
 
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct AsnCommandError {
-    pub code: String,
-    pub message: String,
-}
-
-impl From<asn_resolver::AsnError> for AsnCommandError {
-    fn from(e: asn_resolver::AsnError) -> Self {
-        match e {
-            asn_resolver::AsnError::RateLimitExceeded => Self {
-                code: "RATE_LIMIT_EXCEEDED".to_string(),
-                message: "Rate limit reached, please try again in a few moments".to_string(),
-            },
-            asn_resolver::AsnError::HttpError(_) => Self {
-                code: "NETWORK_ERROR".to_string(),
-                message: "Unable to reach the resolution service".to_string(),
-            },
-            asn_resolver::AsnError::InvalidResponse => Self {
-                code: "INVALID_RESPONSE".to_string(),
-                message: "Invalid response from the resolution service".to_string(),
-            },
-        }
-    }
-}
-
 #[tauri::command]
-pub async fn resolve_asn(ips: Vec<String>) -> Result<Vec<ResolvedIpData>, AsnCommandError> {
+pub async fn resolve_asn(ips: Vec<String>) -> Result<Vec<ResolvedIpData>, CommandError> {
     log::info!("resolve_asn called with {} IPs", ips.len());
 
     if ips.is_empty() {
@@ -40,7 +16,7 @@ pub async fn resolve_asn(ips: Vec<String>) -> Result<Vec<ResolvedIpData>, AsnCom
     }
 
     if ips.len() > MAX_RESOLVE_BATCH {
-        return Err(AsnCommandError {
+        return Err(CommandError {
             code: "BATCH_TOO_LARGE".to_string(),
             message: format!("Maximum {} IPs per request", MAX_RESOLVE_BATCH),
         });
@@ -71,7 +47,7 @@ pub async fn resolve_asn(ips: Vec<String>) -> Result<Vec<ResolvedIpData>, AsnCom
 }
 
 #[tauri::command]
-pub async fn clear_ip_metadata_cache() -> Result<(), AsnCommandError> {
+pub async fn clear_ip_metadata_cache() -> Result<(), CommandError> {
     log::info!("Clearing IP metadata cache");
 
     let resolver = asn_resolver::get_resolver();
@@ -87,7 +63,7 @@ pub async fn clear_ip_metadata_cache() -> Result<(), AsnCommandError> {
 }
 
 #[tauri::command]
-pub async fn get_ip_metadata_stats() -> Result<IpMetadataCacheStats, AsnCommandError> {
+pub async fn get_ip_metadata_stats() -> Result<IpMetadataCacheStats, CommandError> {
     let resolver = asn_resolver::get_resolver();
     let memory_stats = resolver.cache_stats().await;
 
@@ -112,7 +88,7 @@ pub async fn get_ip_metadata_stats() -> Result<IpMetadataCacheStats, AsnCommandE
 }
 
 #[tauri::command]
-pub async fn prune_ip_metadata_cache() -> Result<PruneCacheResult, AsnCommandError> {
+pub async fn prune_ip_metadata_cache() -> Result<PruneCacheResult, CommandError> {
     log::info!("Pruning expired IP metadata cache entries");
 
     let mut deleted = 0;
