@@ -13,16 +13,30 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Badge } from '@/components/ui/badge'
 
 export function HopTable({
   hops,
   asnData,
   problemHopIndex,
+  targetIp,
 }: {
   hops: DbHop[]
   asnData?: Map<string, ResolvedIpData>
   problemHopIndex?: number | null
+  targetIp?: string
 }) {
+  // Check if destination is already in the hop list
+  const destinationReached = targetIp
+    ? hops.some(h => h.ip === targetIp)
+    : true
+
+  // Find last responding hop number for gap display
+  const lastRespondingHop = hops.reduce(
+    (max, h) => (h.ip ? Math.max(max, h.hopNumber) : max),
+    0,
+  )
+
   return (
     <Table>
       <TableHeader>
@@ -32,11 +46,13 @@ export function HopTable({
           <TableHead className="hidden sm:table-cell">{m.session_hop_hostname()}</TableHead>
           <TableHead className="text-right">{m.session_hop_latency()}</TableHead>
           <TableHead className="text-right">{m.session_hop_loss()}</TableHead>
+          <TableHead className="hidden text-right md:table-cell">Source</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {hops.map(hop => {
           const isProblem = hop.isProblemHop || hop.hopNumber === problemHopIndex
+          const isDestination = hop.ip === targetIp
           const resolved = hop.ip ? asnData?.get(hop.ip) : undefined
           const asnLabel = resolved
             ? [resolved.asnInfo.isp, resolved.geo.city, resolved.geo.country]
@@ -48,7 +64,7 @@ export function HopTable({
             <TableRow key={hop.id} className={cn(isProblem && 'bg-destructive/5')}>
               <TableCell className="tabular-nums">
                 <span className="flex items-center gap-1">
-                  {hop.hopNumber}
+                  {isDestination ? '→' : hop.hopNumber}
                   {isProblem && <RiAlertLine className="text-destructive size-3" />}
                 </span>
               </TableCell>
@@ -91,7 +107,7 @@ export function HopTable({
                   <span
                     className={cn(
                       hop.packetLoss > 5 && 'text-destructive',
-                      hop.packetLoss > 0 && hop.packetLoss <= 5 && 'text-amber-500'
+                      hop.packetLoss > 0 && hop.packetLoss <= 5 && 'text-amber-500',
                     )}
                   >
                     {formatLoss(hop.packetLoss)}
@@ -100,9 +116,69 @@ export function HopTable({
                   <span className="text-muted-foreground">-</span>
                 )}
               </TableCell>
+              <TableCell className="hidden text-right md:table-cell">
+                {hop.source ? (
+                  <Badge variant="outline" className="text-xs font-normal">
+                    {hop.source}
+                  </Badge>
+                ) : (
+                  <span className="text-muted-foreground text-xs">ICMP</span>
+                )}
+              </TableCell>
             </TableRow>
           )
         })}
+        {!destinationReached && targetIp && (
+          <>
+            {lastRespondingHop > 0 && (
+              <TableRow>
+                <TableCell className="text-muted-foreground tabular-nums">…</TableCell>
+                <TableCell colSpan={5}>
+                  <span className="text-muted-foreground text-xs italic">
+                    {m.session_hop_unknown_hops()}
+                  </span>
+                </TableCell>
+              </TableRow>
+            )}
+            <TableRow className="bg-muted/30">
+              <TableCell className="tabular-nums font-medium">→</TableCell>
+              <TableCell className="font-mono">
+                {(() => {
+                  const destResolved = asnData?.get(targetIp)
+                  const destLabel = destResolved
+                    ? [destResolved.asnInfo.isp, destResolved.geo.city, destResolved.geo.country]
+                        .filter(Boolean)
+                        .join(', ')
+                    : null
+                  return destLabel ? (
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-default underline decoration-dotted underline-offset-2">
+                        {targetIp}
+                      </TooltipTrigger>
+                      <TooltipContent>{destLabel}</TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    targetIp
+                  )
+                })()}
+              </TableCell>
+              <TableCell className="hidden sm:table-cell">
+                <span className="text-muted-foreground">-</span>
+              </TableCell>
+              <TableCell className="text-right">
+                <span className="text-muted-foreground text-xs">
+                  {m.session_hop_unreachable()}
+                </span>
+              </TableCell>
+              <TableCell className="text-right">
+                <span className="text-muted-foreground">-</span>
+              </TableCell>
+              <TableCell className="hidden text-right md:table-cell">
+                <span className="text-muted-foreground">-</span>
+              </TableCell>
+            </TableRow>
+          </>
+        )}
       </TableBody>
     </Table>
   )

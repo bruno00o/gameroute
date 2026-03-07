@@ -76,6 +76,8 @@
   "session_period_start": "Start",
   "session_period_end": "End",
   "session_period_duration": "Duration",
+  "session_period_protocol": "Protocol",
+  "session_period_port": "Port",
   "session_period_packets": "Packets",
   "session_ip_summary": "IP Summary",
   "session_ip_total_duration": "Total duration",
@@ -92,6 +94,8 @@
   "session_hop_loss": "Loss",
   "session_hop_timeout": "Timeout",
   "session_hop_problem": "Problem",
+  "session_hop_unknown_hops": "Unknown hops",
+  "session_hop_unreachable": "ICMP blocked",
   "session_delete": "Delete session",
   "session_delete_title": "Delete this session?",
   "session_delete_description": "This action cannot be undone. All data for this session will be permanently deleted.",
@@ -277,5 +281,15 @@
   "help_data_title": "Data & APIs",
   "help_data_description": "GameRoute uses the following external services to enrich network analysis. No personal data is sent — only IP addresses encountered during traceroutes.",
   "help_data_ip_api": "ip-api.com",
-  "help_data_ip_api_desc": "Used to resolve geolocation (country, city, coordinates), ASN, and ISP for IP addresses encountered during traceroutes. Requests are batched and rate-limited. Data is cached locally for 30 days."
+  "help_data_ip_api_desc": "Used to resolve geolocation (country, city, coordinates), ASN, and ISP for IP addresses encountered during traceroutes. Requests are batched and rate-limited. Data is cached locally for 30 days.",
+
+  "error_boundary_title": "Something went wrong",
+  "error_boundary_fallback": "An unexpected error occurred.",
+  "error_boundary_retry": "Try again",
+  "session_delete_error": "Failed to delete session.",
+  "session_retry_error": "Failed to retry traceroutes.",
+  "games_add_name_placeholder": "Counter-Strike 2",
+  "games_add_path_placeholder": "C:\\Games\\game.exe",
+  "games_delete_game": "Delete game",
+  "monitoring_manual_select": "Select process"
 }

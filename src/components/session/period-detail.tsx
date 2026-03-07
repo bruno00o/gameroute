@@ -123,6 +123,22 @@ export function PeriodDetail({
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Card size="sm">
             <CardHeader>
+              <CardTitle>{m.session_period_protocol()}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm font-medium">{period.protocol || '-'}</p>
+            </CardContent>
+          </Card>
+          <Card size="sm">
+            <CardHeader>
+              <CardTitle>{m.session_period_port()}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm font-medium tabular-nums">{period.port || '-'}</p>
+            </CardContent>
+          </Card>
+          <Card size="sm">
+            <CardHeader>
               <CardTitle>{m.session_period_start()}</CardTitle>
             </CardHeader>
             <CardContent>
@@ -204,12 +220,20 @@ export function PeriodDetail({
       )}
 
       <section>
-        <h3 className="mb-3 text-sm font-medium">{m.session_traceroute()}</h3>
+        <div className="mb-3 flex items-center gap-2">
+          <h3 className="text-sm font-medium">{m.session_traceroute()}</h3>
+          {traceroute?.tracerouteMethod && (
+            <Badge variant="outline" className="text-xs font-normal">
+              {traceroute.tracerouteMethod}
+            </Badge>
+          )}
+        </div>
         {traceroute ? (
           <HopTable
             hops={traceroute.hops}
             asnData={asnData}
             problemHopIndex={traceroute.problemHopIndex}
+            targetIp={traceroute.targetIp}
           />
         ) : (
           <p className="text-muted-foreground text-xs">{m.session_no_traceroute()}</p>

@@ -76,6 +76,8 @@
   "session_period_start": "Inicio",
   "session_period_end": "Fin",
   "session_period_duration": "Duración",
+  "session_period_protocol": "Protocolo",
+  "session_period_port": "Puerto",
   "session_period_packets": "Paquetes",
   "session_ip_summary": "Resumen IP",
   "session_ip_total_duration": "Duración total",
@@ -92,6 +94,8 @@
   "session_hop_loss": "Pérdida",
   "session_hop_timeout": "Timeout",
   "session_hop_problem": "Problema",
+  "session_hop_unknown_hops": "Saltos desconocidos",
+  "session_hop_unreachable": "ICMP bloqueado",
   "session_delete": "Eliminar sesión",
   "session_delete_title": "¿Eliminar esta sesión?",
   "session_delete_description": "Esta acción no se puede deshacer. Todos los datos de esta sesión se eliminarán permanentemente.",
@@ -277,5 +281,15 @@
   "help_data_title": "Datos y APIs",
   "help_data_description": "GameRoute utiliza los siguientes servicios externos para enriquecer el análisis de red. No se envían datos personales — solo las direcciones IP encontradas durante los traceroutes.",
   "help_data_ip_api": "ip-api.com",
-  "help_data_ip_api_desc": "Utilizado para resolver la geolocalización (país, ciudad, coordenadas), ASN y ISP de las direcciones IP encontradas durante los traceroutes. Las solicitudes se agrupan y se limitan en frecuencia. Los datos se almacenan en caché localmente durante 30 días."
+  "help_data_ip_api_desc": "Utilizado para resolver la geolocalización (país, ciudad, coordenadas), ASN y ISP de las direcciones IP encontradas durante los traceroutes. Las solicitudes se agrupan y se limitan en frecuencia. Los datos se almacenan en caché localmente durante 30 días.",
+
+  "error_boundary_title": "Algo salió mal",
+  "error_boundary_fallback": "Ocurrió un error inesperado.",
+  "error_boundary_retry": "Intentar de nuevo",
+  "session_delete_error": "Error al eliminar la sesión.",
+  "session_retry_error": "Error al reintentar los traceroutes.",
+  "games_add_name_placeholder": "Counter-Strike 2",
+  "games_add_path_placeholder": "C:\\Games\\game.exe",
+  "games_delete_game": "Eliminar juego",
+  "monitoring_manual_select": "Seleccionar proceso"
 }

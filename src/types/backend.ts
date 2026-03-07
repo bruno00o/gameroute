@@ -56,6 +56,7 @@ export type DbHop = {
   latencyMax: number | null
   packetLoss: number | null
   isProblemHop: boolean
+  source: string | null
 }
 
 // ===== IP Periods =====
@@ -63,6 +64,8 @@ export type IpPeriod = {
   id: number
   sessionId: number
   ip: string
+  protocol: string
+  port: number
   startedAt: string
   endedAt: string
   packetCount: number
@@ -70,6 +73,8 @@ export type IpPeriod = {
 
 export type IpPeriodSummary = {
   ip: string
+  protocol: string
+  port: number
   totalDurationSecs: number
   totalPacketCount: number
   periodCount: number
@@ -85,6 +90,7 @@ export type TracerouteRecord = {
   startedAt: string
   completedAt: string | null
   problemHopIndex: number | null
+  tracerouteMethod: string | null
 }
 
 export type TracerouteWithHops = {
@@ -94,6 +100,7 @@ export type TracerouteWithHops = {
   startedAt: string
   completedAt: string | null
   problemHopIndex: number | null
+  tracerouteMethod: string | null
   hops: DbHop[]
 }
 
