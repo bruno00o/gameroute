@@ -4,6 +4,7 @@ pub mod capture_client;
 pub mod epic_scanner;
 pub mod game_detection;
 pub mod network_capture;
+pub mod riot_scanner;
 pub mod scanner_utils;
 pub mod steam_scanner;
 pub mod traceroute;

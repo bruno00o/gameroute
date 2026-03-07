@@ -52,6 +52,7 @@ export const retryTraceroutes = (sessionId: number) =>
 // ===== Games =====
 export const scanSteamGames = () => invoke<ScanResult>('scan_steam_games')
 export const scanEpicGames = () => invoke<ScanResult>('scan_epic_games')
+export const scanRiotGames = () => invoke<ScanResult>('scan_riot_games')
 export const scanAllGames = () => invoke<ScanResult>('scan_all_games')
 export const getGames = (limit: number, offset: number) =>
   invoke<GameListItem[]>('get_games', { limit, offset })

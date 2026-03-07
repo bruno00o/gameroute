@@ -3,6 +3,7 @@ use crate::commands::validate_pagination;
 use crate::db::get_game_repository;
 use crate::models::game_library::{GameListItem, NewGame, ScanResult};
 use crate::services::epic_scanner;
+use crate::services::riot_scanner;
 use crate::services::scanner_utils::resolve_executable_name;
 use crate::services::steam_scanner;
 
@@ -127,8 +128,16 @@ pub async fn scan_epic_games() -> Result<ScanResult, CommandError> {
 }
 
 #[tauri::command]
+pub async fn scan_riot_games() -> Result<ScanResult, CommandError> {
+    log::info!("Starting Riot Games scan...");
+    riot_scanner::scan_riot_games()
+        .await
+        .map_err(|e| CommandError::internal(e.to_string()))
+}
+
+#[tauri::command]
 pub async fn scan_all_games() -> Result<ScanResult, CommandError> {
-    log::info!("Starting full game scan (Steam + Epic)...");
+    log::info!("Starting full game scan (Steam + Epic + Riot)...");
     let mut result = ScanResult::default();
 
     match steam_scanner::scan_steam_games().await {
@@ -139,6 +148,11 @@ pub async fn scan_all_games() -> Result<ScanResult, CommandError> {
     match epic_scanner::scan_epic_games().await {
         Ok(r) => result.merge(&r),
         Err(e) => log::warn!("Epic scan failed: {}", e),
+    }
+
+    match riot_scanner::scan_riot_games().await {
+        Ok(r) => result.merge(&r),
+        Err(e) => log::warn!("Riot scan failed: {}", e),
     }
 
     log::info!(

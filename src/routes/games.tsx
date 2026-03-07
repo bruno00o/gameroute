@@ -27,6 +27,7 @@ import {
   removeGame,
   scanAllGames,
   scanEpicGames,
+  scanRiotGames,
   scanSteamGames,
   searchGameCount,
   searchGames,
@@ -290,6 +291,9 @@ function GamesPage() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleScan(scanEpicGames)}>
                   {m.games_scan_epic()}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleScan(scanRiotGames)}>
+                  {m.games_scan_riot()}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
