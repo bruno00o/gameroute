@@ -15,7 +15,6 @@ pub struct HopResult {
     pub responded: bool,
 }
 
-#[allow(dead_code)]
 impl HopResult {
     pub fn new(
         hop_number: u32,

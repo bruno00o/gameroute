@@ -9,7 +9,7 @@ pub struct TracerouteRepository {
     pool: SqlitePool,
 }
 
-#[allow(dead_code)]
+#[allow(dead_code)] // Methods used via Tauri commands (invisible to clippy)
 impl TracerouteRepository {
     pub fn new(pool: SqlitePool) -> Self {
         Self { pool }
@@ -17,12 +17,13 @@ impl TracerouteRepository {
 
     pub async fn insert_traceroute(&self, data: &TracerouteData) -> Result<i64, DbError> {
         let result = sqlx::query(
-            "INSERT INTO traceroutes (session_id, target_ip, started_at)
-             VALUES ($1, $2, $3)",
+            "INSERT INTO traceroutes (session_id, target_ip, started_at, traceroute_method)
+             VALUES ($1, $2, $3, $4)",
         )
         .bind(data.session_id)
         .bind(&data.target_ip)
         .bind(&data.started_at)
+        .bind(&data.traceroute_method)
         .execute(&self.pool)
         .await?;
 
@@ -34,12 +35,14 @@ impl TracerouteRepository {
         id: i64,
         completed_at: &str,
         problem_hop_index: Option<i32>,
+        traceroute_method: Option<&str>,
     ) -> Result<(), DbError> {
         sqlx::query(
-            "UPDATE traceroutes SET completed_at = $1, problem_hop_index = $2 WHERE id = $3",
+            "UPDATE traceroutes SET completed_at = $1, problem_hop_index = $2, traceroute_method = COALESCE($3, traceroute_method) WHERE id = $4",
         )
         .bind(completed_at)
         .bind(problem_hop_index)
+        .bind(traceroute_method)
         .bind(id)
         .execute(&self.pool)
         .await?;
@@ -49,7 +52,7 @@ impl TracerouteRepository {
 
     pub async fn get_traceroute(&self, id: i64) -> Result<Option<TracerouteRecord>, DbError> {
         sqlx::query_as::<_, TracerouteRecord>(
-            "SELECT id, session_id, target_ip, started_at, completed_at, problem_hop_index
+            "SELECT id, session_id, target_ip, started_at, completed_at, problem_hop_index, traceroute_method
              FROM traceroutes WHERE id = $1",
         )
         .bind(id)
@@ -63,7 +66,7 @@ impl TracerouteRepository {
         session_id: i64,
     ) -> Result<Vec<TracerouteRecord>, DbError> {
         sqlx::query_as::<_, TracerouteRecord>(
-            "SELECT id, session_id, target_ip, started_at, completed_at, problem_hop_index
+            "SELECT id, session_id, target_ip, started_at, completed_at, problem_hop_index, traceroute_method
              FROM traceroutes
              WHERE session_id = $1
              ORDER BY started_at ASC",
@@ -98,6 +101,7 @@ impl TracerouteRepository {
             started_at: traceroute.started_at,
             completed_at: traceroute.completed_at,
             problem_hop_index: traceroute.problem_hop_index,
+            traceroute_method: traceroute.traceroute_method,
             hops,
         }))
     }
@@ -116,6 +120,7 @@ impl TracerouteRepository {
                 t.started_at as traceroute_started_at,
                 t.completed_at,
                 t.problem_hop_index,
+                t.traceroute_method,
                 h.id as hop_id,
                 h.hop_number,
                 h.ip as hop_ip,
@@ -124,7 +129,8 @@ impl TracerouteRepository {
                 h.latency_avg,
                 h.latency_max,
                 h.packet_loss,
-                h.is_problem_hop
+                h.is_problem_hop,
+                h.source as hop_source
              FROM traceroutes t
              LEFT JOIN hops h ON h.traceroute_id = t.id
              WHERE t.session_id = $1
@@ -147,6 +153,7 @@ impl TracerouteRepository {
                     started_at: row.traceroute_started_at.clone(),
                     completed_at: row.completed_at.clone(),
                     problem_hop_index: row.problem_hop_index,
+                    traceroute_method: row.traceroute_method.clone(),
                     hops: Vec::new(),
                 }
             });
@@ -164,6 +171,7 @@ impl TracerouteRepository {
                     latency_max: row.latency_max,
                     packet_loss: row.packet_loss,
                     is_problem_hop: row.is_problem_hop.unwrap_or(false),
+                    source: row.hop_source,
                 });
             }
         }
@@ -210,6 +218,7 @@ struct JoinedTracerouteHopRow {
     traceroute_started_at: String,
     completed_at: Option<String>,
     problem_hop_index: Option<i32>,
+    traceroute_method: Option<String>,
     hop_id: Option<i64>,
     hop_number: Option<i32>,
     hop_ip: Option<String>,
@@ -219,6 +228,7 @@ struct JoinedTracerouteHopRow {
     latency_max: Option<f64>,
     packet_loss: Option<f64>,
     is_problem_hop: Option<bool>,
+    hop_source: Option<String>,
 }
 
 static TRACEROUTE_REPOSITORY: OnceLock<Arc<TracerouteRepository>> = OnceLock::new();
@@ -277,7 +287,7 @@ mod tests {
             TracerouteData::new(1, "8.8.8.8".to_string(), "2026-01-25T10:00:00Z".to_string());
         let id = repo.insert_traceroute(&data).await.unwrap();
 
-        repo.update_traceroute_completed(id, "2026-01-25T10:00:25Z", Some(5))
+        repo.update_traceroute_completed(id, "2026-01-25T10:00:25Z", Some(5), Some("ICMP (tracert)"))
             .await
             .unwrap();
 

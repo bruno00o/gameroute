@@ -50,6 +50,7 @@ pub struct DbHop {
     pub latency_max: Option<f64>,
     pub packet_loss: Option<f64>,
     pub is_problem_hop: bool,
+    pub source: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -62,6 +63,7 @@ pub struct HopData {
     pub latency_max: Option<f64>,
     pub packet_loss: Option<f64>,
     pub is_problem_hop: bool,
+    pub source: Option<String>,
 }
 
 #[cfg(test)]
@@ -99,6 +101,7 @@ mod tests {
             latency_max: Some(3.5),
             packet_loss: Some(0.0),
             is_problem_hop: false,
+            source: Some("ICMP".to_string()),
         };
 
         let json = serde_json::to_string(&hop).unwrap();

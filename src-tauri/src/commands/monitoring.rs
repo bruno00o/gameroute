@@ -1,16 +1,17 @@
+use super::CommandError;
 use crate::config::TRACEROUTE_MAX_CONCURRENT;
 use crate::db::{
-    get_game_repository, get_hop_repository, get_ip_period_repository, get_session_repository,
+    get_game_repository, get_ip_period_repository, get_session_repository,
     get_traceroute_repository,
 };
 use crate::models::{
-    session::HopData, DetectedGame, GameEndedEvent, HopResult, IpCapacityReachedEvent,
-    MonitoringState, RunningApp, RunningProcess, ServerIpCapturedEvent, TracerouteAllCompleteEvent,
-    TracerouteData, TracerouteHopEvent, TracerouteProgressEvent, TracerouteServerIpCompleteEvent,
+    DetectedGame, GameEndedEvent, HopResult, IpCapacityReachedEvent, MonitoringState, RunningApp,
+    RunningProcess, ServerIpCapturedEvent, TracerouteAllCompleteEvent, TracerouteData,
+    TracerouteHopEvent, TracerouteProgressEvent, TracerouteServerIpCompleteEvent,
     TracerouteStartedEvent,
 };
 use crate::platform;
-use crate::services::traceroute::TracerouteJob;
+use crate::services::traceroute::{persist_traceroute_result, TracerouteJob};
 use crate::services::{GameDetector, TracerouteService};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
@@ -31,37 +32,6 @@ impl AppMonitoringState {
         }
     }
 }
-
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct MonitoringError {
-    pub code: String,
-    pub message: String,
-}
-
-impl MonitoringError {
-    pub fn already_monitoring() -> Self {
-        Self {
-            code: "ALREADY_MONITORING".to_string(),
-            message: "Monitoring is already active".to_string(),
-        }
-    }
-
-    pub fn not_monitoring() -> Self {
-        Self {
-            code: "NOT_MONITORING".to_string(),
-            message: "Monitoring is not active".to_string(),
-        }
-    }
-
-    pub fn process_not_found() -> Self {
-        Self {
-            code: "PROCESS_NOT_FOUND".to_string(),
-            message: "The selected process no longer exists".to_string(),
-        }
-    }
-}
-
-use crate::config::{LATENCY_INCREASE_THRESHOLD, PACKET_LOSS_THRESHOLD};
 
 /// Build the `on_game_ended` callback shared by both auto and manual monitoring.
 fn make_on_game_ended(
@@ -112,6 +82,8 @@ fn make_on_ip_captured(
 
         let state_clone = monitoring_state.clone();
         let ip_clone = event.ip.clone();
+        let protocol = event.protocol.clone();
+        let port = event.port as i32;
         let captured_at = event.captured_at.clone();
         tokio::spawn(async move {
             let session_id = {
@@ -122,7 +94,7 @@ fn make_on_ip_captured(
             if let Some(session_id) = session_id {
                 if let Some(ip_period_repo) = get_ip_period_repository() {
                     match ip_period_repo
-                        .upsert_ip_activity(session_id, &ip_clone, &captured_at)
+                        .upsert_ip_activity(session_id, &ip_clone, &protocol, port, &captured_at)
                         .await
                     {
                         Ok((period_id, is_new)) => {
@@ -171,37 +143,12 @@ fn make_on_capacity_reached(
     }
 }
 
-fn identify_problem_hop(hops: &[HopResult]) -> Option<i32> {
-    let mut prev_latency: Option<f64> = None;
-
-    for hop in hops {
-        let packet_loss = if hop.probe_count > 0 {
-            (hop.timeout_count as f64 / hop.probe_count as f64) * 100.0
-        } else {
-            0.0
-        };
-
-        if packet_loss >= PACKET_LOSS_THRESHOLD {
-            return Some(hop.hop_number as i32);
-        }
-
-        if let (Some(prev), Some(current)) = (prev_latency, hop.rtt_avg) {
-            if current - prev >= LATENCY_INCREASE_THRESHOLD {
-                return Some(hop.hop_number as i32);
-            }
-        }
-
-        prev_latency = hop.rtt_avg;
-    }
-
-    None
-}
-
 pub async fn execute_traceroute_queue(
     app_handle: AppHandle,
     traceroute_service: Arc<TracerouteService>,
     session_id: i64,
     unique_ips: Vec<String>,
+    protocol_info: Option<Vec<crate::models::ip_period::IpProtocolInfo>>,
 ) {
     if unique_ips.is_empty() {
         log::debug!("No unique IPs to traceroute");
@@ -219,6 +166,13 @@ pub async fn execute_traceroute_queue(
         }
 
         let mut job = TracerouteJob::new(ip.clone(), (i + 1) as u32, None);
+
+        // Apply protocol/port info if available
+        if let Some(ref infos) = protocol_info {
+            if let Some(info) = infos.iter().find(|p| p.ip == *ip) {
+                job = job.with_protocol(info.protocol.clone(), info.port as u16);
+            }
+        }
 
         if let Some(ref repo) = traceroute_repo {
             let data = TracerouteData::new(session_id, ip.clone(), now.clone());
@@ -251,7 +205,7 @@ pub async fn execute_traceroute_queue(
 
     {
         let mut state_guard = traceroute_service.state.write().await;
-        state_guard.pending_jobs = jobs.clone();
+        state_guard.pending_jobs = jobs.clone().into();
         state_guard.total_count = jobs.len() as u32;
         state_guard.completed_count = 0;
         state_guard.is_running = true;
@@ -317,74 +271,7 @@ pub async fn execute_traceroute_queue(
 
                 match result {
                     Some(trace_result) => {
-                        if let Some(traceroute_id) = trace_result.traceroute_id {
-                            let problem_hop_index = identify_problem_hop(&trace_result.hops);
-
-                            if let Some(hop_repo) = get_hop_repository() {
-                                let hop_data: Vec<HopData> = trace_result
-                                    .hops
-                                    .iter()
-                                    .map(|hop| {
-                                        let packet_loss = if hop.probe_count > 0 {
-                                            (hop.timeout_count as f64 / hop.probe_count as f64)
-                                                * 100.0
-                                        } else {
-                                            0.0
-                                        };
-
-                                        let is_problem =
-                                            problem_hop_index == Some(hop.hop_number as i32);
-
-                                        HopData {
-                                            hop_number: hop.hop_number as i32,
-                                            ip: hop.ip.clone(),
-                                            hostname: hop.hostname.clone(),
-                                            latency_min: hop.rtt_min,
-                                            latency_avg: hop.rtt_avg,
-                                            latency_max: hop.rtt_max,
-                                            packet_loss: Some(packet_loss),
-                                            is_problem_hop: is_problem,
-                                        }
-                                    })
-                                    .collect();
-
-                                if !hop_data.is_empty() {
-                                    if let Err(e) =
-                                        hop_repo.insert_hops_batch(traceroute_id, &hop_data).await
-                                    {
-                                        log::error!(
-                                            "Failed to persist hops for traceroute {}: {}",
-                                            traceroute_id,
-                                            e
-                                        );
-                                    } else {
-                                        log::debug!(
-                                            "Persisted {} hops for traceroute {}",
-                                            hop_data.len(),
-                                            traceroute_id
-                                        );
-                                    }
-                                }
-                            }
-
-                            if let Some(traceroute_repo) = get_traceroute_repository() {
-                                let completed_at = chrono::Utc::now().to_rfc3339();
-                                if let Err(e) = traceroute_repo
-                                    .update_traceroute_completed(
-                                        traceroute_id,
-                                        &completed_at,
-                                        problem_hop_index,
-                                    )
-                                    .await
-                                {
-                                    log::error!(
-                                        "Failed to update traceroute {}: {}",
-                                        traceroute_id,
-                                        e
-                                    );
-                                }
-                            }
-                        }
+                        persist_traceroute_result(&trace_result).await;
 
                         let complete_event = TracerouteServerIpCompleteEvent::new(
                             trace_result.index,
@@ -441,31 +328,6 @@ async fn run_traceroute_queue(
         return;
     }
 
-    let unique_ips: Vec<String> = if let (Some(session_id), Some(ip_period_repo)) =
-        (event.session_id, get_ip_period_repository())
-    {
-        match ip_period_repo.get_unique_ips_for_session(session_id).await {
-            Ok(ips) => ips,
-            Err(e) => {
-                log::warn!(
-                    "Failed to get unique IPs from periods: {}, using event data",
-                    e
-                );
-                event
-                    .server_ips
-                    .iter()
-                    .map(|ip| ip.server_ip.clone())
-                    .collect()
-            }
-        }
-    } else {
-        event
-            .server_ips
-            .iter()
-            .map(|ip| ip.server_ip.clone())
-            .collect()
-    };
-
     let session_id = match event.session_id {
         Some(id) => id,
         None => {
@@ -474,21 +336,60 @@ async fn run_traceroute_queue(
         }
     };
 
-    execute_traceroute_queue(app_handle, traceroute_service, session_id, unique_ips).await;
+    // Try to get IPs with protocol/port info for protocol-aware traceroutes
+    let (unique_ips, protocol_info) = if let Some(ip_period_repo) = get_ip_period_repository() {
+        match ip_period_repo
+            .get_unique_ips_with_protocol_for_session(session_id)
+            .await
+        {
+            Ok(infos) => {
+                let ips: Vec<String> = infos.iter().map(|i| i.ip.clone()).collect();
+                (ips, Some(infos))
+            }
+            Err(e) => {
+                log::warn!(
+                    "Failed to get unique IPs with protocol: {}, using event data",
+                    e
+                );
+                let ips = event
+                    .server_ips
+                    .iter()
+                    .map(|ip| ip.server_ip.clone())
+                    .collect();
+                (ips, None)
+            }
+        }
+    } else {
+        let ips = event
+            .server_ips
+            .iter()
+            .map(|ip| ip.server_ip.clone())
+            .collect();
+        (ips, None)
+    };
+
+    execute_traceroute_queue(
+        app_handle,
+        traceroute_service,
+        session_id,
+        unique_ips,
+        protocol_info,
+    )
+    .await;
 }
 
 #[tauri::command]
 pub async fn start_monitoring(
     app: AppHandle,
     state: State<'_, AppMonitoringState>,
-) -> Result<(), MonitoringError> {
+) -> Result<(), CommandError> {
     log::info!("Starting game monitoring...");
 
     {
         let monitoring_state = state.monitoring_state.read().await;
         if monitoring_state.is_monitoring {
             log::warn!("Monitoring already active");
-            return Err(MonitoringError::already_monitoring());
+            return Err(CommandError::already_monitoring());
         }
     }
 
@@ -497,7 +398,7 @@ pub async fn start_monitoring(
         monitoring_state.is_monitoring = true;
     }
 
-    let game_repo = get_game_repository().ok_or_else(|| MonitoringError {
+    let game_repo = get_game_repository().ok_or_else(|| CommandError {
         code: "REPO_NOT_INITIALIZED".to_string(),
         message: "Game repository not initialized".to_string(),
     })?;
@@ -557,14 +458,14 @@ pub async fn start_monitoring(
 pub async fn stop_monitoring(
     app: AppHandle,
     state: State<'_, AppMonitoringState>,
-) -> Result<(), MonitoringError> {
+) -> Result<(), CommandError> {
     log::info!("Stopping game monitoring...");
 
     {
         let monitoring_state = state.monitoring_state.read().await;
         if !monitoring_state.is_monitoring {
             log::warn!("Monitoring not active");
-            return Err(MonitoringError::not_monitoring());
+            return Err(CommandError::not_monitoring());
         }
     }
 
@@ -635,7 +536,7 @@ pub async fn stop_monitoring(
 pub async fn cancel_traceroute(
     app: AppHandle,
     state: State<'_, AppMonitoringState>,
-) -> Result<(), MonitoringError> {
+) -> Result<(), CommandError> {
     log::info!("Cancelling traceroute queue...");
     state.traceroute_service.reset().await;
 
@@ -649,7 +550,7 @@ pub async fn cancel_traceroute(
 #[tauri::command]
 pub async fn get_monitoring_status(
     state: State<'_, AppMonitoringState>,
-) -> Result<MonitoringStatusResponse, MonitoringError> {
+) -> Result<MonitoringStatusResponse, CommandError> {
     let monitoring_state = state.monitoring_state.read().await;
 
     Ok(MonitoringStatusResponse {
@@ -670,7 +571,7 @@ pub struct MonitoringStatusResponse {
 }
 
 #[tauri::command]
-pub async fn list_running_processes() -> Result<Vec<RunningProcess>, MonitoringError> {
+pub async fn list_running_processes() -> Result<Vec<RunningProcess>, CommandError> {
     log::debug!("Listing running processes for manual selection...");
     let processes = platform::list_running_processes_filtered();
     log::debug!("Found {} processes after filtering", processes.len());
@@ -678,7 +579,7 @@ pub async fn list_running_processes() -> Result<Vec<RunningProcess>, MonitoringE
 }
 
 #[tauri::command]
-pub async fn list_running_apps() -> Result<Vec<RunningApp>, MonitoringError> {
+pub async fn list_running_apps() -> Result<Vec<RunningApp>, CommandError> {
     log::debug!("Listing running apps (grouped) for manual selection...");
     let apps = platform::list_running_apps_grouped();
     log::debug!("Found {} apps after grouping", apps.len());
@@ -690,7 +591,7 @@ pub async fn start_manual_monitoring(
     app: AppHandle,
     state: State<'_, AppMonitoringState>,
     pid: u32,
-) -> Result<(), MonitoringError> {
+) -> Result<(), CommandError> {
     log::info!("Starting manual monitoring for PID {}...", pid);
 
     {
@@ -722,7 +623,7 @@ pub async fn start_manual_monitoring(
     let process_name = platform::get_process_name(pid);
     if process_name.is_none() {
         log::warn!("Process {} not found", pid);
-        return Err(MonitoringError::process_not_found());
+        return Err(CommandError::process_not_found());
     }
     let process_name = process_name.unwrap();
 
@@ -755,7 +656,7 @@ pub async fn start_manual_monitoring(
         monitoring_state.current_game = Some(game.clone());
     }
 
-    let game_repo = get_game_repository().ok_or_else(|| MonitoringError {
+    let game_repo = get_game_repository().ok_or_else(|| CommandError {
         code: "REPO_NOT_INITIALIZED".to_string(),
         message: "Game repository not initialized".to_string(),
     })?;

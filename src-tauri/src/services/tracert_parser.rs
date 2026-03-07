@@ -11,7 +11,6 @@ use std::net::IpAddr;
 /// ```
 ///
 /// Returns `None` for header/footer lines that don't start with a hop number.
-#[allow(dead_code)]
 pub fn parse_tracert_line(line: &str) -> Option<HopResult> {
     let trimmed = line.trim();
     if trimmed.is_empty() {
@@ -95,7 +94,7 @@ pub async fn run_tracert<H>(
 where
     H: Fn(&HopResult, u32, &str) + Send + Sync + 'static,
 {
-    use crate::config::TRACERT_PER_PROBE_TIMEOUT_MS;
+    use crate::config::{TRACERT_MAX_CONSECUTIVE_TIMEOUTS, TRACERT_PER_PROBE_TIMEOUT_MS};
     use std::process::Stdio;
     use tokio::io::{AsyncBufReadExt, BufReader};
     use tokio::time::Duration;
@@ -136,6 +135,7 @@ where
         // Read raw bytes per line to handle non-UTF-8 Windows code pages (e.g. CP437/CP850).
         // tracert.exe outputs in the system's OEM code page, not UTF-8.
         let mut buf = Vec::new();
+        let mut consecutive_timeouts: u32 = 0;
         loop {
             buf.clear();
             let bytes_read = reader
@@ -147,6 +147,21 @@ where
             }
             let line = String::from_utf8_lossy(&buf);
             if let Some(hop_result) = parse_tracert_line(&line) {
+                if hop_result.responded {
+                    consecutive_timeouts = 0;
+                } else {
+                    consecutive_timeouts += 1;
+                    if consecutive_timeouts >= TRACERT_MAX_CONSECUTIVE_TIMEOUTS {
+                        log::info!(
+                            "tracert.exe for {}: {} consecutive timeouts, stopping early",
+                            target_ip,
+                            consecutive_timeouts
+                        );
+                        on_hop(&hop_result, job_index, target_ip);
+                        hops.push(hop_result);
+                        break;
+                    }
+                }
                 on_hop(&hop_result, job_index, target_ip);
                 hops.push(hop_result);
             }
@@ -171,6 +186,8 @@ where
         }
     }
 
+    // Kill the process in case we broke out early (consecutive timeouts)
+    let _ = child.kill().await;
     let _ = child.wait().await;
 
     Ok(hops)

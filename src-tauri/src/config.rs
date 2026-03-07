@@ -32,6 +32,9 @@ pub const TRACERT_PER_PROBE_TIMEOUT_MS: u64 = 2000;
 /// Maximum number of concurrent traceroute jobs.
 pub const TRACEROUTE_MAX_CONCURRENT: usize = 4;
 
+/// Stop tracert.exe early after this many consecutive timeout hops.
+pub const TRACERT_MAX_CONSECUTIVE_TIMEOUTS: u32 = 7;
+
 // ── Network Analysis ────────────────────────────────────────────────────────
 
 /// Minimum latency increase (ms) between consecutive hops to flag as a problem hop.

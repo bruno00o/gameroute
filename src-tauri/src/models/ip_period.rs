@@ -6,6 +6,8 @@ pub struct IpPeriod {
     pub id: i64,
     pub session_id: i64,
     pub ip: String,
+    pub protocol: String,
+    pub port: i32,
     pub started_at: String,
     pub ended_at: String,
     pub packet_count: i32,
@@ -15,16 +17,20 @@ pub struct IpPeriod {
 pub struct IpPeriodData {
     pub session_id: i64,
     pub ip: String,
+    pub protocol: String,
+    pub port: i32,
     pub started_at: String,
     pub ended_at: String,
     pub packet_count: i32,
 }
 
 impl IpPeriodData {
-    pub fn new(session_id: i64, ip: String, timestamp: String) -> Self {
+    pub fn new(session_id: i64, ip: String, protocol: String, port: i32, timestamp: String) -> Self {
         Self {
             session_id,
             ip,
+            protocol,
+            port,
             started_at: timestamp.clone(),
             ended_at: timestamp,
             packet_count: 1,
@@ -37,6 +43,10 @@ impl IpPeriodData {
 pub struct IpPeriodSummary {
     pub ip: String,
 
+    pub protocol: String,
+
+    pub port: i32,
+
     pub total_duration_secs: i64,
 
     pub total_packet_count: i32,
@@ -46,6 +56,13 @@ pub struct IpPeriodSummary {
     pub first_seen_at: String,
 
     pub last_seen_at: String,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct IpProtocolInfo {
+    pub ip: String,
+    pub protocol: String,
+    pub port: i32,
 }
 
 #[cfg(test)]
@@ -58,6 +75,8 @@ mod tests {
             id: 1,
             session_id: 1,
             ip: "185.60.112.157".to_string(),
+            protocol: "TCP".to_string(),
+            port: 27015,
             started_at: "2026-01-25T10:00:00Z".to_string(),
             ended_at: "2026-01-25T10:30:00Z".to_string(),
             packet_count: 1500,
@@ -72,10 +91,12 @@ mod tests {
 
     #[test]
     fn test_ip_period_data_new() {
-        let data = IpPeriodData::new(1, "8.8.8.8".to_string(), "2026-01-25T10:00:00Z".to_string());
+        let data = IpPeriodData::new(1, "8.8.8.8".to_string(), "UDP".to_string(), 27015, "2026-01-25T10:00:00Z".to_string());
 
         assert_eq!(data.session_id, 1);
         assert_eq!(data.ip, "8.8.8.8");
+        assert_eq!(data.protocol, "UDP");
+        assert_eq!(data.port, 27015);
         assert_eq!(data.started_at, data.ended_at);
         assert_eq!(data.packet_count, 1);
     }

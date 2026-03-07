@@ -16,8 +16,8 @@ impl HopRepository {
     #[allow(dead_code)] // Used by tests; production uses insert_hops_batch
     pub async fn insert_hop(&self, traceroute_id: i64, hop: &HopData) -> Result<i64, DbError> {
         let result = sqlx::query(
-            "INSERT INTO hops (traceroute_id, hop_number, ip, hostname, latency_min, latency_avg, latency_max, packet_loss, is_problem_hop)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+            "INSERT INTO hops (traceroute_id, hop_number, ip, hostname, latency_min, latency_avg, latency_max, packet_loss, is_problem_hop, source)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
         )
         .bind(traceroute_id)
         .bind(hop.hop_number)
@@ -28,6 +28,7 @@ impl HopRepository {
         .bind(hop.latency_max)
         .bind(hop.packet_loss)
         .bind(hop.is_problem_hop)
+        .bind(&hop.source)
         .execute(&self.pool)
         .await?;
 
@@ -44,7 +45,7 @@ impl HopRepository {
         }
 
         let mut query_builder: QueryBuilder<sqlx::Sqlite> = QueryBuilder::new(
-            "INSERT INTO hops (traceroute_id, hop_number, ip, hostname, latency_min, latency_avg, latency_max, packet_loss, is_problem_hop) ",
+            "INSERT INTO hops (traceroute_id, hop_number, ip, hostname, latency_min, latency_avg, latency_max, packet_loss, is_problem_hop, source) ",
         );
 
         query_builder.push_values(hops, |mut b, hop| {
@@ -56,7 +57,8 @@ impl HopRepository {
                 .push_bind(hop.latency_avg)
                 .push_bind(hop.latency_max)
                 .push_bind(hop.packet_loss)
-                .push_bind(hop.is_problem_hop);
+                .push_bind(hop.is_problem_hop)
+                .push_bind(&hop.source);
         });
 
         query_builder.build().execute(&self.pool).await?;
@@ -73,7 +75,7 @@ impl HopRepository {
     #[allow(dead_code)] // Used by tests; production queries hops via JOIN in TracerouteRepository
     pub async fn get_hops_for_traceroute(&self, traceroute_id: i64) -> Result<Vec<DbHop>, DbError> {
         sqlx::query_as::<_, DbHop>(
-            "SELECT id, traceroute_id, hop_number, ip, hostname, latency_min, latency_avg, latency_max, packet_loss, is_problem_hop
+            "SELECT id, traceroute_id, hop_number, ip, hostname, latency_min, latency_avg, latency_max, packet_loss, is_problem_hop, source
              FROM hops
              WHERE traceroute_id = $1
              ORDER BY hop_number ASC",
@@ -87,7 +89,7 @@ impl HopRepository {
     #[allow(dead_code)] // Used by tests; production checks problem_hop_index on traceroute
     pub async fn get_problem_hop(&self, traceroute_id: i64) -> Result<Option<DbHop>, DbError> {
         sqlx::query_as::<_, DbHop>(
-            "SELECT id, traceroute_id, hop_number, ip, hostname, latency_min, latency_avg, latency_max, packet_loss, is_problem_hop
+            "SELECT id, traceroute_id, hop_number, ip, hostname, latency_min, latency_avg, latency_max, packet_loss, is_problem_hop, source
              FROM hops
              WHERE traceroute_id = $1 AND is_problem_hop = 1
              LIMIT 1",
@@ -160,6 +162,7 @@ mod tests {
             latency_max: Some(2.0),
             packet_loss: Some(0.0),
             is_problem_hop: false,
+            source: Some("ICMP".to_string()),
         };
 
         let id = repo
@@ -189,6 +192,7 @@ mod tests {
                 latency_max: Some(2.0),
                 packet_loss: Some(0.0),
                 is_problem_hop: false,
+                source: None,
             },
             HopData {
                 hop_number: 2,
@@ -199,6 +203,7 @@ mod tests {
                 latency_max: Some(20.0),
                 packet_loss: Some(2.5),
                 is_problem_hop: true,
+                source: None,
             },
             HopData {
                 hop_number: 3,
@@ -209,6 +214,7 @@ mod tests {
                 latency_max: Some(35.0),
                 packet_loss: Some(0.0),
                 is_problem_hop: false,
+                source: None,
             },
         ];
 
@@ -242,6 +248,7 @@ mod tests {
                 latency_max: None,
                 packet_loss: Some(0.0),
                 is_problem_hop: false,
+                source: None,
             },
             HopData {
                 hop_number: 2,
@@ -252,6 +259,7 @@ mod tests {
                 latency_max: None,
                 packet_loss: Some(10.0),
                 is_problem_hop: true,
+                source: None,
             },
         ];
 
@@ -276,6 +284,7 @@ mod tests {
             latency_max: None,
             packet_loss: Some(0.0),
             is_problem_hop: false,
+            source: None,
         }];
 
         repo.insert_hops_batch(1, &hops).await.unwrap();
@@ -298,6 +307,7 @@ mod tests {
                 latency_max: None,
                 packet_loss: None,
                 is_problem_hop: false,
+                source: None,
             },
             HopData {
                 hop_number: 2,
@@ -308,6 +318,7 @@ mod tests {
                 latency_max: None,
                 packet_loss: None,
                 is_problem_hop: false,
+                source: None,
             },
         ];
 

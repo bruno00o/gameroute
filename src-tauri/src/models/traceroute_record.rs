@@ -9,6 +9,7 @@ pub struct TracerouteRecord {
     pub started_at: String,
     pub completed_at: Option<String>,
     pub problem_hop_index: Option<i32>,
+    pub traceroute_method: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -16,6 +17,7 @@ pub struct TracerouteData {
     pub session_id: i64,
     pub target_ip: String,
     pub started_at: String,
+    pub traceroute_method: Option<String>,
 }
 
 impl TracerouteData {
@@ -24,7 +26,13 @@ impl TracerouteData {
             session_id,
             target_ip,
             started_at,
+            traceroute_method: None,
         }
+    }
+
+    pub fn with_method(mut self, method: String) -> Self {
+        self.traceroute_method = Some(method);
+        self
     }
 }
 
@@ -37,6 +45,7 @@ pub struct TracerouteWithHops {
     pub started_at: String,
     pub completed_at: Option<String>,
     pub problem_hop_index: Option<i32>,
+    pub traceroute_method: Option<String>,
     pub hops: Vec<super::session::DbHop>,
 }
 
@@ -53,6 +62,7 @@ mod tests {
             started_at: "2026-01-25T10:00:00Z".to_string(),
             completed_at: Some("2026-01-25T10:00:25Z".to_string()),
             problem_hop_index: Some(5),
+            traceroute_method: Some("ICMP (tracert)".to_string()),
         };
 
         let json = serde_json::to_string(&record).unwrap();

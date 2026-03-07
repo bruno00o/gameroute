@@ -133,14 +133,16 @@ pub async fn retry_traceroutes(
     let ip_period_repo = get_ip_period_repository()
         .ok_or_else(|| CommandError::repo_not_initialized("IpPeriod"))?;
 
-    let unique_ips = ip_period_repo
-        .get_unique_ips_for_session(session_id)
+    let protocol_infos = ip_period_repo
+        .get_unique_ips_with_protocol_for_session(session_id)
         .await
         .map_err(|e| CommandError::internal(e.to_string()))?;
 
-    if unique_ips.is_empty() {
+    if protocol_infos.is_empty() {
         return Err(CommandError::validation("No IPs found for this session"));
     }
+
+    let unique_ips: Vec<String> = protocol_infos.iter().map(|i| i.ip.clone()).collect();
 
     let traceroute_repo = get_traceroute_repository()
         .ok_or_else(|| CommandError::repo_not_initialized("Traceroute"))?;
@@ -152,7 +154,7 @@ pub async fn retry_traceroutes(
 
     let traceroute_service = state.traceroute_service.clone();
     tokio::spawn(async move {
-        execute_traceroute_queue(app, traceroute_service, session_id, unique_ips).await;
+        execute_traceroute_queue(app, traceroute_service, session_id, unique_ips, Some(protocol_infos)).await;
     });
 
     Ok(())

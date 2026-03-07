@@ -9,7 +9,7 @@ pub struct IpPeriodRepository {
     pool: SqlitePool,
 }
 
-#[allow(dead_code)]
+#[allow(dead_code)] // Methods used via Tauri commands (invisible to clippy)
 impl IpPeriodRepository {
     pub fn new(pool: SqlitePool) -> Self {
         Self { pool }
@@ -17,11 +17,13 @@ impl IpPeriodRepository {
 
     pub async fn insert_period(&self, data: &IpPeriodData) -> Result<i64, DbError> {
         let result = sqlx::query(
-            "INSERT INTO ip_periods (session_id, ip, started_at, ended_at, packet_count)
-             VALUES ($1, $2, $3, $4, $5)",
+            "INSERT INTO ip_periods (session_id, ip, protocol, port, started_at, ended_at, packet_count)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)",
         )
         .bind(data.session_id)
         .bind(&data.ip)
+        .bind(&data.protocol)
+        .bind(data.port)
         .bind(&data.started_at)
         .bind(&data.ended_at)
         .bind(data.packet_count)
@@ -53,7 +55,7 @@ impl IpPeriodRepository {
         ip: &str,
     ) -> Result<Option<IpPeriod>, DbError> {
         sqlx::query_as::<_, IpPeriod>(
-            "SELECT id, session_id, ip, started_at, ended_at, packet_count
+            "SELECT id, session_id, ip, protocol, port, started_at, ended_at, packet_count
              FROM ip_periods
              WHERE session_id = $1 AND ip = $2
              ORDER BY ended_at DESC
@@ -70,6 +72,8 @@ impl IpPeriodRepository {
         &self,
         session_id: i64,
         ip: &str,
+        protocol: &str,
+        port: i32,
         timestamp: &str,
     ) -> Result<(i64, bool), DbError> {
         if ip.parse::<IpAddr>().is_err() {
@@ -99,7 +103,7 @@ impl IpPeriodRepository {
             }
         }
 
-        let data = IpPeriodData::new(session_id, ip.to_string(), timestamp.to_string());
+        let data = IpPeriodData::new(session_id, ip.to_string(), protocol.to_string(), port, timestamp.to_string());
         let period_id = self.insert_period(&data).await?;
         log::debug!("Created new IP period {} for {}", period_id, ip);
         Ok((period_id, true))
@@ -107,7 +111,7 @@ impl IpPeriodRepository {
 
     pub async fn get_periods_for_session(&self, session_id: i64) -> Result<Vec<IpPeriod>, DbError> {
         sqlx::query_as::<_, IpPeriod>(
-            "SELECT id, session_id, ip, started_at, ended_at, packet_count
+            "SELECT id, session_id, ip, protocol, port, started_at, ended_at, packet_count
              FROM ip_periods
              WHERE session_id = $1
              ORDER BY started_at ASC",
@@ -125,6 +129,8 @@ impl IpPeriodRepository {
         sqlx::query_as::<_, IpPeriodSummary>(
             "SELECT
                 ip,
+                protocol,
+                port,
                 SUM(CAST((julianday(ended_at) - julianday(started_at)) * 86400 AS INTEGER)) as total_duration_secs,
                 SUM(packet_count) as total_packet_count,
                 COUNT(*) as period_count,
@@ -156,6 +162,23 @@ impl IpPeriodRepository {
         .await?;
 
         Ok(rows.into_iter().map(|r| r.0).collect())
+    }
+
+    pub async fn get_unique_ips_with_protocol_for_session(
+        &self,
+        session_id: i64,
+    ) -> Result<Vec<crate::models::ip_period::IpProtocolInfo>, DbError> {
+        sqlx::query_as::<_, crate::models::ip_period::IpProtocolInfo>(
+            "SELECT ip, protocol, port
+             FROM ip_periods
+             WHERE session_id = $1
+             GROUP BY ip
+             ORDER BY MIN(started_at) ASC",
+        )
+        .bind(session_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Into::into)
     }
 
     pub async fn get_unique_ip_count(&self, session_id: i64) -> Result<i32, DbError> {
@@ -203,7 +226,7 @@ mod tests {
     async fn test_insert_period() {
         let repo = create_test_repo().await;
 
-        let data = IpPeriodData::new(1, "8.8.8.8".to_string(), "2026-01-25T10:00:00Z".to_string());
+        let data = IpPeriodData::new(1, "8.8.8.8".to_string(), "TCP".to_string(), 443, "2026-01-25T10:00:00Z".to_string());
         let id = repo.insert_period(&data).await.expect("Failed to insert");
 
         assert!(id > 0);
@@ -214,13 +237,13 @@ mod tests {
         let repo = create_test_repo().await;
 
         let (id1, is_new1) = repo
-            .upsert_ip_activity(1, "8.8.8.8", "2026-01-25T10:00:00Z")
+            .upsert_ip_activity(1, "8.8.8.8", "UDP", 27015, "2026-01-25T10:00:00Z")
             .await
             .unwrap();
         assert!(is_new1);
 
         let (id2, is_new2) = repo
-            .upsert_ip_activity(1, "8.8.8.8", "2026-01-25T10:00:03Z")
+            .upsert_ip_activity(1, "8.8.8.8", "UDP", 27015, "2026-01-25T10:00:03Z")
             .await
             .unwrap();
         assert!(!is_new2);
@@ -239,13 +262,13 @@ mod tests {
         let repo = create_test_repo().await;
 
         let (id1, is_new1) = repo
-            .upsert_ip_activity(1, "8.8.8.8", "2026-01-25T10:00:00Z")
+            .upsert_ip_activity(1, "8.8.8.8", "TCP", 443, "2026-01-25T10:00:00Z")
             .await
             .unwrap();
         assert!(is_new1);
 
         let (id2, is_new2) = repo
-            .upsert_ip_activity(1, "8.8.8.8", "2026-01-25T10:00:10Z")
+            .upsert_ip_activity(1, "8.8.8.8", "TCP", 443, "2026-01-25T10:00:10Z")
             .await
             .unwrap();
         assert!(is_new2);
@@ -256,13 +279,13 @@ mod tests {
     async fn test_get_periods_for_session() {
         let repo = create_test_repo().await;
 
-        repo.upsert_ip_activity(1, "1.1.1.1", "2026-01-25T10:00:00Z")
+        repo.upsert_ip_activity(1, "1.1.1.1", "TCP", 80, "2026-01-25T10:00:00Z")
             .await
             .unwrap();
-        repo.upsert_ip_activity(1, "2.2.2.2", "2026-01-25T10:00:05Z")
+        repo.upsert_ip_activity(1, "2.2.2.2", "UDP", 27015, "2026-01-25T10:00:05Z")
             .await
             .unwrap();
-        repo.upsert_ip_activity(1, "1.1.1.1", "2026-01-25T10:01:00Z")
+        repo.upsert_ip_activity(1, "1.1.1.1", "TCP", 80, "2026-01-25T10:01:00Z")
             .await
             .unwrap();
 
@@ -274,13 +297,13 @@ mod tests {
     async fn test_get_unique_ips() {
         let repo = create_test_repo().await;
 
-        repo.upsert_ip_activity(1, "1.1.1.1", "2026-01-25T10:00:00Z")
+        repo.upsert_ip_activity(1, "1.1.1.1", "TCP", 80, "2026-01-25T10:00:00Z")
             .await
             .unwrap();
-        repo.upsert_ip_activity(1, "2.2.2.2", "2026-01-25T10:00:05Z")
+        repo.upsert_ip_activity(1, "2.2.2.2", "UDP", 27015, "2026-01-25T10:00:05Z")
             .await
             .unwrap();
-        repo.upsert_ip_activity(1, "1.1.1.1", "2026-01-25T10:01:00Z")
+        repo.upsert_ip_activity(1, "1.1.1.1", "TCP", 80, "2026-01-25T10:01:00Z")
             .await
             .unwrap();
 
@@ -296,11 +319,11 @@ mod tests {
         let repo = create_test_repo().await;
 
         let result = repo
-            .upsert_ip_activity(1, "not-an-ip", "2026-01-25T10:00:00Z")
+            .upsert_ip_activity(1, "not-an-ip", "TCP", 80, "2026-01-25T10:00:00Z")
             .await;
         assert!(result.is_err());
 
-        let result = repo.upsert_ip_activity(1, "", "2026-01-25T10:00:00Z").await;
+        let result = repo.upsert_ip_activity(1, "", "TCP", 80, "2026-01-25T10:00:00Z").await;
         assert!(result.is_err());
     }
 }
