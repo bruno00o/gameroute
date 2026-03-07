@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.8](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.7...gameroute-v0.1.8) (2026-03-07)
+
+
+### Bug Fixes
+
+* build capture service sidecar before tauri build in CI ([ff836b2](https://github.com/bruno00o/gameroute/commit/ff836b2b57a2dec1d7c5e21171719f9109870412))
+
 ## [0.1.7](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.6...gameroute-v0.1.7) (2026-03-07)
 
 
