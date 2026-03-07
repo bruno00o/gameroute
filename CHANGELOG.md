@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.11](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.10...gameroute-v0.1.11) (2026-03-07)
+
+
+### Bug Fixes
+
+* request admin privileges in NSIS installer for service install ([2e5a2e9](https://github.com/bruno00o/gameroute/commit/2e5a2e9c6ec39da935cc07d0342dff5b0db6a945))
+
 ## [0.1.10](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.9...gameroute-v0.1.10) (2026-03-07)
 
 
