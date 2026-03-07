@@ -69,7 +69,9 @@ pub fn capture_connections_for_pids(target_pids: &HashSet<u32>) -> Vec<CapturedC
     connections
 }
 
-fn is_private_or_special_ip(ip: &str) -> bool {
+/// Check if an IP address is private, special, or otherwise not a public internet address.
+/// This is exposed for use by UDP capture filtering.
+pub fn is_private_or_special_ip(ip: &str) -> bool {
     let addr: IpAddr = match ip.parse() {
         Ok(a) => a,
         Err(_) => return true,

@@ -79,3 +79,20 @@ pub const MAX_PAGE_LIMIT: i32 = 100;
 /// new activity period is created. Within this window the existing period
 /// is extended instead.
 pub const ACTIVITY_PERIOD_THRESHOLD_SECS: i64 = 10;
+
+// ── UDP Capture Service ───────────────────────────────────────────────────
+
+/// Named pipe name for communication with the capture service.
+pub const CAPTURE_SERVICE_PIPE_NAME: &str = r"\\.\pipe\GameRouteCaptureService";
+
+/// Duration (seconds) to capture UDP packets per request.
+pub const UDP_CAPTURE_DURATION_SECS: u32 = 3;
+
+/// Timeout (milliseconds) for connecting to the capture service.
+pub const CAPTURE_SERVICE_CONNECT_TIMEOUT_MS: u64 = 1000;
+
+/// Timeout (milliseconds) for the entire capture operation (connect + capture + response).
+pub const CAPTURE_SERVICE_TOTAL_TIMEOUT_MS: u64 = 10000;
+
+/// Timeout (milliseconds) for traceroute via capture service (longer than capture).
+pub const TRACEROUTE_SERVICE_TIMEOUT_MS: u64 = 45000;

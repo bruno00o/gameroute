@@ -1,7 +1,7 @@
 mod commands;
 pub mod config;
 mod db;
-mod models;
+pub mod models;
 mod platform;
 mod services;
 

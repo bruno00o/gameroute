@@ -7,12 +7,17 @@ license = ""
 repository = ""
 edition = "2021"
 rust-version = "1.77.2"
+default-run = "app"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
 name = "app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "gameroute-capture-service"
+path = "src/bin/gameroute_capture_service.rs"
 
 [build-dependencies]
 tauri-build = { version = "2.5.3", features = [] }
@@ -35,9 +40,21 @@ lru = "0.16.3"
 sysinfo = "0.38.0"
 steamlocate = "2"
 tauri-plugin-dialog = "2"
-
-[target.'cfg(not(target_os = "windows"))'.dependencies]
 trippy-core = "^0.13.0"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-service = "0.7"
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Pipes", "Win32_System_Diagnostics_Etw", "Win32_System_Time"] }
+interprocess = "2"
+etherparse = "0.18"
+uuid = { version = "1", features = ["v4"] }
+ctrlc = "3.4"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "s"
 
 [dev-dependencies]
 tempfile = "3"

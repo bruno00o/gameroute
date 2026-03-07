@@ -1,4 +1,5 @@
 pub mod asn;
+pub mod capture_protocol;
 pub mod connection;
 pub mod dashboard;
 pub mod game;
