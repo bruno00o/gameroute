@@ -44,6 +44,13 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
+      - name: Build capture service sidecar
+        run: |
+          cargo build --release --bin gameroute-capture-service --manifest-path src-tauri/Cargo.toml
+          New-Item -ItemType Directory -Force -Path src-tauri/binaries | Out-Null
+          Copy-Item src-tauri/target/release/gameroute-capture-service.exe src-tauri/binaries/gameroute-capture-service-x86_64-pc-windows-msvc.exe
+        shell: pwsh
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
