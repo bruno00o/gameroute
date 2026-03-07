@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.9](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.8...gameroute-v0.1.9) (2026-03-07)
+
+
+### Bug Fixes
+
+* create sidecar placeholder before building capture service in CI ([de8aef9](https://github.com/bruno00o/gameroute/commit/de8aef949c223aa3aa3addf8a3cc9f6349208352))
+
 ## [0.1.8](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.7...gameroute-v0.1.8) (2026-03-07)
 
 
