@@ -135,6 +135,8 @@ impl AnalyticsRepository {
                 m.asn,
                 m.isp,
                 m.country,
+                m.lat,
+                m.lon,
                 AVG(h.latency_avg) as avg_latency,
                 AVG(h.packet_loss) as avg_packet_loss,
                 COUNT(DISTINCT t.id) as traceroute_count,

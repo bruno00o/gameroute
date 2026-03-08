@@ -18,6 +18,8 @@ pub struct ServerStability {
     pub asn: Option<String>,
     pub isp: Option<String>,
     pub country: Option<String>,
+    pub lat: Option<f64>,
+    pub lon: Option<f64>,
     pub avg_latency: Option<f64>,
     pub avg_packet_loss: Option<f64>,
     pub traceroute_count: i64,

@@ -313,8 +313,16 @@
   "service_warning_body": "Le service de capture n'est pas en cours d'exécution. La capture UDP et les traceroutes privilégiés sont désactivés. Les connexions TCP seront toujours détectées.",
 
   "session_game_servers": "Serveurs de jeu",
+  "session_game_servers_hint": "Ces serveurs sont probablement des serveurs de jeu, basé sur du trafic UDP de plus de 30 secondes. Comparez les durées avec votre temps de jeu réel pour confirmer.",
   "session_likely_game_server": "Serveur de jeu probable",
 
   "settings_minimize_to_tray": "Réduire dans la zone de notification",
-  "settings_minimize_to_tray_description": "Garder l'application active dans la zone de notification lorsque la fenêtre est fermée."
+  "settings_minimize_to_tray_description": "Garder l'application active dans la zone de notification lorsque la fenêtre est fermée.",
+
+  "session_server_location": "Localisation du serveur",
+  "session_traceroute_map": "Carte de la route",
+  "session_traceroute_map_empty": "Aucune donnée de localisation des sauts disponible.",
+  "session_your_location": "Vous",
+  "insights_stability_map_title": "Localisation des serveurs",
+  "insights_stability_map_empty": "Aucune donnée de localisation de serveur disponible."
 }

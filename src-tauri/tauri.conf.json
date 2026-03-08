@@ -19,7 +19,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost https://*.steamstatic.com https://*.epicgames.com data:; font-src 'self' data:; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; script-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost https://*.steamstatic.com https://*.epicgames.com https://*.cartocdn.com https://*.carto.com data: blob:; font-src 'self' data:; connect-src ipc: http://ipc.localhost https://*.cartocdn.com https://*.carto.com; worker-src 'self' blob:"
     }
   },
   "bundle": {

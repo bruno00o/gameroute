@@ -23,7 +23,6 @@ import {
   RiRouteLine,
   RiAlertLine,
   RiTimeLine,
-  RiMapPinLine,
 } from '@remixicon/react'
 
 import * as m from '@/paraglide/messages'
@@ -34,7 +33,10 @@ import {
   getRecurringProblemHops,
 } from '@/lib/tauri'
 import { formatMs, formatLoss, latencyColor } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Map, MapMarker, MarkerContent, MarkerTooltip, MapPopup, MapControls } from '@/components/ui/map'
+import { ExpandableMap } from '@/components/expandable-map'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import {
@@ -52,13 +54,10 @@ export const Route = createFileRoute('/network')({
 })
 
 const HOPS_PAGE_SIZE = 10
-const SERVERS_PAGE_SIZE = 6
 
 const hopColumnHelper = createColumnHelper<RecurringProblemHop>()
 
 function NetworkPage() {
-  const [gsServerPage, setGsServerPage] = useState(0)
-  const [otherServerPage, setOtherServerPage] = useState(0)
   const [gsHopSorting, setGsHopSorting] = useState<SortingState>([])
   const [otherHopSorting, setOtherHopSorting] = useState<SortingState>([])
 
@@ -79,15 +78,6 @@ function NetworkPage() {
 
   const isEmpty =
     !statsLoading && stats && stats.uniqueServerIps === 0 && stats.totalTraceroutes === 0
-
-  // Split data by game server flag
-  const { gsServers, otherServers } = useMemo(() => {
-    if (!mapData) return { gsServers: [], otherServers: [] }
-    return {
-      gsServers: mapData.filter(e => e.isGameServer),
-      otherServers: mapData.filter(e => !e.isGameServer),
-    }
-  }, [mapData])
 
   const { gsHops, otherHops } = useMemo(() => {
     if (!problemHops) return { gsHops: [], otherHops: [] }
@@ -153,17 +143,11 @@ function NetworkPage() {
     initialState: { pagination: { pageSize: HOPS_PAGE_SIZE } },
   })
 
-  const gsTotalPages = Math.max(1, Math.ceil(gsServers.length / SERVERS_PAGE_SIZE))
-  const pagedGsServers = useMemo(() => {
-    const start = gsServerPage * SERVERS_PAGE_SIZE
-    return gsServers.slice(start, start + SERVERS_PAGE_SIZE)
-  }, [gsServers, gsServerPage])
-
-  const otherTotalPages = Math.max(1, Math.ceil(otherServers.length / SERVERS_PAGE_SIZE))
-  const pagedOtherServers = useMemo(() => {
-    const start = otherServerPage * SERVERS_PAGE_SIZE
-    return otherServers.slice(start, start + SERVERS_PAGE_SIZE)
-  }, [otherServers, otherServerPage])
+  // Filter entries that have coordinates for the map
+  const mappableEntries = useMemo(
+    () => (mapData ?? []).filter(e => e.lat != null && e.lon != null),
+    [mapData],
+  )
 
   return (
     <div className="h-full overflow-y-auto p-4">
@@ -206,124 +190,64 @@ function NetworkPage() {
             />
           </div>
 
-          {/* Game Servers section */}
-          <div className="mt-8">
-            <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <RiGamepadLine className="size-5 text-amber-500" />
-              {m.network_game_servers_title()}
-            </h2>
-
-            <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <div>
-                <h3 className="text-sm font-medium">{m.network_game_server_hops_title()}</h3>
-                {hopsLoading ? (
-                  <div className="mt-3">
-                    <Skeleton className="h-40" />
-                  </div>
-                ) : gsHops.length === 0 ? (
-                  <div className="mt-4 flex flex-col items-center gap-2 text-center">
-                    <RiInboxLine className="text-muted-foreground size-6" />
-                    <p className="text-muted-foreground text-xs">
-                      {m.network_no_game_server_issues()}
-                    </p>
-                  </div>
-                ) : (
-                  <HopTable table={gsHopTable} />
-                )}
+          {/* Server Map */}
+          <div className="mt-6">
+            <h2 className="text-lg font-semibold">{m.network_map_title()}</h2>
+            {mapLoading ? (
+              <Skeleton className="mt-3 h-80" />
+            ) : mappableEntries.length === 0 ? (
+              <div className="mt-6 flex flex-col items-center gap-3 text-center">
+                <RiEarthLine className="text-muted-foreground size-8" />
+                <p className="text-muted-foreground text-sm">{m.network_map_empty()}</p>
               </div>
-
-              <div>
-                <h3 className="text-sm font-medium">{m.network_map_title()}</h3>
-                {mapLoading ? (
-                  <div className="mt-3 grid grid-cols-2 gap-3">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <Skeleton key={i} className="h-28" />
-                    ))}
-                  </div>
-                ) : gsServers.length === 0 ? (
-                  <div className="mt-4 flex flex-col items-center gap-2 text-center">
-                    <RiEarthLine className="text-muted-foreground size-6" />
-                    <p className="text-muted-foreground text-xs">{m.network_map_empty()}</p>
-                  </div>
-                ) : (
-                  <div className="mt-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      {pagedGsServers.map(entry => (
-                        <ServerCard key={entry.ip} entry={entry} />
-                      ))}
-                    </div>
-                    {gsTotalPages > 1 && (
-                      <PaginationControls
-                        page={gsServerPage}
-                        totalPages={gsTotalPages}
-                        onPrev={() => setGsServerPage(p => p - 1)}
-                        onNext={() => setGsServerPage(p => p + 1)}
-                        canPrev={gsServerPage > 0}
-                        canNext={gsServerPage < gsTotalPages - 1}
-                      />
-                    )}
-                  </div>
-                )}
+            ) : (
+              <div className="mt-3 overflow-hidden rounded-lg border">
+                <ServerMapView entries={mappableEntries} />
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Other Servers section */}
-          <div className="mt-8">
-            <h2 className="text-lg font-semibold">{m.network_other_servers_title()}</h2>
+          {/* Problem Hops split */}
+          <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
+            {/* Game server hops */}
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <RiGamepadLine className="size-5 text-amber-500" />
+                {m.network_game_server_hops_title()}
+              </h2>
+              {hopsLoading ? (
+                <div className="mt-3">
+                  <Skeleton className="h-40" />
+                </div>
+              ) : gsHops.length === 0 ? (
+                <div className="mt-4 flex flex-col items-center gap-2 text-center">
+                  <RiInboxLine className="text-muted-foreground size-6" />
+                  <p className="text-muted-foreground text-xs">
+                    {m.network_no_game_server_issues()}
+                  </p>
+                </div>
+              ) : (
+                <HopTable table={gsHopTable} />
+              )}
+            </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <div>
-                <h3 className="text-sm font-medium">{m.network_other_hops_title()}</h3>
-                {hopsLoading ? (
-                  <div className="mt-3">
-                    <Skeleton className="h-40" />
-                  </div>
-                ) : otherHops.length === 0 ? (
-                  <div className="mt-4 flex flex-col items-center gap-2 text-center">
-                    <RiInboxLine className="text-muted-foreground size-6" />
-                    <p className="text-muted-foreground text-xs">
-                      {m.network_problem_hops_empty()}
-                    </p>
-                  </div>
-                ) : (
-                  <HopTable table={otherHopTable} />
-                )}
-              </div>
-
-              <div>
-                <h3 className="text-sm font-medium">{m.network_map_title()}</h3>
-                {mapLoading ? (
-                  <div className="mt-3 grid grid-cols-2 gap-3">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <Skeleton key={i} className="h-28" />
-                    ))}
-                  </div>
-                ) : otherServers.length === 0 ? (
-                  <div className="mt-4 flex flex-col items-center gap-2 text-center">
-                    <RiEarthLine className="text-muted-foreground size-6" />
-                    <p className="text-muted-foreground text-xs">{m.network_map_empty()}</p>
-                  </div>
-                ) : (
-                  <div className="mt-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      {pagedOtherServers.map(entry => (
-                        <ServerCard key={entry.ip} entry={entry} />
-                      ))}
-                    </div>
-                    {otherTotalPages > 1 && (
-                      <PaginationControls
-                        page={otherServerPage}
-                        totalPages={otherTotalPages}
-                        onPrev={() => setOtherServerPage(p => p - 1)}
-                        onNext={() => setOtherServerPage(p => p + 1)}
-                        canPrev={otherServerPage > 0}
-                        canNext={otherServerPage < otherTotalPages - 1}
-                      />
-                    )}
-                  </div>
-                )}
-              </div>
+            {/* Other hops */}
+            <div>
+              <h2 className="text-lg font-semibold">{m.network_other_hops_title()}</h2>
+              {hopsLoading ? (
+                <div className="mt-3">
+                  <Skeleton className="h-40" />
+                </div>
+              ) : otherHops.length === 0 ? (
+                <div className="mt-4 flex flex-col items-center gap-2 text-center">
+                  <RiInboxLine className="text-muted-foreground size-6" />
+                  <p className="text-muted-foreground text-xs">
+                    {m.network_problem_hops_empty()}
+                  </p>
+                </div>
+              ) : (
+                <HopTable table={otherHopTable} />
+              )}
             </div>
           </div>
         </>
@@ -458,35 +382,96 @@ function SortIndicator({ sorted }: { sorted: false | 'asc' | 'desc' }) {
   return <RiExpandUpDownLine className="text-muted-foreground size-3.5" />
 }
 
-function ServerCard({ entry }: { entry: NetworkMapEntry }) {
-  const location = [entry.city, entry.country].filter(Boolean).join(', ')
+function ServerMapContent({ entries }: { entries: NetworkMapEntry[] }) {
+  const [selectedIp, setSelectedIp] = useState<string | null>(null)
+
+  const selectedEntry = useMemo(
+    () => entries.find(e => e.ip === selectedIp) ?? null,
+    [entries, selectedIp],
+  )
+
+  const center = useMemo<[number, number]>(() => {
+    if (entries.length === 0) return [0, 20]
+    const avgLon = entries.reduce((s, e) => s + (e.lon ?? 0), 0) / entries.length
+    const avgLat = entries.reduce((s, e) => s + (e.lat ?? 0), 0) / entries.length
+    return [avgLon, avgLat]
+  }, [entries])
 
   return (
-    <Card>
-      <CardContent className="pt-4">
-        <div className="flex items-start gap-3">
-          <RiMapPinLine className="text-muted-foreground mt-0.5 size-4 shrink-0" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-mono text-sm font-medium">{entry.ip}</p>
-            {location && (
-              <p className="text-muted-foreground truncate text-xs">{location}</p>
-            )}
-            {entry.isp && (
-              <p className="text-muted-foreground truncate text-xs">{entry.isp}</p>
-            )}
-            <div className="mt-2 flex items-center gap-3 text-xs">
-              <span className="text-muted-foreground">
-                {m.network_map_sessions({ count: String(entry.sessionCount) })}
+    <Map center={center} zoom={2}>
+      <MapControls />
+      {entries.map(entry => (
+        <MapMarker
+          key={entry.ip}
+          longitude={entry.lon!}
+          latitude={entry.lat!}
+          onClick={() => setSelectedIp(prev => (prev === entry.ip ? null : entry.ip))}
+        >
+          <MarkerContent>
+            <div
+              className={cn(
+                'size-3.5 rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.1)] transition-transform hover:scale-150',
+                entry.isGameServer ? 'bg-amber-500' : 'bg-red-500',
+              )}
+            />
+          </MarkerContent>
+          <MarkerTooltip>
+            <div>
+              <span className="font-mono font-medium">{entry.ip}</span>
+              {entry.isp && <span className="ml-1.5 opacity-70">· {entry.isp}</span>}
+            </div>
+          </MarkerTooltip>
+        </MapMarker>
+      ))}
+      {selectedEntry && (
+        <MapPopup
+          longitude={selectedEntry.lon!}
+          latitude={selectedEntry.lat!}
+          onClose={() => setSelectedIp(null)}
+          closeButton
+          className="w-56 p-0"
+        >
+          <div className="space-y-1.5 p-3">
+            <div className="flex items-center gap-2">
+              <span className="truncate font-mono text-xs font-medium">
+                {selectedEntry.ip}
               </span>
-              {entry.asn && (
-                <Badge variant="outline" className="text-xs">
-                  {entry.asn}
+              {selectedEntry.isGameServer && (
+                <RiGamepadLine className="size-3.5 shrink-0 text-amber-500" />
+              )}
+            </div>
+            {(selectedEntry.city || selectedEntry.country) && (
+              <p className="text-muted-foreground text-xs">
+                {[selectedEntry.city, selectedEntry.country].filter(Boolean).join(', ')}
+              </p>
+            )}
+            {selectedEntry.isp && (
+              <p className="text-muted-foreground text-xs">{selectedEntry.isp}</p>
+            )}
+            <div className="flex items-center gap-2 pt-1 text-xs">
+              <span className="text-muted-foreground">
+                {m.network_map_sessions({ count: String(selectedEntry.sessionCount) })}
+              </span>
+              {selectedEntry.asn && (
+                <Badge variant="outline" className="px-1 py-0 text-[10px]">
+                  {selectedEntry.asn}
                 </Badge>
               )}
             </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </MapPopup>
+      )}
+    </Map>
+  )
+}
+
+function ServerMapView({ entries }: { entries: NetworkMapEntry[] }) {
+  return (
+    <ExpandableMap
+      className="h-80"
+      renderExpanded={() => <ServerMapContent entries={entries} />}
+    >
+      <ServerMapContent entries={entries} />
+    </ExpandableMap>
   )
 }

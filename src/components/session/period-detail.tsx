@@ -1,12 +1,16 @@
 import { useMemo } from 'react'
+import { RiMapPinLine } from '@remixicon/react'
 
 import * as m from '@/paraglide/messages'
 import type { IpPeriod, IpPeriodSummary, TracerouteWithHops } from '@/types/backend'
 import { formatDate, formatDuration, formatMs, latencyColor, computeDurationSecs } from '@/lib/format'
 import { useAsnResolution } from '@/hooks/use-asn-resolution'
+import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Map, MapMarker, MarkerContent, MarkerTooltip, MapControls } from '@/components/ui/map'
+import { ExpandableMap } from '@/components/expandable-map'
 import { HopTable } from '@/components/hop-table'
 
 export function PeriodDetail({
@@ -67,6 +71,39 @@ export function PeriodDetail({
         <h2 className="font-mono text-lg font-medium">{period.ip}</h2>
         {asnLabel && <p className="text-muted-foreground mt-0.5 text-xs">{asnLabel}</p>}
       </div>
+
+      {resolved?.geo.lat != null && resolved?.geo.lon != null && (
+        <div className="overflow-hidden rounded-lg border">
+          <ExpandableMap
+            className="h-40"
+            renderExpanded={() => (
+              <PeriodMapContent
+                lon={resolved.geo.lon!}
+                lat={resolved.geo.lat!}
+                ip={period.ip}
+                isGameServer={period.isGameServer}
+                isp={resolved.asnInfo.isp}
+                location={[resolved.geo.city, resolved.geo.country].filter(Boolean).join(', ')}
+              />
+            )}
+          >
+            <PeriodMapContent
+              lon={resolved.geo.lon!}
+              lat={resolved.geo.lat!}
+              ip={period.ip}
+              isGameServer={period.isGameServer}
+              isp={resolved.asnInfo.isp}
+              location={[resolved.geo.city, resolved.geo.country].filter(Boolean).join(', ')}
+            />
+          </ExpandableMap>
+          <div className="bg-muted/30 flex items-center gap-2 px-3 py-1.5">
+            <RiMapPinLine className="text-muted-foreground size-3.5" />
+            <span className="text-muted-foreground text-xs">
+              {[resolved.geo.city, resolved.geo.country].filter(Boolean).join(', ')}
+            </span>
+          </div>
+        </div>
+      )}
 
       <Separator />
 
@@ -240,5 +277,44 @@ export function PeriodDetail({
         )}
       </section>
     </div>
+  )
+}
+
+function PeriodMapContent({
+  lon,
+  lat,
+  ip,
+  isGameServer,
+  isp,
+  location,
+}: {
+  lon: number
+  lat: number
+  ip: string
+  isGameServer: boolean
+  isp: string | null
+  location: string
+}) {
+  return (
+    <Map center={[lon, lat]} zoom={4}>
+      <MapControls />
+      <MapMarker longitude={lon} latitude={lat}>
+        <MarkerContent>
+          <div
+            className={cn(
+              'size-4 rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.1)]',
+              isGameServer ? 'bg-amber-500' : 'bg-red-500',
+            )}
+          />
+        </MarkerContent>
+        <MarkerTooltip>
+          <div className="space-y-0.5">
+            <div className="font-mono font-medium">{ip}</div>
+            {isp && <div className="opacity-70">{isp}</div>}
+            {location && <div className="opacity-70">{location}</div>}
+          </div>
+        </MarkerTooltip>
+      </MapMarker>
+    </Map>
   )
 }

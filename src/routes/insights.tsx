@@ -8,6 +8,7 @@ import {
   RiArrowDownSLine,
   RiExpandUpDownLine,
   RiBarChartLine,
+  RiGamepadLine,
   RiInboxLine,
 } from '@remixicon/react'
 import {
@@ -48,7 +49,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { Map, MapMarker, MarkerContent, MarkerTooltip, MapPopup, MapControls } from '@/components/ui/map'
+import { ExpandableMap } from '@/components/expandable-map'
 import {
   type ChartConfig,
   ChartContainer,
@@ -270,6 +274,8 @@ function InsightsPage() {
             </Card>
           </div>
 
+          <StabilityMapSection data={stabilityData} isLoading={stabilityLoading} />
+
           <div className="mt-6">
             <Card>
               <CardHeader>
@@ -365,5 +371,135 @@ function EmptyChart({ message }: { message: string }) {
       <RiInboxLine className="text-muted-foreground size-6" />
       <p className="text-muted-foreground text-sm">{message}</p>
     </div>
+  )
+}
+
+function StabilityMapSection({
+  data,
+  isLoading,
+}: {
+  data: ServerStability[] | undefined
+  isLoading: boolean
+}) {
+  const mappable = useMemo(
+    () => (data ?? []).filter(s => s.lat != null && s.lon != null),
+    [data],
+  )
+
+  if (isLoading) {
+    return (
+      <div className="mt-6">
+        <Skeleton className="h-64" />
+      </div>
+    )
+  }
+
+  if (mappable.length === 0) return null
+
+  return (
+    <div className="mt-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>{m.insights_stability_map_title()}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-hidden rounded-lg border">
+            <ExpandableMap
+              className="h-64"
+              renderExpanded={() => <StabilityMapContent servers={mappable} />}
+            >
+              <StabilityMapContent servers={mappable} />
+            </ExpandableMap>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function StabilityMapContent({ servers }: { servers: ServerStability[] }) {
+  const [selectedIp, setSelectedIp] = useState<string | null>(null)
+
+  const selected = useMemo(
+    () => servers.find(s => s.ip === selectedIp) ?? null,
+    [servers, selectedIp],
+  )
+
+  const center = useMemo<[number, number]>(() => {
+    if (servers.length === 0) return [0, 20]
+    return [
+      servers.reduce((s, e) => s + (e.lon ?? 0), 0) / servers.length,
+      servers.reduce((s, e) => s + (e.lat ?? 0), 0) / servers.length,
+    ]
+  }, [servers])
+
+  return (
+    <Map center={center} zoom={2}>
+      <MapControls />
+      {servers.map(server => {
+        const ratio = server.problemHopRatio
+        const color =
+          ratio > 0.3
+            ? 'bg-red-500'
+            : ratio > 0.1
+              ? 'bg-amber-500'
+              : 'bg-emerald-500'
+        return (
+          <MapMarker
+            key={server.ip}
+            longitude={server.lon!}
+            latitude={server.lat!}
+            onClick={() => setSelectedIp(prev => (prev === server.ip ? null : server.ip))}
+          >
+            <MarkerContent>
+              <div
+                className={cn(
+                  'size-3.5 rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.1)] transition-transform hover:scale-150',
+                  color,
+                )}
+              />
+            </MarkerContent>
+            <MarkerTooltip>
+              <div>
+                <span className="font-mono font-medium">{server.ip}</span>
+                {server.isp && <span className="ml-1.5 opacity-70">· {server.isp}</span>}
+              </div>
+            </MarkerTooltip>
+          </MapMarker>
+        )
+      })}
+      {selected && (
+        <MapPopup
+          longitude={selected.lon!}
+          latitude={selected.lat!}
+          onClose={() => setSelectedIp(null)}
+          closeButton
+          className="w-56 p-0"
+        >
+          <div className="space-y-1.5 p-3">
+            <div className="flex items-center gap-2">
+              <span className="truncate font-mono text-xs font-medium">{selected.ip}</span>
+              {selected.isGameServer && (
+                <RiGamepadLine className="size-3.5 shrink-0 text-amber-500" />
+              )}
+            </div>
+            {selected.country && (
+              <p className="text-muted-foreground text-xs">{selected.country}</p>
+            )}
+            {selected.isp && (
+              <p className="text-muted-foreground text-xs">{selected.isp}</p>
+            )}
+            <div className="flex items-center gap-3 pt-1 text-xs">
+              <span className={latencyColor(selected.avgLatency)}>
+                {formatMs(selected.avgLatency)} ms
+              </span>
+              <span className="text-muted-foreground">
+                {(selected.problemHopRatio * 100).toFixed(0)}% problems
+              </span>
+            </div>
+          </div>
+        </MapPopup>
+      )}
+    </Map>
   )
 }

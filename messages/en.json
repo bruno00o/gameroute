@@ -313,8 +313,16 @@
   "service_warning_body": "The capture service is not running. UDP capture and privileged traceroutes are disabled. TCP connections will still be detected.",
 
   "session_game_servers": "Game Servers",
+  "session_game_servers_hint": "These are likely game servers based on UDP traffic lasting over 30 seconds. Compare durations with your actual play time to confirm.",
   "session_likely_game_server": "Likely game server",
 
   "settings_minimize_to_tray": "Minimize to tray",
-  "settings_minimize_to_tray_description": "Keep the app running in the system tray when the window is closed."
+  "settings_minimize_to_tray_description": "Keep the app running in the system tray when the window is closed.",
+
+  "session_server_location": "Server Location",
+  "session_traceroute_map": "Route Map",
+  "session_traceroute_map_empty": "No hop location data available.",
+  "session_your_location": "You",
+  "insights_stability_map_title": "Server Locations",
+  "insights_stability_map_empty": "No server location data available."
 }

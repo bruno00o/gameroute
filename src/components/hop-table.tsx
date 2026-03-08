@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { RiAlertLine } from '@remixicon/react'
 
 import * as m from '@/paraglide/messages'
@@ -14,6 +15,8 @@ import {
 } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
+import { Map, MapMarker, MarkerContent, MarkerTooltip, MapRoute, MapControls } from '@/components/ui/map'
+import { ExpandableMap } from '@/components/expandable-map'
 
 export function HopTable({
   hops,
@@ -37,7 +40,58 @@ export function HopTable({
     0,
   )
 
+  // Build route coordinates from resolved hop IPs, grouping overlapping locations
+  const { routePoints, routeCoords } = useMemo(() => {
+    if (!asnData || asnData.size === 0) return { routePoints: null, routeCoords: null }
+    const points: MapPoint[] = []
+    const coords: [number, number][] = []
+
+    for (const hop of hops) {
+      if (!hop.ip) continue
+      const resolved = asnData.get(hop.ip)
+      if (resolved?.geo.lat == null || resolved?.geo.lon == null) continue
+
+      const lon = resolved.geo.lon!
+      const lat = resolved.geo.lat!
+      const hopInfo: HopPoint = {
+        ip: hop.ip,
+        hopNumber: hop.hopNumber,
+        isProblem: hop.isProblemHop,
+        latency: hop.latencyAvg,
+        isp: resolved.asnInfo.isp,
+      }
+
+      // Check if a point already exists at this location (within ~0.01 degree)
+      const existing = points.find(
+        p => Math.abs(p.lon - lon) < 0.01 && Math.abs(p.lat - lat) < 0.01,
+      )
+      if (existing) {
+        existing.hops.push(hopInfo)
+        if (hop.isProblemHop) existing.hasProblem = true
+      } else {
+        points.push({ lon, lat, hops: [hopInfo], hasProblem: hop.isProblemHop })
+        coords.push([lon, lat])
+      }
+    }
+
+    if (points.length < 2) return { routePoints: null, routeCoords: null }
+    return { routePoints: points, routeCoords: coords }
+  }, [hops, asnData])
+
   return (
+    <>
+    {routePoints && routeCoords && (
+      <div className="mb-4 overflow-hidden rounded-lg border">
+        <ExpandableMap
+          className="h-52"
+          renderExpanded={() => (
+            <RouteMapContent points={routePoints} coords={routeCoords} />
+          )}
+        >
+          <RouteMapContent points={routePoints} coords={routeCoords} />
+        </ExpandableMap>
+      </div>
+    )}
     <Table>
       <TableHeader>
         <TableRow>
@@ -181,5 +235,78 @@ export function HopTable({
         )}
       </TableBody>
     </Table>
+    </>
+  )
+}
+
+type HopPoint = { ip: string; hopNumber: number; isProblem: boolean; latency: number | null; isp: string | null }
+type MapPoint = { lon: number; lat: number; hops: HopPoint[]; hasProblem: boolean }
+
+function RouteMapContent({ points, coords }: { points: MapPoint[]; coords: [number, number][] }) {
+  return (
+    <Map
+      center={[
+        points.reduce((s, p) => s + p.lon, 0) / points.length,
+        points.reduce((s, p) => s + p.lat, 0) / points.length,
+      ]}
+      zoom={2}
+    >
+      <MapControls />
+      <MapRoute
+        coordinates={coords}
+        color="#3b82f6"
+        width={3}
+        opacity={0.7}
+        interactive={false}
+      />
+      {points.map((point, i) => {
+        const isFirst = i === 0
+        const isLast = i === points.length - 1
+        const hopNums = point.hops.map(h => h.hopNumber)
+        const label =
+          hopNums.length === 1
+            ? String(hopNums[0])
+            : `${hopNums[0]}-${hopNums[hopNums.length - 1]}`
+        return (
+          <MapMarker key={`group-${i}`} longitude={point.lon} latitude={point.lat}>
+            <MarkerContent>
+              <div
+                className={cn(
+                  'flex items-center justify-center rounded-full text-white shadow-md',
+                  isFirst || isLast ? 'size-5 text-[9px] font-bold' : 'size-4 text-[8px] font-semibold',
+                  isFirst
+                    ? 'bg-emerald-500'
+                    : isLast
+                      ? 'bg-red-500'
+                      : point.hasProblem
+                        ? 'bg-red-500'
+                        : 'bg-blue-500',
+                )}
+              >
+                {label}
+              </div>
+            </MarkerContent>
+            <MarkerTooltip>
+              <div className="space-y-1">
+                {point.hops.map(h => (
+                  <div key={h.hopNumber} className="flex items-center gap-2">
+                    <span className="font-semibold">#{h.hopNumber}</span>
+                    <span className="font-mono">{h.ip}</span>
+                    {h.latency != null && (
+                      <span className={latencyColor(h.latency)}>
+                        {formatMs(h.latency)}ms
+                      </span>
+                    )}
+                  </div>
+                ))}
+                {point.hops[0].isp && (
+                  <div className="text-muted-foreground opacity-70">{point.hops[0].isp}</div>
+                )}
+              </div>
+            </MarkerTooltip>
+          </MapMarker>
+        )
+      })}
+    </Map>
   )
 }

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState as useLocalState } from 'react'
 import { Link } from '@tanstack/react-router'
 import {
   RiArrowLeftLine,
@@ -6,6 +6,7 @@ import {
   RiDeleteBinLine,
   RiGamepadLine,
   RiGlobalLine,
+  RiInformationLine,
   RiSortAsc,
   RiSortDesc,
 } from '@remixicon/react'
@@ -65,10 +66,26 @@ export function DetailSidebar({
 }) {
   const isActive = detail.endedAt === null
 
-  const gameServerPeriods = useMemo(
-    () => detail.ipPeriods.filter(p => p.isGameServer),
-    [detail.ipPeriods]
-  )
+  const [gsSortMode, setGsSortMode] = useLocalState<SortMode>('duration')
+  const [gsSortAsc, setGsSortAsc] = useLocalState(false)
+
+  const gameServerPeriods = useMemo(() => {
+    const periods = detail.ipPeriods.filter(p => p.isGameServer)
+    const dir = gsSortAsc ? 1 : -1
+    switch (gsSortMode) {
+      case 'time':
+        return [...periods].sort(
+          (a, b) => dir * (new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()),
+        )
+      case 'duration': {
+        const dur = (p: typeof periods[0]) =>
+          new Date(p.endedAt).getTime() - new Date(p.startedAt).getTime()
+        return [...periods].sort((a, b) => dir * (dur(a) - dur(b)))
+      }
+      case 'packets':
+        return [...periods].sort((a, b) => dir * (a.packetCount - b.packetCount))
+    }
+  }, [detail.ipPeriods, gsSortMode, gsSortAsc])
 
   const sortedPeriods = useMemo(() => {
     const dir = sortAsc ? 1 : -1
@@ -124,7 +141,21 @@ export function DetailSidebar({
               <SidebarGroupLabel className="mt-2">
                 <RiGamepadLine className="size-3.5 text-amber-500" />
                 {m.session_game_servers()}
+                <Tooltip>
+                  <TooltipTrigger
+                    render={<RiInformationLine className="text-muted-foreground ml-auto size-3.5 shrink-0 cursor-help" />}
+                  />
+                  <TooltipContent side="right" className="max-w-52">
+                    {m.session_game_servers_hint()}
+                  </TooltipContent>
+                </Tooltip>
               </SidebarGroupLabel>
+              <SortToggle
+                value={gsSortMode}
+                asc={gsSortAsc}
+                onChange={setGsSortMode}
+                onDirectionChange={() => setGsSortAsc(v => !v)}
+              />
               <SidebarMenu className="mt-1 gap-0.5">
                 {gameServerPeriods.map(period => (
                   <PeriodItem

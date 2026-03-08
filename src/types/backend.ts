@@ -325,6 +325,8 @@ export type ServerStability = {
   asn: string | null
   isp: string | null
   country: string | null
+  lat: number | null
+  lon: number | null
   avgLatency: number | null
   avgPacketLoss: number | null
   tracerouteCount: number

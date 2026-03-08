@@ -39,3 +39,6 @@ src-tauri/binaries/
 src-tauri/PktMon.etl
 src-tauri/qc
 src-tauri/query
+
+.claude/
+.agents/
