@@ -13,6 +13,7 @@ pub struct NetworkMapEntry {
     pub session_count: i64,
     pub total_duration_secs: f64,
     pub total_packets: i64,
+    pub is_game_server: bool,
 }
 
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
@@ -24,6 +25,7 @@ pub struct RecurringProblemHop {
     pub occurrence_count: i64,
     pub avg_latency: Option<f64>,
     pub avg_packet_loss: Option<f64>,
+    pub is_game_server_route: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

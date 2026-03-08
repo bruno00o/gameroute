@@ -11,6 +11,7 @@ pub struct IpPeriod {
     pub started_at: String,
     pub ended_at: String,
     pub packet_count: i32,
+    pub is_game_server: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -56,6 +57,8 @@ pub struct IpPeriodSummary {
     pub first_seen_at: String,
 
     pub last_seen_at: String,
+
+    pub is_game_server: bool,
 }
 
 #[derive(Debug, Clone, sqlx::FromRow)]
@@ -80,6 +83,7 @@ mod tests {
             started_at: "2026-01-25T10:00:00Z".to_string(),
             ended_at: "2026-01-25T10:30:00Z".to_string(),
             packet_count: 1500,
+            is_game_server: false,
         };
 
         let json = serde_json::to_string(&period).unwrap();

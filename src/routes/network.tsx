@@ -17,6 +17,7 @@ import {
   RiArrowDownSLine,
   RiExpandUpDownLine,
   RiEarthLine,
+  RiGamepadLine,
   RiGlobalLine,
   RiInboxLine,
   RiRouteLine,
@@ -56,8 +57,10 @@ const SERVERS_PAGE_SIZE = 6
 const hopColumnHelper = createColumnHelper<RecurringProblemHop>()
 
 function NetworkPage() {
-  const [serverPage, setServerPage] = useState(0)
-  const [hopSorting, setHopSorting] = useState<SortingState>([])
+  const [gsServerPage, setGsServerPage] = useState(0)
+  const [otherServerPage, setOtherServerPage] = useState(0)
+  const [gsHopSorting, setGsHopSorting] = useState<SortingState>([])
+  const [otherHopSorting, setOtherHopSorting] = useState<SortingState>([])
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['network-overview-stats'],
@@ -76,6 +79,23 @@ function NetworkPage() {
 
   const isEmpty =
     !statsLoading && stats && stats.uniqueServerIps === 0 && stats.totalTraceroutes === 0
+
+  // Split data by game server flag
+  const { gsServers, otherServers } = useMemo(() => {
+    if (!mapData) return { gsServers: [], otherServers: [] }
+    return {
+      gsServers: mapData.filter(e => e.isGameServer),
+      otherServers: mapData.filter(e => !e.isGameServer),
+    }
+  }, [mapData])
+
+  const { gsHops, otherHops } = useMemo(() => {
+    if (!problemHops) return { gsHops: [], otherHops: [] }
+    return {
+      gsHops: problemHops.filter(h => h.isGameServerRoute),
+      otherHops: problemHops.filter(h => !h.isGameServerRoute),
+    }
+  }, [problemHops])
 
   const hopColumns = useMemo(
     () => [
@@ -111,23 +131,39 @@ function NetworkPage() {
     [],
   )
 
-  const hopTable = useReactTable({
-    data: problemHops ?? [],
+  const gsHopTable = useReactTable({
+    data: gsHops,
     columns: hopColumns,
-    state: { sorting: hopSorting },
-    onSortingChange: setHopSorting,
+    state: { sorting: gsHopSorting },
+    onSortingChange: setGsHopSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     initialState: { pagination: { pageSize: HOPS_PAGE_SIZE } },
   })
 
-  const serverTotalPages = mapData ? Math.max(1, Math.ceil(mapData.length / SERVERS_PAGE_SIZE)) : 1
-  const pagedServers = useMemo(() => {
-    if (!mapData) return []
-    const start = serverPage * SERVERS_PAGE_SIZE
-    return mapData.slice(start, start + SERVERS_PAGE_SIZE)
-  }, [mapData, serverPage])
+  const otherHopTable = useReactTable({
+    data: otherHops,
+    columns: hopColumns,
+    state: { sorting: otherHopSorting },
+    onSortingChange: setOtherHopSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: { pagination: { pageSize: HOPS_PAGE_SIZE } },
+  })
+
+  const gsTotalPages = Math.max(1, Math.ceil(gsServers.length / SERVERS_PAGE_SIZE))
+  const pagedGsServers = useMemo(() => {
+    const start = gsServerPage * SERVERS_PAGE_SIZE
+    return gsServers.slice(start, start + SERVERS_PAGE_SIZE)
+  }, [gsServers, gsServerPage])
+
+  const otherTotalPages = Math.max(1, Math.ceil(otherServers.length / SERVERS_PAGE_SIZE))
+  const pagedOtherServers = useMemo(() => {
+    const start = otherServerPage * SERVERS_PAGE_SIZE
+    return otherServers.slice(start, start + SERVERS_PAGE_SIZE)
+  }, [otherServers, otherServerPage])
 
   return (
     <div className="h-full overflow-y-auto p-4">
@@ -142,6 +178,7 @@ function NetworkPage() {
         </div>
       ) : (
         <>
+          {/* Stats */}
           <div className="mt-6 grid grid-cols-4 gap-4">
             <StatCard
               title={m.network_unique_ips()}
@@ -169,101 +206,124 @@ function NetworkPage() {
             />
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <div>
-              <h2 className="text-lg font-semibold">{m.network_problem_hops_title()}</h2>
-              {hopsLoading ? (
-                <div className="mt-3">
-                  <Skeleton className="h-40" />
-                </div>
-              ) : !problemHops || problemHops.length === 0 ? (
-                <div className="mt-6 flex flex-col items-center gap-3 text-center">
-                  <RiInboxLine className="text-muted-foreground size-8" />
-                  <p className="text-muted-foreground text-sm">
-                    {m.network_problem_hops_empty()}
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-3">
-                  <Table>
-                    <TableHeader>
-                      {hopTable.getHeaderGroups().map(headerGroup => (
-                        <TableRow key={headerGroup.id}>
-                          {headerGroup.headers.map(header => (
-                            <TableHead
-                              key={header.id}
-                              className={header.column.getCanSort() ? 'cursor-pointer select-none' : ''}
-                              onClick={header.column.getToggleSortingHandler()}
-                            >
-                              <div className="flex items-center gap-1">
-                                {header.isPlaceholder
-                                  ? null
-                                  : flexRender(header.column.columnDef.header, header.getContext())}
-                                {header.column.getCanSort() && <SortIndicator sorted={header.column.getIsSorted()} />}
-                              </div>
-                            </TableHead>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </TableHeader>
-                    <TableBody>
-                      {hopTable.getRowModel().rows.map(row => (
-                        <TableRow key={row.id}>
-                          {row.getVisibleCells().map(cell => (
-                            <TableCell key={cell.id}>
-                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {hopTable.getPageCount() > 1 && (
-                    <PaginationControls
-                      page={hopTable.getState().pagination.pageIndex}
-                      totalPages={hopTable.getPageCount()}
-                      onPrev={() => hopTable.previousPage()}
-                      onNext={() => hopTable.nextPage()}
-                      canPrev={hopTable.getCanPreviousPage()}
-                      canNext={hopTable.getCanNextPage()}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
+          {/* Game Servers section */}
+          <div className="mt-8">
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <RiGamepadLine className="size-5 text-amber-500" />
+              {m.network_game_servers_title()}
+            </h2>
 
-            <div>
-              <h2 className="text-lg font-semibold">{m.network_map_title()}</h2>
-              {mapLoading ? (
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <Skeleton key={i} className="h-28" />
-                  ))}
-                </div>
-              ) : !mapData || mapData.length === 0 ? (
-                <div className="mt-6 flex flex-col items-center gap-3 text-center">
-                  <RiEarthLine className="text-muted-foreground size-8" />
-                  <p className="text-muted-foreground text-sm">{m.network_map_empty()}</p>
-                </div>
-              ) : (
-                <div className="mt-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    {pagedServers.map(entry => (
-                      <ServerCard key={entry.ip} entry={entry} />
+            <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div>
+                <h3 className="text-sm font-medium">{m.network_game_server_hops_title()}</h3>
+                {hopsLoading ? (
+                  <div className="mt-3">
+                    <Skeleton className="h-40" />
+                  </div>
+                ) : gsHops.length === 0 ? (
+                  <div className="mt-4 flex flex-col items-center gap-2 text-center">
+                    <RiInboxLine className="text-muted-foreground size-6" />
+                    <p className="text-muted-foreground text-xs">
+                      {m.network_no_game_server_issues()}
+                    </p>
+                  </div>
+                ) : (
+                  <HopTable table={gsHopTable} />
+                )}
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium">{m.network_map_title()}</h3>
+                {mapLoading ? (
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <Skeleton key={i} className="h-28" />
                     ))}
                   </div>
-                  {serverTotalPages > 1 && (
-                    <PaginationControls
-                      page={serverPage}
-                      totalPages={serverTotalPages}
-                      onPrev={() => setServerPage(p => p - 1)}
-                      onNext={() => setServerPage(p => p + 1)}
-                      canPrev={serverPage > 0}
-                      canNext={serverPage < serverTotalPages - 1}
-                    />
-                  )}
-                </div>
-              )}
+                ) : gsServers.length === 0 ? (
+                  <div className="mt-4 flex flex-col items-center gap-2 text-center">
+                    <RiEarthLine className="text-muted-foreground size-6" />
+                    <p className="text-muted-foreground text-xs">{m.network_map_empty()}</p>
+                  </div>
+                ) : (
+                  <div className="mt-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      {pagedGsServers.map(entry => (
+                        <ServerCard key={entry.ip} entry={entry} />
+                      ))}
+                    </div>
+                    {gsTotalPages > 1 && (
+                      <PaginationControls
+                        page={gsServerPage}
+                        totalPages={gsTotalPages}
+                        onPrev={() => setGsServerPage(p => p - 1)}
+                        onNext={() => setGsServerPage(p => p + 1)}
+                        canPrev={gsServerPage > 0}
+                        canNext={gsServerPage < gsTotalPages - 1}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Other Servers section */}
+          <div className="mt-8">
+            <h2 className="text-lg font-semibold">{m.network_other_servers_title()}</h2>
+
+            <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div>
+                <h3 className="text-sm font-medium">{m.network_other_hops_title()}</h3>
+                {hopsLoading ? (
+                  <div className="mt-3">
+                    <Skeleton className="h-40" />
+                  </div>
+                ) : otherHops.length === 0 ? (
+                  <div className="mt-4 flex flex-col items-center gap-2 text-center">
+                    <RiInboxLine className="text-muted-foreground size-6" />
+                    <p className="text-muted-foreground text-xs">
+                      {m.network_problem_hops_empty()}
+                    </p>
+                  </div>
+                ) : (
+                  <HopTable table={otherHopTable} />
+                )}
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium">{m.network_map_title()}</h3>
+                {mapLoading ? (
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <Skeleton key={i} className="h-28" />
+                    ))}
+                  </div>
+                ) : otherServers.length === 0 ? (
+                  <div className="mt-4 flex flex-col items-center gap-2 text-center">
+                    <RiEarthLine className="text-muted-foreground size-6" />
+                    <p className="text-muted-foreground text-xs">{m.network_map_empty()}</p>
+                  </div>
+                ) : (
+                  <div className="mt-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      {pagedOtherServers.map(entry => (
+                        <ServerCard key={entry.ip} entry={entry} />
+                      ))}
+                    </div>
+                    {otherTotalPages > 1 && (
+                      <PaginationControls
+                        page={otherServerPage}
+                        totalPages={otherTotalPages}
+                        onPrev={() => setOtherServerPage(p => p - 1)}
+                        onNext={() => setOtherServerPage(p => p + 1)}
+                        canPrev={otherServerPage > 0}
+                        canNext={otherServerPage < otherTotalPages - 1}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </>
@@ -302,6 +362,62 @@ function PaginationControls({
           <RiArrowRightSLine className="size-4" data-icon="inline-end" />
         </Button>
       </div>
+    </div>
+  )
+}
+
+function HopTable({
+  table,
+}: {
+  table: ReturnType<typeof useReactTable<RecurringProblemHop>>
+}) {
+  return (
+    <div className="mt-3">
+      <Table>
+        <TableHeader>
+          {table.getHeaderGroups().map(headerGroup => (
+            <TableRow key={headerGroup.id}>
+              {headerGroup.headers.map(header => (
+                <TableHead
+                  key={header.id}
+                  className={header.column.getCanSort() ? 'cursor-pointer select-none' : ''}
+                  onClick={header.column.getToggleSortingHandler()}
+                >
+                  <div className="flex items-center gap-1">
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(header.column.columnDef.header, header.getContext())}
+                    {header.column.getCanSort() && (
+                      <SortIndicator sorted={header.column.getIsSorted()} />
+                    )}
+                  </div>
+                </TableHead>
+              ))}
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {table.getRowModel().rows.map(row => (
+            <TableRow key={row.id}>
+              {row.getVisibleCells().map(cell => (
+                <TableCell key={cell.id}>
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      {table.getPageCount() > 1 && (
+        <PaginationControls
+          page={table.getState().pagination.pageIndex}
+          totalPages={table.getPageCount()}
+          onPrev={() => table.previousPage()}
+          onNext={() => table.nextPage()}
+          canPrev={table.getCanPreviousPage()}
+          canNext={table.getCanNextPage()}
+        />
+      )}
     </div>
   )
 }

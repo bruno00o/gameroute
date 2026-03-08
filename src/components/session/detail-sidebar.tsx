@@ -4,15 +4,17 @@ import {
   RiArrowLeftLine,
   RiDashboardLine,
   RiDeleteBinLine,
+  RiGamepadLine,
   RiGlobalLine,
   RiSortAsc,
   RiSortDesc,
 } from '@remixicon/react'
 
 import * as m from '@/paraglide/messages'
-import type { IpPeriod, SessionDetail } from '@/types/backend'
+import type { SessionDetail } from '@/types/backend'
 import { formatDuration, computeDurationSecs } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -63,6 +65,11 @@ export function DetailSidebar({
 }) {
   const isActive = detail.endedAt === null
 
+  const gameServerPeriods = useMemo(
+    () => detail.ipPeriods.filter(p => p.isGameServer),
+    [detail.ipPeriods]
+  )
+
   const sortedPeriods = useMemo(() => {
     const dir = sortAsc ? 1 : -1
     const periods = [...detail.ipPeriods]
@@ -72,7 +79,8 @@ export function DetailSidebar({
           (a, b) => dir * (new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime())
         )
       case 'duration': {
-        const dur = (p: IpPeriod) => new Date(p.endedAt).getTime() - new Date(p.startedAt).getTime()
+        const dur = (p: typeof periods[0]) =>
+          new Date(p.endedAt).getTime() - new Date(p.startedAt).getTime()
         return periods.sort((a, b) => dir * (dur(a) - dur(b)))
       }
       case 'packets':
@@ -111,6 +119,26 @@ export function DetailSidebar({
             </SidebarMenuItem>
           </SidebarMenu>
 
+          {gameServerPeriods.length > 0 && (
+            <>
+              <SidebarGroupLabel className="mt-2">
+                <RiGamepadLine className="size-3.5 text-amber-500" />
+                {m.session_game_servers()}
+              </SidebarGroupLabel>
+              <SidebarMenu className="mt-1 gap-0.5">
+                {gameServerPeriods.map(period => (
+                  <PeriodItem
+                    key={`gs-${period.id}`}
+                    period={period}
+                    isActive={selectedPeriodId === period.id}
+                    onSelect={onSelectPeriod}
+                    highlight
+                  />
+                ))}
+              </SidebarMenu>
+            </>
+          )}
+
           <SidebarGroupLabel className="mt-2">{m.session_timeline()}</SidebarGroupLabel>
           <SortToggle
             value={sortMode}
@@ -119,32 +147,15 @@ export function DetailSidebar({
             onDirectionChange={onSortDirectionChange}
           />
           <SidebarMenu className="mt-2 gap-0.5">
-            {sortedPeriods.map(period => {
-              const durationSecs = computeDurationSecs(period.startedAt, period.endedAt)
-              return (
-                <SidebarMenuItem key={period.id}>
-                  <SidebarMenuButton
-                    isActive={selectedPeriodId === period.id}
-                    onClick={() => onSelectPeriod(period.id)}
-                  >
-                    <RiGlobalLine className="shrink-0" />
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <div className="flex items-center gap-1.5">
-                        <span className="truncate font-mono text-xs">{period.ip}</span>
-                        {period.protocol && period.port > 0 && (
-                          <Badge variant="outline" className="shrink-0 px-1 py-0 text-[10px] font-normal">
-                            {period.protocol}:{period.port}
-                          </Badge>
-                        )}
-                      </div>
-                      <span className="text-muted-foreground text-[10px]">
-                        {formatDuration(durationSecs)} &middot; {period.packetCount} pkt
-                      </span>
-                    </div>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )
-            })}
+            {sortedPeriods.map(period => (
+              <PeriodItem
+                key={period.id}
+                period={period}
+                isActive={selectedPeriodId === period.id}
+                onSelect={onSelectPeriod}
+                highlight={period.isGameServer}
+              />
+            ))}
             {sortedPeriods.length === 0 && <p className="text-muted-foreground px-2 text-xs">-</p>}
           </SidebarMenu>
         </SidebarGroup>
@@ -175,6 +186,53 @@ export function DetailSidebar({
         </AlertDialog>
       </SidebarFooter>
     </Sidebar>
+  )
+}
+
+function PeriodItem({
+  period,
+  isActive,
+  onSelect,
+  highlight,
+}: {
+  period: SessionDetail['ipPeriods'][number]
+  isActive: boolean
+  onSelect: (id: number) => void
+  highlight: boolean
+}) {
+  const durationSecs = computeDurationSecs(period.startedAt, period.endedAt)
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        isActive={isActive}
+        onClick={() => onSelect(period.id)}
+        className={cn(highlight && 'border-l-2 border-amber-500')}
+      >
+        {highlight ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={<RiGamepadLine className="shrink-0 text-amber-500" />}
+            />
+            <TooltipContent side="right">{m.session_likely_game_server()}</TooltipContent>
+          </Tooltip>
+        ) : (
+          <RiGlobalLine className="shrink-0" />
+        )}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate font-mono text-xs">{period.ip}</span>
+            {period.protocol && period.port > 0 && (
+              <Badge variant="outline" className="shrink-0 px-1 py-0 text-[10px] font-normal">
+                {period.protocol}:{period.port}
+              </Badge>
+            )}
+          </div>
+          <span className="text-muted-foreground text-[10px]">
+            {formatDuration(durationSecs)} &middot; {period.packetCount} pkt
+          </span>
+        </div>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   )
 }
 

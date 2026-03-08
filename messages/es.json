@@ -222,6 +222,11 @@
   "network_col_occurrences": "Ocurrencias",
   "network_col_avg_latency": "Latencia prom.",
   "network_col_avg_loss": "Pérdida prom.",
+  "network_game_servers_title": "Servidores de juego",
+  "network_other_servers_title": "Otros servidores",
+  "network_game_server_hops_title": "Problemas en rutas de juego",
+  "network_other_hops_title": "Problemas en otras rutas",
+  "network_no_game_server_issues": "Sin problemas recurrentes en las rutas de servidores de juego.",
   "network_empty_title": "Sin datos de red",
   "network_empty_description": "Inicia el monitoreo de juegos y ejecuta trazas para ver tu vista de red.",
 
@@ -306,6 +311,9 @@
 
   "service_warning_title": "Servicio de captura no disponible",
   "service_warning_body": "El servicio de captura no está ejecutándose. La captura UDP y los traceroutes privilegiados están desactivados. Las conexiones TCP seguirán siendo detectadas.",
+
+  "session_game_servers": "Servidores de juego",
+  "session_likely_game_server": "Probable servidor de juego",
 
   "settings_minimize_to_tray": "Minimizar a la bandeja",
   "settings_minimize_to_tray_description": "Mantener la aplicación activa en la bandeja del sistema al cerrar la ventana."

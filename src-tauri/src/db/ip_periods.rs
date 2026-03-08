@@ -1,4 +1,4 @@
-use crate::config::ACTIVITY_PERIOD_THRESHOLD_SECS;
+use crate::config::{ACTIVITY_PERIOD_THRESHOLD_SECS, GAME_SERVER_MIN_DURATION_SECS};
 use crate::db::DbError;
 use crate::models::ip_period::{IpPeriod, IpPeriodData, IpPeriodSummary};
 use sqlx::sqlite::SqlitePool;
@@ -17,8 +17,8 @@ impl IpPeriodRepository {
 
     pub async fn insert_period(&self, data: &IpPeriodData) -> Result<i64, DbError> {
         let result = sqlx::query(
-            "INSERT INTO ip_periods (session_id, ip, protocol, port, started_at, ended_at, packet_count)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            "INSERT INTO ip_periods (session_id, ip, protocol, port, started_at, ended_at, packet_count, is_game_server)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 0)",
         )
         .bind(data.session_id)
         .bind(&data.ip)
@@ -38,13 +38,17 @@ impl IpPeriodRepository {
         id: i64,
         ended_at: &str,
         packet_count: i32,
+        is_game_server: bool,
     ) -> Result<(), DbError> {
-        sqlx::query("UPDATE ip_periods SET ended_at = $1, packet_count = $2 WHERE id = $3")
-            .bind(ended_at)
-            .bind(packet_count)
-            .bind(id)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(
+            "UPDATE ip_periods SET ended_at = $1, packet_count = $2, is_game_server = $3 WHERE id = $4",
+        )
+        .bind(ended_at)
+        .bind(packet_count)
+        .bind(is_game_server)
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
 
         Ok(())
     }
@@ -55,7 +59,7 @@ impl IpPeriodRepository {
         ip: &str,
     ) -> Result<Option<IpPeriod>, DbError> {
         sqlx::query_as::<_, IpPeriod>(
-            "SELECT id, session_id, ip, protocol, port, started_at, ended_at, packet_count
+            "SELECT id, session_id, ip, protocol, port, started_at, ended_at, packet_count, is_game_server
              FROM ip_periods
              WHERE session_id = $1 AND ip = $2
              ORDER BY ended_at DESC
@@ -83,20 +87,27 @@ impl IpPeriodRepository {
         let latest = self.get_latest_period_for_ip(session_id, ip).await?;
 
         if let Some(period) = latest {
-            if let (Ok(ended), Ok(now)) = (
+            if let (Ok(started), Ok(ended), Ok(now)) = (
+                chrono::DateTime::parse_from_rfc3339(&period.started_at),
                 chrono::DateTime::parse_from_rfc3339(&period.ended_at),
                 chrono::DateTime::parse_from_rfc3339(timestamp),
             ) {
                 let elapsed = (now - ended).num_seconds();
                 if elapsed < ACTIVITY_PERIOD_THRESHOLD_SECS {
                     let new_count = period.packet_count + 1;
-                    self.update_period(period.id, timestamp, new_count).await?;
+                    let total_duration = (now - started).num_seconds();
+                    let is_game_server = period.is_game_server
+                        || (protocol == "UDP"
+                            && total_duration >= GAME_SERVER_MIN_DURATION_SECS);
+                    self.update_period(period.id, timestamp, new_count, is_game_server)
+                        .await?;
                     log::debug!(
-                        "Extended IP period {} for {} ({}s elapsed, {} packets)",
+                        "Extended IP period {} for {} ({}s elapsed, {} packets, game_server={})",
                         period.id,
                         ip,
                         elapsed,
-                        new_count
+                        new_count,
+                        is_game_server
                     );
                     return Ok((period.id, false));
                 }
@@ -111,7 +122,7 @@ impl IpPeriodRepository {
 
     pub async fn get_periods_for_session(&self, session_id: i64) -> Result<Vec<IpPeriod>, DbError> {
         sqlx::query_as::<_, IpPeriod>(
-            "SELECT id, session_id, ip, protocol, port, started_at, ended_at, packet_count
+            "SELECT id, session_id, ip, protocol, port, started_at, ended_at, packet_count, is_game_server
              FROM ip_periods
              WHERE session_id = $1
              ORDER BY started_at ASC",
@@ -135,7 +146,8 @@ impl IpPeriodRepository {
                 SUM(packet_count) as total_packet_count,
                 COUNT(*) as period_count,
                 MIN(started_at) as first_seen_at,
-                MAX(ended_at) as last_seen_at
+                MAX(ended_at) as last_seen_at,
+                MAX(is_game_server) as is_game_server
              FROM ip_periods
              WHERE session_id = $1
              GROUP BY ip

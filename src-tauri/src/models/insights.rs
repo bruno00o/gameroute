@@ -22,6 +22,7 @@ pub struct ServerStability {
     pub avg_packet_loss: Option<f64>,
     pub traceroute_count: i64,
     pub problem_hop_ratio: f64,
+    pub is_game_server: bool,
 }
 
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]

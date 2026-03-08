@@ -69,6 +69,7 @@ export type IpPeriod = {
   startedAt: string
   endedAt: string
   packetCount: number
+  isGameServer: boolean
 }
 
 export type IpPeriodSummary = {
@@ -80,6 +81,7 @@ export type IpPeriodSummary = {
   periodCount: number
   firstSeenAt: string
   lastSeenAt: string
+  isGameServer: boolean
 }
 
 // ===== Traceroute Records =====
@@ -288,6 +290,7 @@ export type NetworkMapEntry = {
   sessionCount: number
   totalDurationSecs: number
   totalPackets: number
+  isGameServer: boolean
 }
 
 export type RecurringProblemHop = {
@@ -297,6 +300,7 @@ export type RecurringProblemHop = {
   occurrenceCount: number
   avgLatency: number | null
   avgPacketLoss: number | null
+  isGameServerRoute: boolean
 }
 
 export type NetworkOverviewStats = {
@@ -325,6 +329,7 @@ export type ServerStability = {
   avgPacketLoss: number | null
   tracerouteCount: number
   problemHopRatio: number
+  isGameServer: boolean
 }
 
 export type HourlyQuality = {

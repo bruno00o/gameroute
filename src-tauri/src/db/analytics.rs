@@ -29,7 +29,8 @@ impl AnalyticsRepository {
                 COALESCE(SUM(
                     (julianday(ip.ended_at) - julianday(ip.started_at)) * 86400
                 ), 0.0) as total_duration_secs,
-                COALESCE(SUM(ip.packet_count), 0) as total_packets
+                COALESCE(SUM(ip.packet_count), 0) as total_packets,
+                MAX(ip.is_game_server) as is_game_server
              FROM ip_periods ip
              LEFT JOIN ip_metadata m ON m.ip = ip.ip
              GROUP BY ip.ip
@@ -48,14 +49,19 @@ impl AnalyticsRepository {
                 m.isp,
                 COUNT(DISTINCT t.session_id) as occurrence_count,
                 AVG(h.latency_avg) as avg_latency,
-                AVG(h.packet_loss) as avg_packet_loss
+                AVG(h.packet_loss) as avg_packet_loss,
+                COALESCE(MAX(gs.is_game_server), 0) as is_game_server_route
              FROM hops h
              JOIN traceroutes t ON t.id = h.traceroute_id
              LEFT JOIN ip_metadata m ON m.ip = h.ip
+             LEFT JOIN (
+                 SELECT ip, MAX(is_game_server) as is_game_server
+                 FROM ip_periods GROUP BY ip
+             ) gs ON gs.ip = t.target_ip
              WHERE h.is_problem_hop = 1 AND h.ip IS NOT NULL
              GROUP BY h.ip
              HAVING COUNT(DISTINCT t.session_id) > 1
-             ORDER BY occurrence_count DESC",
+             ORDER BY is_game_server_route DESC, occurrence_count DESC",
         )
         .fetch_all(&self.pool)
         .await
@@ -135,10 +141,15 @@ impl AnalyticsRepository {
                 CASE WHEN COUNT(h.id) > 0
                     THEN CAST(SUM(CASE WHEN h.is_problem_hop = 1 THEN 1 ELSE 0 END) AS REAL) / COUNT(h.id)
                     ELSE 0.0
-                END as problem_hop_ratio
+                END as problem_hop_ratio,
+                COALESCE(gs.is_game_server, 0) as is_game_server
              FROM traceroutes t
              LEFT JOIN hops h ON h.traceroute_id = t.id
              LEFT JOIN ip_metadata m ON m.ip = t.target_ip
+             LEFT JOIN (
+                 SELECT ip, MAX(is_game_server) as is_game_server
+                 FROM ip_periods GROUP BY ip
+             ) gs ON gs.ip = t.target_ip
              GROUP BY t.target_ip
              ORDER BY problem_hop_ratio ASC, avg_latency ASC",
         )

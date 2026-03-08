@@ -83,6 +83,9 @@ pub const MAX_PAGE_LIMIT: i32 = 100;
 /// is extended instead.
 pub const ACTIVITY_PERIOD_THRESHOLD_SECS: i64 = 10;
 
+/// Minimum duration (seconds) for a UDP period to be flagged as a likely game server.
+pub const GAME_SERVER_MIN_DURATION_SECS: i64 = 30;
+
 // ── UDP Capture Service ───────────────────────────────────────────────────
 
 /// Named pipe name for communication with the capture service.

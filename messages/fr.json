@@ -222,6 +222,11 @@
   "network_col_occurrences": "Occurrences",
   "network_col_avg_latency": "Latence moy.",
   "network_col_avg_loss": "Perte moy.",
+  "network_game_servers_title": "Serveurs de jeu",
+  "network_other_servers_title": "Autres serveurs",
+  "network_game_server_hops_title": "Problèmes sur les routes de jeu",
+  "network_other_hops_title": "Problèmes sur les autres routes",
+  "network_no_game_server_issues": "Aucun problème récurrent sur les routes des serveurs de jeu.",
   "network_empty_title": "Aucune donnée réseau",
   "network_empty_description": "Lancez le monitoring de jeux et des traceroutes pour voir votre vue réseau.",
 
@@ -306,6 +311,9 @@
 
   "service_warning_title": "Service de capture indisponible",
   "service_warning_body": "Le service de capture n'est pas en cours d'exécution. La capture UDP et les traceroutes privilégiés sont désactivés. Les connexions TCP seront toujours détectées.",
+
+  "session_game_servers": "Serveurs de jeu",
+  "session_likely_game_server": "Serveur de jeu probable",
 
   "settings_minimize_to_tray": "Réduire dans la zone de notification",
   "settings_minimize_to_tray_description": "Garder l'application active dans la zone de notification lorsque la fenêtre est fermée."
