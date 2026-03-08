@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { RiDeleteBinLine, RiFilterLine } from '@remixicon/react'
+import { RiArrowDownSLine, RiDeleteBinLine, RiFilterLine } from '@remixicon/react'
 import { toast } from 'sonner'
 
 import * as m from '@/paraglide/messages'
@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 
 export const Route = createFileRoute('/settings')({
   component: SettingsPage,
@@ -180,18 +181,31 @@ function CacheSection() {
       {isLoading ? (
         <div className="text-muted-foreground text-xs">{m.settings_cache_no_stats()}</div>
       ) : stats ? (
-        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
-          <StatRow label={m.settings_cache_memory_entries()} value={stats.memoryEntries} />
-          <StatRow label={m.settings_cache_sqlite_entries()} value={stats.sqliteEntries} />
-          <StatRow label={m.settings_cache_with_asn()} value={stats.entriesWithAsn} />
-          <StatRow label={m.settings_cache_with_geo()} value={stats.entriesWithGeo} />
-          {stats.oldestEntry && (
-            <div className="col-span-2 flex justify-between">
-              <span className="text-muted-foreground">{m.settings_cache_oldest()}</span>
-              <span className="tabular-nums">{formatDate(stats.oldestEntry)}</span>
-            </div>
-          )}
-        </div>
+        <>
+          <div className="text-xs">
+            <StatRow label={m.settings_cache_sqlite_entries()} value={stats.sqliteEntries} />
+          </div>
+          <Collapsible>
+            <CollapsibleTrigger className="text-muted-foreground flex items-center gap-1 text-xs hover:text-foreground transition-colors [&[data-state=open]>svg]:rotate-180">
+              {m.settings_cache_details()}
+              <RiArrowDownSLine className="size-4 transition-transform" />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+                <StatRow label={m.settings_cache_memory_entries()} value={stats.memoryEntries} />
+                <StatRow label={m.settings_cache_sqlite_entries()} value={stats.sqliteEntries} />
+                <StatRow label={m.settings_cache_with_asn()} value={stats.entriesWithAsn} />
+                <StatRow label={m.settings_cache_with_geo()} value={stats.entriesWithGeo} />
+                {stats.oldestEntry && (
+                  <div className="col-span-2 flex justify-between">
+                    <span className="text-muted-foreground">{m.settings_cache_oldest()}</span>
+                    <span className="tabular-nums">{formatDate(stats.oldestEntry)}</span>
+                  </div>
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </>
       ) : (
         <div className="text-muted-foreground text-xs">{m.settings_cache_no_stats()}</div>
       )}

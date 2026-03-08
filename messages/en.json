@@ -60,8 +60,12 @@
   "session_traceroutes_count": "Traceroutes",
   "session_retry_traceroutes": "Retry traceroutes",
   "session_total_packets": "Total packets",
+  "session_route_stability": "Route stability",
   "session_problem_hops": "Problem hops",
+  "session_problem_hops_tooltip": "Routers along the route with unusually high latency (>50ms increase) or packet loss (>10%). These may cause lag or disconnections.",
   "session_avg_latency": "Avg latency",
+  "session_avg_latency_tooltip": "Average response time across all hops in traceroutes for this session. Lower is better — under 50ms is good for gaming.",
+  "session_route_stability_tooltip": "Percentage of routers along the route with no detected issues. Higher is better — 90%+ means a stable connection.",
   "session_no_problems": "No issues detected",
   "session_ip_hop_count": "Hops",
   "session_ip_latency": "Latency",
@@ -218,7 +222,7 @@
   "network_problem_hops_empty": "No recurring problem hops detected across sessions.",
   "network_col_ip": "IP",
   "network_col_asn": "ASN",
-  "network_col_isp": "ISP",
+  "network_col_isp": "Provider",
   "network_col_occurrences": "Occurrences",
   "network_col_avg_latency": "Avg Latency",
   "network_col_avg_loss": "Avg Loss",
@@ -244,7 +248,7 @@
   "insights_stability_empty": "No server data available yet.",
   "insights_col_ip": "IP",
   "insights_col_asn": "ASN",
-  "insights_col_isp": "ISP",
+  "insights_col_isp": "Provider",
   "insights_col_country": "Country",
   "insights_col_avg_latency": "Avg Latency",
   "insights_col_avg_loss": "Avg Loss",
@@ -309,8 +313,8 @@
   "welcome_no_collection_body": "No telemetry, no user accounts, no cloud sync, no personal data collection. GameRoute is fully offline except for IP lookups.",
   "welcome_launch_button": "I understand, launch",
 
-  "service_warning_title": "Capture service unavailable",
-  "service_warning_body": "The capture service is not running. UDP capture and privileged traceroutes are disabled. TCP connections will still be detected.",
+  "service_warning_title": "Limited functionality",
+  "service_warning_body": "The network monitoring service is not active. Some game connections may not be detected. Reinstall the app or check the Help page for instructions.",
 
   "session_game_servers": "Game Servers",
   "session_game_servers_hint": "These are likely game servers based on UDP traffic lasting over 30 seconds. Compare durations with your actual play time to confirm.",
@@ -324,5 +328,39 @@
   "session_traceroute_map_empty": "No hop location data available.",
   "session_your_location": "You",
   "insights_stability_map_title": "Server Locations",
-  "insights_stability_map_empty": "No server location data available."
+  "insights_stability_map_empty": "No server location data available.",
+
+  "session_hop_source": "Source",
+  "session_hop_default_source": "ICMP",
+  "insights_map_problems": "{percent}% problems",
+  "session_packets_short": "{count} pkt",
+
+  "dashboard_network_title": "Network Health",
+  "dashboard_network_good": "Good",
+  "dashboard_network_fair": "Fair",
+  "dashboard_network_poor": "Poor",
+  "dashboard_network_no_data": "No data",
+  "dashboard_network_good_desc": "Your recent connections look healthy.",
+  "dashboard_network_fair_desc": "Some issues detected on your routes.",
+  "dashboard_network_poor_desc": "Significant problems detected on your routes.",
+  "dashboard_avg_latency": "Avg Latency",
+  "dashboard_avg_latency_tooltip": "Average latency to the game server (last hop of each traceroute, game server routes only).",
+  "dashboard_problem_hops": "Problem Hops",
+  "dashboard_problem_hops_tooltip": "Number of unique routers with high latency increase (>50ms) or packet loss (>10%) on game server routes.",
+  "dashboard_network_details": "Click for details",
+
+  "trace_verdict_good": "Good connection",
+  "trace_verdict_fair": "Some issues detected",
+  "trace_verdict_poor": "Connection problems detected",
+
+  "welcome_performance_title": "Lightweight in background",
+  "welcome_performance_body": "GameRoute uses minimal CPU and bandwidth. Monitoring does not interfere with your games or streams.",
+
+  "settings_cache_details": "Technical details",
+
+  "error_already_monitoring": "Monitoring is already running",
+  "error_not_monitoring": "Monitoring is not running",
+  "error_repo_not_initialized": "Database not ready. Try restarting the app.",
+  "error_process_not_found": "That process is no longer running",
+  "error_monitoring_generic": "Could not start monitoring. Try again or restart the app."
 }

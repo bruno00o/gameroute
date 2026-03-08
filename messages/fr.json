@@ -60,8 +60,12 @@
   "session_traceroutes_count": "Traceroutes",
   "session_retry_traceroutes": "Relancer les traceroutes",
   "session_total_packets": "Paquets totaux",
+  "session_route_stability": "Stabilité du trajet",
   "session_problem_hops": "Sauts problématiques",
+  "session_problem_hops_tooltip": "Routeurs avec une augmentation de latence anormale (>50ms) ou une perte de paquets (>10%). Ils peuvent causer du lag ou des déconnexions.",
   "session_avg_latency": "Latence moy.",
+  "session_avg_latency_tooltip": "Temps de réponse moyen de tous les sauts des traceroutes de cette session. Plus c'est bas, mieux c'est — moins de 50ms est idéal pour le jeu.",
+  "session_route_stability_tooltip": "Pourcentage de routeurs sur le trajet sans problème détecté. Plus c'est élevé, mieux c'est — 90%+ signifie une connexion stable.",
   "session_no_problems": "Aucun problème détecté",
   "session_ip_hop_count": "Sauts",
   "session_ip_latency": "Latence",
@@ -218,7 +222,7 @@
   "network_problem_hops_empty": "Aucun saut problématique récurrent détecté entre les sessions.",
   "network_col_ip": "IP",
   "network_col_asn": "ASN",
-  "network_col_isp": "FAI",
+  "network_col_isp": "Opérateur",
   "network_col_occurrences": "Occurrences",
   "network_col_avg_latency": "Latence moy.",
   "network_col_avg_loss": "Perte moy.",
@@ -244,7 +248,7 @@
   "insights_stability_empty": "Aucune donnée serveur disponible.",
   "insights_col_ip": "IP",
   "insights_col_asn": "ASN",
-  "insights_col_isp": "FAI",
+  "insights_col_isp": "Opérateur",
   "insights_col_country": "Pays",
   "insights_col_avg_latency": "Latence moy.",
   "insights_col_avg_loss": "Perte moy.",
@@ -309,8 +313,8 @@
   "welcome_no_collection_body": "Pas de télémétrie, pas de comptes utilisateur, pas de synchronisation cloud, pas de collecte de données personnelles. GameRoute est entièrement hors ligne sauf pour les recherches d'IP.",
   "welcome_launch_button": "J'ai compris, lancer",
 
-  "service_warning_title": "Service de capture indisponible",
-  "service_warning_body": "Le service de capture n'est pas en cours d'exécution. La capture UDP et les traceroutes privilégiés sont désactivés. Les connexions TCP seront toujours détectées.",
+  "service_warning_title": "Fonctionnalités limitées",
+  "service_warning_body": "Le service de surveillance réseau n'est pas actif. Certaines connexions de jeu pourraient ne pas être détectées. Réinstallez l'application ou consultez la page d'aide.",
 
   "session_game_servers": "Serveurs de jeu",
   "session_game_servers_hint": "Ces serveurs sont probablement des serveurs de jeu, basé sur du trafic UDP de plus de 30 secondes. Comparez les durées avec votre temps de jeu réel pour confirmer.",
@@ -324,5 +328,39 @@
   "session_traceroute_map_empty": "Aucune donnée de localisation des sauts disponible.",
   "session_your_location": "Vous",
   "insights_stability_map_title": "Localisation des serveurs",
-  "insights_stability_map_empty": "Aucune donnée de localisation de serveur disponible."
+  "insights_stability_map_empty": "Aucune donnée de localisation de serveur disponible.",
+
+  "session_hop_source": "Source",
+  "session_hop_default_source": "ICMP",
+  "insights_map_problems": "{percent}% problèmes",
+  "session_packets_short": "{count} paq",
+
+  "dashboard_network_title": "Santé réseau",
+  "dashboard_network_good": "Bonne",
+  "dashboard_network_fair": "Moyenne",
+  "dashboard_network_poor": "Mauvaise",
+  "dashboard_network_no_data": "Aucune donnée",
+  "dashboard_network_good_desc": "Vos connexions récentes sont saines.",
+  "dashboard_network_fair_desc": "Quelques problèmes détectés sur vos routes.",
+  "dashboard_network_poor_desc": "Problèmes significatifs détectés sur vos routes.",
+  "dashboard_avg_latency": "Latence moy.",
+  "dashboard_avg_latency_tooltip": "Latence moyenne vers le serveur de jeu (dernier saut de chaque traceroute, routes de jeu uniquement).",
+  "dashboard_problem_hops": "Sauts problém.",
+  "dashboard_problem_hops_tooltip": "Nombre de routeurs uniques avec une hausse de latence (>50ms) ou perte de paquets (>10%) sur les routes de jeu.",
+  "dashboard_network_details": "Cliquer pour les détails",
+
+  "trace_verdict_good": "Bonne connexion",
+  "trace_verdict_fair": "Quelques problèmes détectés",
+  "trace_verdict_poor": "Problèmes de connexion détectés",
+
+  "welcome_performance_title": "Léger en arrière-plan",
+  "welcome_performance_body": "GameRoute utilise un minimum de CPU et de bande passante. Le monitoring n'interfère pas avec vos jeux ni vos streams.",
+
+  "settings_cache_details": "Détails techniques",
+
+  "error_already_monitoring": "Le monitoring est déjà en cours",
+  "error_not_monitoring": "Le monitoring n'est pas actif",
+  "error_repo_not_initialized": "Base de données non prête. Essayez de redémarrer l'application.",
+  "error_process_not_found": "Ce processus n'est plus en cours d'exécution",
+  "error_monitoring_generic": "Impossible de démarrer le monitoring. Réessayez ou redémarrez l'application."
 }

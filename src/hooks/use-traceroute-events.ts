@@ -37,7 +37,7 @@ export function useTracerouteEvents() {
 
     return () => {
       for (const unlisten of unlisteners) {
-        unlisten.then(fn => fn())
+        unlisten.then(fn => fn()).catch(() => {})
       }
     }
   }, [queryClient])

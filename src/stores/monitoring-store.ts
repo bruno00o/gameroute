@@ -31,8 +31,10 @@ export const useMonitoringStore = create<MonitoringStore>(set => ({
   addCapturedIp: event =>
     set(state => {
       if (state.seenIps.has(event.ip)) return state
-      state.seenIps.add(event.ip)
+      const seenIps = new Set(state.seenIps)
+      seenIps.add(event.ip)
       return {
+        seenIps,
         serverIpCount: state.serverIpCount + 1,
       }
     }),

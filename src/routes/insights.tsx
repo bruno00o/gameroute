@@ -494,7 +494,7 @@ function StabilityMapContent({ servers }: { servers: ServerStability[] }) {
                 {formatMs(selected.avgLatency)} ms
               </span>
               <span className="text-muted-foreground">
-                {(selected.problemHopRatio * 100).toFixed(0)}% problems
+                {m.insights_map_problems({ percent: (selected.problemHopRatio * 100).toFixed(0) })}
               </span>
             </div>
           </div>

@@ -259,7 +259,7 @@ function PeriodItem({
             )}
           </div>
           <span className="text-muted-foreground text-[10px]">
-            {formatDuration(durationSecs)} &middot; {period.packetCount} pkt
+            {formatDuration(durationSecs)} &middot; {m.session_packets_short({ count: period.packetCount.toString() })}
           </span>
         </div>
       </SidebarMenuButton>

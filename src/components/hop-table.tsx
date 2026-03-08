@@ -100,7 +100,7 @@ export function HopTable({
           <TableHead className="hidden sm:table-cell">{m.session_hop_hostname()}</TableHead>
           <TableHead className="text-right">{m.session_hop_latency()}</TableHead>
           <TableHead className="text-right">{m.session_hop_loss()}</TableHead>
-          <TableHead className="hidden text-right md:table-cell">Source</TableHead>
+          <TableHead className="hidden text-right md:table-cell">{m.session_hop_source()}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -176,7 +176,7 @@ export function HopTable({
                     {hop.source}
                   </Badge>
                 ) : (
-                  <span className="text-muted-foreground text-xs">ICMP</span>
+                  <span className="text-muted-foreground text-xs">{m.session_hop_default_source()}</span>
                 )}
               </TableCell>
             </TableRow>

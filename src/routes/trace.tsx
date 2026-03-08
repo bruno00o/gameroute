@@ -164,6 +164,23 @@ function TraceIpList({ serverIps }: { serverIps: string[] }) {
   )
 }
 
+function getTraceVerdict(hops: TracerouteHopEvent[]) {
+  if (hops.length === 0) return null
+  const respondingHops = hops.filter(h => h.rttMs != null)
+  if (respondingHops.length === 0) return 'poor'
+  const lastRtt = respondingHops[respondingHops.length - 1].rttMs!
+  const timeoutCount = hops.filter(h => h.timeout).length
+  if (lastRtt >= 80 || timeoutCount >= 3) return 'poor'
+  if (lastRtt >= 50 || timeoutCount >= 1) return 'fair'
+  return 'good'
+}
+
+const traceVerdictConfig = {
+  good: { label: () => m.trace_verdict_good(), color: 'text-emerald-500' },
+  fair: { label: () => m.trace_verdict_fair(), color: 'text-amber-500' },
+  poor: { label: () => m.trace_verdict_poor(), color: 'text-destructive' },
+} as const
+
 function TraceIpCollapsible({
   ip,
   hops,
@@ -177,15 +194,26 @@ function TraceIpCollapsible({
   isCurrent: boolean
   defaultOpen: boolean
 }) {
+  const verdict = completed === true ? getTraceVerdict(hops) : null
+
   return (
     <Collapsible defaultOpen={defaultOpen}>
       <CollapsibleTrigger className="ring-foreground/10 hover:bg-muted/50 flex w-full items-center gap-3 px-3 py-2.5 ring-1 transition-colors">
         <IpStatusIcon completed={completed} isCurrent={isCurrent} />
-        <span className="font-mono text-sm">{ip}</span>
-        <span className="text-muted-foreground text-xs">
-          <IpStatusLabel completed={completed} isCurrent={isCurrent} hopsCount={hops.length} />
-        </span>
-        <RiArrowDownSLine className="text-muted-foreground ml-auto size-4 transition-transform [[data-panel-open]_&]:rotate-180" />
+        <div className="min-w-0 flex-1 text-left">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-sm">{ip}</span>
+            <span className="text-muted-foreground text-xs">
+              <IpStatusLabel completed={completed} isCurrent={isCurrent} hopsCount={hops.length} />
+            </span>
+          </div>
+          {verdict && (
+            <p className={`text-xs ${traceVerdictConfig[verdict].color}`}>
+              {traceVerdictConfig[verdict].label()}
+            </p>
+          )}
+        </div>
+        <RiArrowDownSLine className="text-muted-foreground ml-auto size-4 shrink-0 transition-transform [[data-panel-open]_&]:rotate-180" />
       </CollapsibleTrigger>
       <CollapsibleContent className="ring-foreground/10 ring-1 ring-t-0">
         {hops.length > 0 ? (

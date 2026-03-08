@@ -132,6 +132,7 @@ function SessionsPage() {
                     className="cursor-pointer"
                     tabIndex={0}
                     role="link"
+                    aria-label={row.original.gameName}
                     onClick={() =>
                       navigate({
                         to: '/sessions/$id',

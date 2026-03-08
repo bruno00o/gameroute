@@ -93,13 +93,21 @@ function NetworkPage() {
         header: () => m.network_col_ip(),
         cell: info => <span className="font-mono text-sm">{info.getValue()}</span>,
       }),
-      hopColumnHelper.accessor('asn', {
-        header: () => m.network_col_asn(),
-        cell: info => info.getValue() ?? '-',
-      }),
       hopColumnHelper.accessor('isp', {
         header: () => m.network_col_isp(),
-        cell: info => info.getValue() ?? '-',
+        cell: info => {
+          const isp = info.getValue()
+          const asn = info.row.original.asn
+          if (!isp && !asn) return '-'
+          if (!isp) return <span className="font-mono text-xs">{asn}</span>
+          if (!asn) return isp
+          return (
+            <span>
+              {isp}{' '}
+              <span className="text-muted-foreground text-xs">({asn})</span>
+            </span>
+          )
+        },
       }),
       hopColumnHelper.accessor('occurrenceCount', {
         header: () => m.network_col_occurrences(),

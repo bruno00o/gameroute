@@ -4,6 +4,7 @@ import { Link } from '@tanstack/react-router'
 import { toast } from 'sonner'
 
 import * as m from '@/paraglide/messages'
+import { friendlyError } from '@/lib/errors'
 import { startMonitoring, stopMonitoring } from '@/lib/tauri'
 import { useMonitoringStore } from '@/stores/monitoring-store'
 import { cn } from '@/lib/utils'
@@ -35,9 +36,7 @@ export function MonitoringWidget() {
         useMonitoringStore.setState({ isMonitoring: true })
       }
     } catch (e) {
-      const message =
-        e instanceof Error ? e.message : typeof e === 'object' && e !== null && 'message' in e ? (e as { message: string }).message : String(e)
-      toast.error(message)
+      toast.error(friendlyError(e))
     }
   }, [isMonitoring])
 
@@ -77,7 +76,7 @@ export function MonitoringWidget() {
 
   return (
     <>
-      <div className="ring-sidebar-border mb-2 flex flex-col gap-2 rounded-none p-2.5 ring-1 mx-1.5">
+      <div className="bg-sidebar-accent/50 ring-sidebar-border mb-2 flex flex-col gap-2 rounded-md p-2.5 ring-1 mx-1.5">
         <div className="flex items-center gap-2">
           <span
             className={cn(

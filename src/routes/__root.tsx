@@ -56,27 +56,27 @@ function MainLayout() {
 
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <SidebarProvider key={localeVersion}>
-        <AppSidebar />
-        <SidebarInset className="max-h-screen">
-          <Header />
-          {!isServiceRunning && !isLoading && (
-            <div className="flex items-center gap-2 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
-              <RiAlertLine className="size-4 shrink-0" />
-              <div>
-                <span className="font-medium">{m.service_warning_title()}</span>
-                {' — '}
-                {m.service_warning_body()}
+      <ErrorBoundary>
+        <SidebarProvider key={localeVersion}>
+          <AppSidebar />
+          <SidebarInset className="max-h-screen">
+            <Header />
+            {!isServiceRunning && !isLoading && (
+              <div className="flex items-center gap-2 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
+                <RiAlertLine className="size-4 shrink-0" />
+                <div>
+                  <span className="font-medium">{m.service_warning_title()}</span>
+                  {' — '}
+                  {m.service_warning_body()}
+                </div>
               </div>
-            </div>
-          )}
-          <ErrorBoundary>
+            )}
             <div className="flex-1 min-h-0 overflow-hidden">
               <Outlet />
             </div>
-          </ErrorBoundary>
-        </SidebarInset>
-      </SidebarProvider>
+          </SidebarInset>
+        </SidebarProvider>
+      </ErrorBoundary>
       <Toaster />
     </ThemeProvider>
   )

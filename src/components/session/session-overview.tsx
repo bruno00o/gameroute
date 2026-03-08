@@ -5,7 +5,7 @@ import {
   RiLoopLeftLine,
   RiRouteLine,
   RiSpeedLine,
-  RiStackLine,
+  RiShieldCheckLine,
   RiTimeLine,
 } from '@remixicon/react'
 
@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 interface SessionOverviewProps {
   detail: SessionDetail
@@ -28,14 +29,14 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
   const durationSecs = computeDurationSecs(detail.startedAt, detail.endedAt)
 
   const stats = useMemo(() => {
-    const totalPackets = detail.ipSummaries.reduce((sum, s) => sum + s.totalPacketCount, 0)
-
     let problemHopCount = 0
+    let totalHopCount = 0
     let latencySum = 0
     let latencyCount = 0
 
     for (const tr of detail.traceroutes) {
       for (const hop of tr.hops) {
+        totalHopCount++
         if (hop.isProblemHop) problemHopCount++
         if (hop.latencyAvg != null) {
           latencySum += hop.latencyAvg
@@ -45,8 +46,9 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
     }
 
     const avgLatency = latencyCount > 0 ? latencySum / latencyCount : null
+    const stability = totalHopCount > 0 ? Math.round(((totalHopCount - problemHopCount) / totalHopCount) * 100) : null
 
-    return { totalPackets, problemHopCount, avgLatency }
+    return { stability, problemHopCount, avgLatency }
   }, [detail])
 
   return (
@@ -118,24 +120,38 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
 
         <Card size="sm">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <RiStackLine className="text-muted-foreground size-3.5" />
-              {m.session_total_packets()}
-            </CardTitle>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <CardTitle className="flex items-center gap-2 cursor-help">
+                  <RiShieldCheckLine className="text-muted-foreground size-3.5" />
+                  <span className="underline decoration-dotted">{m.session_route_stability()}</span>
+                </CardTitle>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">{m.session_route_stability_tooltip()}</TooltipContent>
+            </Tooltip>
           </CardHeader>
           <CardContent>
-            <p className="text-lg font-medium tabular-nums">
-              {stats.totalPackets.toLocaleString()}
-            </p>
+            {stats.stability != null ? (
+              <p className={`text-lg font-medium ${stats.stability >= 90 ? 'text-emerald-500' : stats.stability >= 70 ? 'text-amber-500' : 'text-destructive'}`}>
+                {stats.stability}%
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-lg font-medium">-</p>
+            )}
           </CardContent>
         </Card>
 
         <Card size="sm">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <RiSpeedLine className="text-muted-foreground size-3.5" />
-              {m.session_avg_latency()}
-            </CardTitle>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <CardTitle className="flex items-center gap-2 cursor-help">
+                  <RiSpeedLine className="text-muted-foreground size-3.5" />
+                  <span className="underline decoration-dotted">{m.session_avg_latency()}</span>
+                </CardTitle>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">{m.session_avg_latency_tooltip()}</TooltipContent>
+            </Tooltip>
           </CardHeader>
           <CardContent>
             <p className={`text-lg font-medium ${latencyColor(stats.avgLatency)}`}>
@@ -146,10 +162,15 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
 
         <Card size="sm">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <RiAlertLine className="text-muted-foreground size-3.5" />
-              {m.session_problem_hops()}
-            </CardTitle>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <CardTitle className="flex items-center gap-2 cursor-help">
+                  <RiAlertLine className="text-muted-foreground size-3.5" />
+                  <span className="underline decoration-dotted">{m.session_problem_hops()}</span>
+                </CardTitle>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">{m.session_problem_hops_tooltip()}</TooltipContent>
+            </Tooltip>
           </CardHeader>
           <CardContent>
             {stats.problemHopCount > 0 ? (

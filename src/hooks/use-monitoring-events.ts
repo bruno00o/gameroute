@@ -74,7 +74,7 @@ export function useMonitoringEvents() {
     return () => {
       clearInterval(activePollRef.current)
       for (const unlisten of unlisteners) {
-        unlisten.then(fn => fn())
+        unlisten.then(fn => fn()).catch(() => {})
       }
     }
   }, [queryClient])

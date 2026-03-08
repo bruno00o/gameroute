@@ -4,6 +4,7 @@ import { RiSearchLine } from '@remixicon/react'
 import { toast } from 'sonner'
 
 import * as m from '@/paraglide/messages'
+import { friendlyError } from '@/lib/errors'
 import { listRunningApps, startManualMonitoring } from '@/lib/tauri'
 import {
   Dialog,
@@ -43,7 +44,7 @@ export function ProcessSelector({
       await startManualMonitoring(pid)
       onOpenChange(false)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(friendlyError(e))
     }
   }
 

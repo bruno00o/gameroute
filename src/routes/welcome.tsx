@@ -4,6 +4,7 @@ import {
   RiEyeOffLine,
   RiLockLine,
   RiRouterLine,
+  RiSpeedLine,
 } from '@remixicon/react'
 
 import * as m from '@/paraglide/messages'
@@ -61,6 +62,16 @@ function WelcomePage() {
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground text-xs">{m.welcome_no_collection_body()}</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center gap-3 pb-2">
+              <RiSpeedLine className="size-5 text-purple-500 shrink-0" />
+              <CardTitle className="text-sm">{m.welcome_performance_title()}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground text-xs">{m.welcome_performance_body()}</p>
             </CardContent>
           </Card>
         </div>
