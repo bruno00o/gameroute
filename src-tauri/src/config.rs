@@ -12,6 +12,11 @@ pub const POLL_INTERVAL_SECS: u64 = 5;
 /// Maximum number of unique server IPs captured per session before stopping.
 pub const MAX_CAPTURED_IPS: usize = 10_000;
 
+/// Timeout (seconds) for a single process enumeration call. If the OS takes
+/// longer than this to list processes, the poll cycle is skipped to avoid
+/// blocking the monitoring loop.
+pub const PROCESS_ENUMERATION_TIMEOUT_SECS: u64 = 10;
+
 /// Number of consecutive DB failures in the detection loop before emitting a
 /// prominent warning. The loop keeps running but the user gets a clear signal.
 pub const MAX_CONSECUTIVE_DB_FAILURES: u32 = 10;
@@ -68,6 +73,9 @@ pub const ASN_OFFLINE_RETRY_INTERVAL: Duration = Duration::from_secs(60);
 /// Maximum age (days) for IP metadata cache entries before pruning.
 pub const CACHE_MAX_TTL_DAYS: i64 = 30;
 
+/// Maximum age (days) for completed sessions before auto-cleanup on startup.
+pub const SESSION_RETENTION_DAYS: i64 = 90;
+
 // ── Pagination ─────────────────────────────────────────────────────────────
 
 /// Default page size when the caller provides <= 0.
@@ -99,6 +107,10 @@ pub const CAPTURE_SERVICE_CONNECT_TIMEOUT_MS: u64 = 1000;
 
 /// Timeout (milliseconds) for the entire capture operation (connect + capture + response).
 pub const CAPTURE_SERVICE_TOTAL_TIMEOUT_MS: u64 = 10000;
+
+/// Timeout (milliseconds) for a single pipe read operation before giving up.
+/// Prevents blocking a thread forever if the service stops responding mid-reply.
+pub const PIPE_READ_TIMEOUT_MS: u32 = 5000;
 
 /// Timeout (milliseconds) for traceroute via capture service (longer than capture).
 pub const TRACEROUTE_SERVICE_TIMEOUT_MS: u64 = 45000;

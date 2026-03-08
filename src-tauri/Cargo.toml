@@ -42,7 +42,7 @@ steamlocate = "2"
 tauri-plugin-dialog = "2"
 trippy-core = "^0.13.0"
 windows-service = "0.7"
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Pipes", "Win32_System_Diagnostics_Etw", "Win32_System_Time"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Pipes", "Win32_System_Diagnostics_Etw", "Win32_System_Time", "Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Threading"] }
 interprocess = "2"
 etherparse = "0.18"
 uuid = { version = "1", features = ["v4"] }

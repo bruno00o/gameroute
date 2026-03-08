@@ -79,7 +79,8 @@ impl AsnResolver {
             client,
             rate_limiter: RateLimiter::new(),
             memory_cache: Mutex::new(LruCache::new(
-                NonZeroUsize::new(ASN_MEMORY_CACHE_CAPACITY).unwrap(),
+                NonZeroUsize::new(ASN_MEMORY_CACHE_CAPACITY)
+                    .expect("ASN_MEMORY_CACHE_CAPACITY must be > 0"),
             )),
             went_offline_at: Mutex::new(None),
         }

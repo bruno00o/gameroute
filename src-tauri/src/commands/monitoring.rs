@@ -60,7 +60,9 @@ fn make_on_game_ended(
             });
         }
 
-        let _ = app.emit("game-ended", event.clone());
+        if let Err(e) = app.emit("game-ended", event.clone()) {
+            log::warn!("Failed to emit game-ended: {}", e);
+        }
 
         if !event.server_ips.is_empty() {
             let app = app.clone();
@@ -128,7 +130,9 @@ fn make_on_ip_captured(
             }
         });
 
-        let _ = app.emit("server-ip-captured", event);
+        if let Err(e) = app.emit("server-ip-captured", event) {
+            log::warn!("Failed to emit server-ip-captured: {}", e);
+        }
     }
 }
 
@@ -139,7 +143,9 @@ fn make_on_capacity_reached(
     move |max_ips: usize| {
         log::warn!("IP capacity reached: {} IPs", max_ips);
         let event = IpCapacityReachedEvent::new(max_ips);
-        let _ = app.emit("ip-capacity-reached", event);
+        if let Err(e) = app.emit("ip-capacity-reached", event) {
+            log::warn!("Failed to emit ip-capacity-reached: {}", e);
+        }
     }
 }
 
@@ -196,15 +202,11 @@ pub async fn execute_traceroute_queue(
     }
 
     {
-        let state = traceroute_service.state.read().await;
-        if state.is_running {
+        let mut state_guard = traceroute_service.state.write().await;
+        if state_guard.is_running {
             log::warn!("Traceroute already running, skipping new queue");
             return;
         }
-    }
-
-    {
-        let mut state_guard = traceroute_service.state.write().await;
         state_guard.pending_jobs = jobs.clone().into();
         state_guard.total_count = jobs.len() as u32;
         state_guard.completed_count = 0;
@@ -218,7 +220,9 @@ pub async fn execute_traceroute_queue(
         "Emitting traceroute-started event: {} IPs to trace",
         unique_ips.len()
     );
-    let _ = app_handle.emit("traceroute-started", started_event);
+    if let Err(e) = app_handle.emit("traceroute-started", started_event) {
+        log::warn!("Failed to emit traceroute-started: {}", e);
+    }
 
     let successful = Arc::new(std::sync::atomic::AtomicU32::new(0));
     let failed = Arc::new(std::sync::atomic::AtomicU32::new(0));
@@ -252,7 +256,9 @@ pub async fn execute_traceroute_queue(
                                 total,
                                 ip
                             );
-                            let _ = app_progress.emit("traceroute-progress", progress_event);
+                            if let Err(e) = app_progress.emit("traceroute-progress", progress_event) {
+                                log::warn!("Failed to emit traceroute-progress: {}", e);
+                            }
                         },
                         move |hop: &HopResult, index: u32, target_ip: &str| {
                             let hop_event =
@@ -264,7 +270,9 @@ pub async fn execute_traceroute_queue(
                                 hop.ip,
                                 hop.rtt_avg
                             );
-                            let _ = app_hop.emit("traceroute-hop", hop_event);
+                            if let Err(e) = app_hop.emit("traceroute-hop", hop_event) {
+                                log::warn!("Failed to emit traceroute-hop: {}", e);
+                            }
                         },
                     )
                     .await;
@@ -284,7 +292,9 @@ pub async fn execute_traceroute_queue(
                             trace_result.target_ip,
                             trace_result.success
                         );
-                        let _ = app.emit("traceroute-server-ip-complete", complete_event);
+                        if let Err(e) = app.emit("traceroute-server-ip-complete", complete_event) {
+                            log::warn!("Failed to emit traceroute-server-ip-complete: {}", e);
+                        }
 
                         if trace_result.success {
                             ok_count
@@ -315,7 +325,9 @@ pub async fn execute_traceroute_queue(
         unique_ips.len(),
         fail
     );
-    let _ = app_handle.emit("traceroute-all-complete", all_complete_event);
+    if let Err(e) = app_handle.emit("traceroute-all-complete", all_complete_event) {
+        log::warn!("Failed to emit traceroute-all-complete: {}", e);
+    }
 }
 
 async fn run_traceroute_queue(
@@ -386,15 +398,11 @@ pub async fn start_monitoring(
     log::info!("Starting game monitoring...");
 
     {
-        let monitoring_state = state.monitoring_state.read().await;
+        let mut monitoring_state = state.monitoring_state.write().await;
         if monitoring_state.is_monitoring {
             log::warn!("Monitoring already active");
             return Err(CommandError::already_monitoring());
         }
-    }
-
-    {
-        let mut monitoring_state = state.monitoring_state.write().await;
         monitoring_state.is_monitoring = true;
     }
 
@@ -437,7 +445,9 @@ pub async fn start_monitoring(
                     }
                 });
 
-                let _ = app_handle_detected.emit("game-detected", game);
+                if let Err(e) = app_handle_detected.emit("game-detected", game) {
+                    log::warn!("Failed to emit game-detected: {}", e);
+                }
             },
             on_ended,
             on_ip,
@@ -498,7 +508,9 @@ pub async fn stop_monitoring(
     };
 
     if let Some(ref event) = game_ended_event {
-        let _ = app.emit("game-ended", event.clone());
+        if let Err(e) = app.emit("game-ended", event.clone()) {
+            log::warn!("Failed to emit game-ended: {}", e);
+        }
     }
 
     {
@@ -541,7 +553,9 @@ pub async fn cancel_traceroute(
     state.traceroute_service.reset().await;
 
     let event = TracerouteAllCompleteEvent::new(0, 0, 0);
-    let _ = app.emit("traceroute-all-complete", event);
+    if let Err(e) = app.emit("traceroute-all-complete", event) {
+        log::warn!("Failed to emit traceroute-all-complete: {}", e);
+    }
 
     log::info!("Traceroute queue cancelled");
     Ok(())
@@ -714,7 +728,9 @@ pub async fn start_manual_monitoring(
                     }
                 });
 
-                let _ = app_handle_detected.emit("game-detected", game);
+                if let Err(e) = app_handle_detected.emit("game-detected", game) {
+                    log::warn!("Failed to emit game-detected: {}", e);
+                }
             },
             on_ended,
             on_ip,
@@ -727,7 +743,9 @@ pub async fn start_manual_monitoring(
         *detector_guard = Some(detector);
     }
 
-    let _ = app.emit("game-detected", game);
+    if let Err(e) = app.emit("game-detected", game) {
+        log::warn!("Failed to emit game-detected: {}", e);
+    }
 
     log::info!(
         "Manual monitoring started for process: {} (PID: {})",

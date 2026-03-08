@@ -70,23 +70,45 @@ impl AnalyticsRepository {
 
     pub async fn get_network_overview_stats(&self) -> Result<NetworkOverviewStats, DbError> {
         let unique_server_ips: (i64,) =
-            sqlx::query_as("SELECT COUNT(DISTINCT ip) FROM ip_periods")
+            sqlx::query_as("SELECT COUNT(DISTINCT ip) FROM ip_periods WHERE is_game_server = 1")
                 .fetch_one(&self.pool)
                 .await?;
 
-        let total_traceroutes: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM traceroutes")
-            .fetch_one(&self.pool)
-            .await?;
+        let total_traceroutes: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM traceroutes t
+             JOIN (SELECT DISTINCT ip FROM ip_periods WHERE is_game_server = 1) gs ON gs.ip = t.target_ip",
+        )
+        .fetch_one(&self.pool)
+        .await?;
 
-        let total_problem_hops: (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM hops WHERE is_problem_hop = 1")
-                .fetch_one(&self.pool)
-                .await?;
+        // Count unique IPs flagged as problem hops across game server routes.
+        // A router that appears as a problem in 70 traceroutes counts once, not 70.
+        let total_problem_hops: (i64,) = sqlx::query_as(
+            "SELECT COUNT(DISTINCT h.ip) FROM hops h
+             JOIN traceroutes t ON t.id = h.traceroute_id
+             JOIN (SELECT DISTINCT ip FROM ip_periods WHERE is_game_server = 1) gs ON gs.ip = t.target_ip
+             WHERE h.is_problem_hop = 1 AND h.ip IS NOT NULL",
+        )
+        .fetch_one(&self.pool)
+        .await?;
 
-        let avg_latency: (Option<f64>,) =
-            sqlx::query_as("SELECT AVG(latency_avg) FROM hops WHERE latency_avg IS NOT NULL")
-                .fetch_one(&self.pool)
-                .await?;
+        // Use destination hop latency (last responding hop per traceroute)
+        // rather than average of all hops, which inflates the value.
+        let avg_latency: (Option<f64>,) = sqlx::query_as(
+            "SELECT AVG(dest.latency_avg) FROM (
+                SELECT h.latency_avg
+                FROM hops h
+                JOIN traceroutes t ON t.id = h.traceroute_id
+                JOIN (SELECT DISTINCT ip FROM ip_periods WHERE is_game_server = 1) gs ON gs.ip = t.target_ip
+                WHERE h.latency_avg IS NOT NULL
+                  AND h.hop_number = (
+                    SELECT MAX(h2.hop_number) FROM hops h2
+                    WHERE h2.traceroute_id = t.id AND h2.latency_avg IS NOT NULL
+                  )
+             ) dest",
+        )
+        .fetch_one(&self.pool)
+        .await?;
 
         Ok(NetworkOverviewStats {
             unique_server_ips: unique_server_ips.0,

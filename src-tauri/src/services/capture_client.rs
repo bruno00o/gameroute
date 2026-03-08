@@ -4,8 +4,8 @@
 //! traceroute execution from the privileged Windows service via named pipes.
 
 use crate::config::{
-    CAPTURE_SERVICE_PIPE_NAME, CAPTURE_SERVICE_TOTAL_TIMEOUT_MS, TRACEROUTE_SERVICE_TIMEOUT_MS,
-    UDP_CAPTURE_DURATION_SECS,
+    CAPTURE_SERVICE_PIPE_NAME, CAPTURE_SERVICE_TOTAL_TIMEOUT_MS, PIPE_READ_TIMEOUT_MS,
+    TRACEROUTE_SERVICE_TIMEOUT_MS, UDP_CAPTURE_DURATION_SECS,
 };
 use crate::models::capture_protocol::{
     CaptureRequest, CaptureStatus, CapturedEndpoint, ServiceHop, ServiceRequest, ServiceResponse,
@@ -201,17 +201,49 @@ fn connect_and_communicate(
     request_len: &[u8; 4],
     request_json: &[u8],
 ) -> Result<ServiceResponse, String> {
-    use std::fs::OpenOptions;
-    use std::io::{Read, Write};
+    use std::io::Write;
+    use std::os::windows::io::{FromRawHandle, IntoRawHandle};
 
-    // Open the named pipe (standard Win32 CreateFile under the hood)
-    let mut pipe = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open(CAPTURE_SERVICE_PIPE_NAME)
-        .map_err(|e| format!("Service not available: {}", e))?;
+    use windows_sys::Win32::Foundation::{
+        CloseHandle, GetLastError, GENERIC_READ, GENERIC_WRITE, HANDLE, INVALID_HANDLE_VALUE,
+        WAIT_OBJECT_0, WAIT_TIMEOUT,
+    };
+    use windows_sys::Win32::Storage::FileSystem::{
+        CreateFileW, FILE_FLAG_OVERLAPPED, OPEN_EXISTING, ReadFile,
+    };
+    use windows_sys::Win32::System::IO::{CancelIoEx, GetOverlappedResult, OVERLAPPED};
+    use windows_sys::Win32::System::Threading::{CreateEventW, WaitForSingleObject};
 
-    // Write the request
+    // Encode pipe name as wide string for CreateFileW
+    let pipe_name_wide: Vec<u16> = CAPTURE_SERVICE_PIPE_NAME
+        .encode_utf16()
+        .chain(std::iter::once(0))
+        .collect();
+
+    // Open the named pipe with FILE_FLAG_OVERLAPPED so reads can be timed out
+    let handle: HANDLE = unsafe {
+        CreateFileW(
+            pipe_name_wide.as_ptr(),
+            GENERIC_READ | GENERIC_WRITE,
+            0,
+            std::ptr::null(),
+            OPEN_EXISTING,
+            FILE_FLAG_OVERLAPPED,
+            std::ptr::null_mut(),
+        )
+    };
+
+    if handle == INVALID_HANDLE_VALUE {
+        let err = unsafe { GetLastError() };
+        return Err(format!("Service not available (error {})", err));
+    }
+
+    // Wrap the handle in a File so writes (synchronous-style via overlapped handle)
+    // and cleanup (Drop) are handled automatically. We only need overlapped reads.
+    let mut pipe = unsafe { std::fs::File::from_raw_handle(handle) };
+
+    // Write the request (writes on an overlapped pipe handle still complete
+    // synchronously when the pipe buffer has space, which is the common case here)
     pipe.write_all(request_len)
         .map_err(|e| format!("Failed to write length: {}", e))?;
     pipe.write_all(request_json)
@@ -219,20 +251,112 @@ fn connect_and_communicate(
     pipe.flush()
         .map_err(|e| format!("Failed to flush: {}", e))?;
 
-    // Read the response length
+    // Take the raw handle back for overlapped reads; we must not let File drop it
+    let raw_handle: HANDLE = pipe.into_raw_handle();
+
+    // Helper: perform a single overlapped read with a timeout.
+    // Reads `buf.len()` bytes total, looping if partial reads occur.
+    let read_with_timeout =
+        |handle: HANDLE, buf: &mut [u8], timeout_ms: u32| -> Result<(), String> {
+            let event = unsafe { CreateEventW(std::ptr::null(), 1, 0, std::ptr::null()) };
+            if event.is_null() {
+                return Err("Failed to create event".to_string());
+            }
+
+            let mut total_read: usize = 0;
+            let result = (|| {
+                while total_read < buf.len() {
+                    let mut overlapped: OVERLAPPED = unsafe { std::mem::zeroed() };
+                    overlapped.hEvent = event;
+
+                    let remaining = buf.len() - total_read;
+                    let mut bytes_read: u32 = 0;
+
+                    let ok = unsafe {
+                        ReadFile(
+                            handle,
+                            buf.as_mut_ptr().add(total_read).cast(),
+                            remaining as u32,
+                            &mut bytes_read,
+                            &mut overlapped,
+                        )
+                    };
+
+                    if ok != 0 {
+                        // Completed immediately
+                        total_read += bytes_read as usize;
+                        continue;
+                    }
+
+                    let err = unsafe { GetLastError() };
+                    // ERROR_IO_PENDING = 997
+                    if err != 997 {
+                        return Err(format!("ReadFile failed (error {})", err));
+                    }
+
+                    // Wait for the overlapped operation with timeout
+                    let wait = unsafe { WaitForSingleObject(event, timeout_ms) };
+                    match wait {
+                        w if w == WAIT_OBJECT_0 => {
+                            let mut transferred: u32 = 0;
+                            let ok = unsafe {
+                                GetOverlappedResult(handle, &overlapped, &mut transferred, 0)
+                            };
+                            if ok == 0 {
+                                let err = unsafe { GetLastError() };
+                                return Err(format!("Overlapped read failed (error {})", err));
+                            }
+                            total_read += transferred as usize;
+                        }
+                        w if w == WAIT_TIMEOUT => {
+                            // Cancel the pending I/O before returning
+                            unsafe {
+                                CancelIoEx(handle, &overlapped);
+                            }
+                            return Err(format!(
+                                "Pipe read timed out after {}ms",
+                                timeout_ms
+                            ));
+                        }
+                        _ => {
+                            return Err("WaitForSingleObject failed".to_string());
+                        }
+                    }
+                }
+                Ok(())
+            })();
+
+            unsafe {
+                CloseHandle(event);
+            }
+            result
+        };
+
+    // Read the response length (4 bytes) with timeout
     let mut len_buf = [0u8; 4];
-    pipe.read_exact(&mut len_buf)
-        .map_err(|e| format!("Failed to read response length: {}", e))?;
+    let read_result = read_with_timeout(raw_handle, &mut len_buf, PIPE_READ_TIMEOUT_MS);
+
+    if let Err(e) = read_result {
+        unsafe { CloseHandle(raw_handle); }
+        return Err(format!("Failed to read response length: {}", e));
+    }
+
     let response_len = u32::from_le_bytes(len_buf) as usize;
 
     if response_len > 10 * 1024 * 1024 {
+        unsafe { CloseHandle(raw_handle); }
         return Err("Response too large".to_string());
     }
 
-    // Read the response JSON
+    // Read the response JSON with timeout
     let mut response_buf = vec![0u8; response_len];
-    pipe.read_exact(&mut response_buf)
-        .map_err(|e| format!("Failed to read response: {}", e))?;
+    let read_result = read_with_timeout(raw_handle, &mut response_buf, PIPE_READ_TIMEOUT_MS);
+
+    unsafe { CloseHandle(raw_handle); }
+
+    if let Err(e) = read_result {
+        return Err(format!("Failed to read response: {}", e));
+    }
 
     // Parse the response
     serde_json::from_slice(&response_buf).map_err(|e| format!("Failed to parse response: {}", e))

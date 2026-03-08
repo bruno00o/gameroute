@@ -1,4 +1,7 @@
-use crate::config::{MAX_CAPTURED_IPS, MAX_CONSECUTIVE_DB_FAILURES, POLL_INTERVAL_SECS};
+use crate::config::{
+    MAX_CAPTURED_IPS, MAX_CONSECUTIVE_DB_FAILURES, POLL_INTERVAL_SECS,
+    PROCESS_ENUMERATION_TIMEOUT_SECS,
+};
 use crate::db::games::GameRepository;
 use crate::models::{
     CapturedConnection, DetectedGame, GameEndedEvent, MonitoringState, ServerIpCapturedEvent,
@@ -104,7 +107,25 @@ impl GameDetector {
                             }
                         };
 
-                        let processes = platform::enumerate_running_processes();
+                        let processes = match tokio::time::timeout(
+                            Duration::from_secs(PROCESS_ENUMERATION_TIMEOUT_SECS),
+                            tokio::task::spawn_blocking(platform::enumerate_running_processes),
+                        )
+                        .await
+                        {
+                            Ok(Ok(procs)) => procs,
+                            Ok(Err(e)) => {
+                                log::error!("Process enumeration task failed: {}", e);
+                                continue;
+                            }
+                            Err(_) => {
+                                log::warn!(
+                                    "Process enumeration timed out after {}s, skipping poll cycle",
+                                    PROCESS_ENUMERATION_TIMEOUT_SECS
+                                );
+                                continue;
+                            }
+                        };
 
                         let games = platform::detect_games_from_processes(&processes, &monitored_games);
 
@@ -138,10 +159,42 @@ impl GameDetector {
                                 on_detected(game.clone());
                             }
 
-                            let related_pids = platform::get_related_pids(game.pid);
+                            let game_pid = game.pid;
+                            let related_pids = match tokio::time::timeout(
+                                Duration::from_secs(PROCESS_ENUMERATION_TIMEOUT_SECS),
+                                tokio::task::spawn_blocking(move || platform::get_related_pids(game_pid)),
+                            )
+                            .await
+                            {
+                                Ok(Ok(pids)) => pids,
+                                Ok(Err(e)) => {
+                                    log::error!("get_related_pids task failed: {}", e);
+                                    continue;
+                                }
+                                Err(_) => {
+                                    log::warn!("get_related_pids timed out, skipping poll cycle");
+                                    continue;
+                                }
+                            };
 
                             // Capture TCP connections (synchronous, always available)
-                            let tcp_connections = capture_connections_for_pids(&related_pids);
+                            let pids_clone = related_pids.clone();
+                            let tcp_connections = match tokio::time::timeout(
+                                Duration::from_secs(PROCESS_ENUMERATION_TIMEOUT_SECS),
+                                tokio::task::spawn_blocking(move || capture_connections_for_pids(&pids_clone)),
+                            )
+                            .await
+                            {
+                                Ok(Ok(conns)) => conns,
+                                Ok(Err(e)) => {
+                                    log::error!("TCP capture task failed: {}", e);
+                                    Vec::new()
+                                }
+                                Err(_) => {
+                                    log::warn!("TCP capture timed out, skipping TCP connections");
+                                    Vec::new()
+                                }
+                            };
 
                             // Capture UDP connections via the privileged service (async, graceful degradation)
                             let udp_connections = capture_udp_connections(&related_pids).await;
@@ -286,7 +339,23 @@ impl GameDetector {
                     }
                     _ = poll_interval.tick() => {
 
-                        let is_running = platform::is_process_running(pid);
+                        let is_running = match tokio::time::timeout(
+                            Duration::from_secs(PROCESS_ENUMERATION_TIMEOUT_SECS),
+                            tokio::task::spawn_blocking(move || platform::is_process_running(pid)),
+                        )
+                        .await
+                        {
+                            Ok(Ok(running)) => running,
+                            Ok(Err(e)) => {
+                                log::error!("is_process_running task failed: {}", e);
+                                // Assume still running to avoid false game-ended
+                                true
+                            }
+                            Err(_) => {
+                                log::warn!("is_process_running timed out, assuming still running");
+                                true
+                            }
+                        };
 
                         if !is_running {
 
@@ -334,10 +403,41 @@ impl GameDetector {
                             break;
                         }
 
-                        let related_pids = platform::get_related_pids(pid);
+                        let related_pids = match tokio::time::timeout(
+                            Duration::from_secs(PROCESS_ENUMERATION_TIMEOUT_SECS),
+                            tokio::task::spawn_blocking(move || platform::get_related_pids(pid)),
+                        )
+                        .await
+                        {
+                            Ok(Ok(pids)) => pids,
+                            Ok(Err(e)) => {
+                                log::error!("get_related_pids task failed (manual): {}", e);
+                                continue;
+                            }
+                            Err(_) => {
+                                log::warn!("get_related_pids timed out (manual), skipping poll cycle");
+                                continue;
+                            }
+                        };
 
                         // Capture TCP connections (synchronous, always available)
-                        let tcp_connections = capture_connections_for_pids(&related_pids);
+                        let pids_clone = related_pids.clone();
+                        let tcp_connections = match tokio::time::timeout(
+                            Duration::from_secs(PROCESS_ENUMERATION_TIMEOUT_SECS),
+                            tokio::task::spawn_blocking(move || capture_connections_for_pids(&pids_clone)),
+                        )
+                        .await
+                        {
+                            Ok(Ok(conns)) => conns,
+                            Ok(Err(e)) => {
+                                log::error!("TCP capture task failed (manual): {}", e);
+                                Vec::new()
+                            }
+                            Err(_) => {
+                                log::warn!("TCP capture timed out (manual), skipping TCP connections");
+                                Vec::new()
+                            }
+                        };
 
                         // Capture UDP connections via the privileged service (async, graceful degradation)
                         let udp_connections = capture_udp_connections(&related_pids).await;

@@ -119,6 +119,26 @@ impl SessionRepository {
         Ok(())
     }
 
+    /// Delete sessions older than `max_age_days`. Returns the number of deleted rows.
+    pub async fn delete_old_sessions(&self, max_age_days: i64) -> Result<usize, DbError> {
+        let result = sqlx::query(
+            "DELETE FROM sessions WHERE ended_at IS NOT NULL AND julianday('now') - julianday(started_at) > $1",
+        )
+        .bind(max_age_days)
+        .execute(&self.pool)
+        .await?;
+
+        let count = result.rows_affected() as usize;
+        if count > 0 {
+            log::info!(
+                "Session retention: {} sessions deleted (older than {} days)",
+                count,
+                max_age_days
+            );
+        }
+        Ok(count)
+    }
+
     pub async fn get_session_count(&self) -> Result<i64, DbError> {
         let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM sessions")
             .fetch_one(&self.pool)

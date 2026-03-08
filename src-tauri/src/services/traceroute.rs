@@ -39,7 +39,14 @@ impl TracerouteJob {
     }
 
     pub fn with_protocol(mut self, protocol: String, port: u16) -> Self {
-        self.protocol = protocol;
+        let normalized = protocol.to_uppercase();
+        self.protocol = match normalized.as_str() {
+            "TCP" | "UDP" | "ICMP" => normalized,
+            _ => {
+                log::warn!("Invalid protocol '{}', falling back to ICMP", protocol);
+                "ICMP".to_string()
+            }
+        };
         self.port = port;
         self
     }

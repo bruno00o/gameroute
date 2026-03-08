@@ -27,8 +27,8 @@ use commands::service::{check_capture_service_status, set_minimize_to_tray};
 use commands::sessions::{
     delete_session, get_session_count, get_session_detail, get_sessions, retry_traceroutes,
 };
-use config::CACHE_MAX_TTL_DAYS;
-use db::get_ip_metadata_repository;
+use config::{CACHE_MAX_TTL_DAYS, SESSION_RETENTION_DAYS};
+use db::{get_ip_metadata_repository, get_session_repository};
 use tauri::Manager;
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconBuilder;
@@ -89,6 +89,15 @@ pub fn run() {
                         }
                     }
 
+                    if let Some(repo) = get_session_repository() {
+                        let result = tauri::async_runtime::block_on(async {
+                            repo.delete_old_sessions(SESSION_RETENTION_DAYS).await
+                        });
+                        if let Err(e) = result {
+                            log::error!("Failed to prune old sessions on startup: {}", e);
+                        }
+                    }
+
                     tauri::async_runtime::spawn(async {
                         match crate::commands::games::scan_all_games().await {
                             Ok(r) => log::info!(
@@ -114,7 +123,7 @@ pub fn run() {
                 .build()?;
 
             TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
+                .icon(app.default_window_icon().expect("default window icon must be set in tauri.conf.json").clone())
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id().as_ref() {
                     "show" => {
