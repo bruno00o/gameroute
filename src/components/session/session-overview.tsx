@@ -121,11 +121,9 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
         <Card size="sm">
           <CardHeader>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <CardTitle className="flex items-center gap-2 cursor-help">
+              <TooltipTrigger render={<CardTitle className="flex items-center gap-2 cursor-help" />}>
                   <RiShieldCheckLine className="text-muted-foreground size-3.5" />
                   <span className="underline decoration-dotted">{m.session_route_stability()}</span>
-                </CardTitle>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs">{m.session_route_stability_tooltip()}</TooltipContent>
             </Tooltip>
@@ -144,11 +142,9 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
         <Card size="sm">
           <CardHeader>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <CardTitle className="flex items-center gap-2 cursor-help">
+              <TooltipTrigger render={<CardTitle className="flex items-center gap-2 cursor-help" />}>
                   <RiSpeedLine className="text-muted-foreground size-3.5" />
                   <span className="underline decoration-dotted">{m.session_avg_latency()}</span>
-                </CardTitle>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs">{m.session_avg_latency_tooltip()}</TooltipContent>
             </Tooltip>
@@ -163,11 +159,9 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
         <Card size="sm">
           <CardHeader>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <CardTitle className="flex items-center gap-2 cursor-help">
+              <TooltipTrigger render={<CardTitle className="flex items-center gap-2 cursor-help" />}>
                   <RiAlertLine className="text-muted-foreground size-3.5" />
                   <span className="underline decoration-dotted">{m.session_problem_hops()}</span>
-                </CardTitle>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs">{m.session_problem_hops_tooltip()}</TooltipContent>
             </Tooltip>

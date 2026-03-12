@@ -124,30 +124,26 @@ function DashboardPage() {
             {verdict !== 'no-data' && networkStats && (
               <div className="flex shrink-0 gap-6 text-sm">
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="text-center cursor-help">
+                  <TooltipTrigger render={<div className="text-center cursor-help" />}>
                       <div className={`text-lg font-bold ${latencyColor(networkStats.avgLatency)}`}>
                         {formatMs(networkStats.avgLatency)} ms
                       </div>
                       <div className="text-muted-foreground text-xs underline decoration-dotted">
                         {m.dashboard_avg_latency()}
                       </div>
-                    </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-xs">
                     {m.dashboard_avg_latency_tooltip()}
                   </TooltipContent>
                 </Tooltip>
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="text-center cursor-help">
+                  <TooltipTrigger render={<div className="text-center cursor-help" />}>
                       <div className={`text-lg font-bold ${networkStats.totalProblemHops > 0 ? 'text-amber-500' : 'text-emerald-500'}`}>
                         {networkStats.totalProblemHops}
                       </div>
                       <div className="text-muted-foreground text-xs underline decoration-dotted">
                         {m.dashboard_problem_hops()}
                       </div>
-                    </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-xs">
                     {m.dashboard_problem_hops_tooltip()}
