@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.12](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.11...gameroute-v0.1.12) (2026-03-12)
+
+
+### Features
+
+* add game server detection and split network page by server type ([624b81f](https://github.com/bruno00o/gameroute/commit/624b81fd4681560165ae4f7ea6396222fad347ae))
+* add interactive maps across the app with expandable fullscreen view ([e7f1dbb](https://github.com/bruno00o/gameroute/commit/e7f1dbbd55b0ab9bf5afba33f4150e0182e01fa5))
+* UX improvements — network verdicts, route stability, tooltips, and accessibility ([331e204](https://github.com/bruno00o/gameroute/commit/331e20492521a87841a5b99951c3c536848bd5b3))
+
+
+### Bug Fixes
+
+* backend robustness — race conditions, timeouts, validation, and session cleanup ([bd3e938](https://github.com/bruno00o/gameroute/commit/bd3e938dfdc68627f6e0168dd744080244e82463))
+* replace asChild with render prop for Base UI TooltipTrigger ([536883b](https://github.com/bruno00o/gameroute/commit/536883be6c87cf496bfd813ef45435618b8f9098))
+
 ## [0.1.11](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.10...gameroute-v0.1.11) (2026-03-07)
 
 
