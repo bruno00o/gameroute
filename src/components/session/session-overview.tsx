@@ -29,23 +29,34 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
   const durationSecs = computeDurationSecs(detail.startedAt, detail.endedAt)
 
   const stats = useMemo(() => {
+    const gameServerIps = new Set(
+      detail.ipSummaries.filter((s) => s.isGameServer).map((s) => s.ip),
+    )
+
+    const gsTraceroutes = detail.traceroutes.filter((tr) => gameServerIps.has(tr.targetIp))
+
     let problemHopCount = 0
     let totalHopCount = 0
-    let latencySum = 0
-    let latencyCount = 0
+    let destLatencySum = 0
+    let destLatencyCount = 0
 
-    for (const tr of detail.traceroutes) {
+    for (const tr of gsTraceroutes) {
       for (const hop of tr.hops) {
         totalHopCount++
         if (hop.isProblemHop) problemHopCount++
-        if (hop.latencyAvg != null) {
-          latencySum += hop.latencyAvg
-          latencyCount++
+      }
+
+      // Use destination latency (last responding hop) instead of averaging all hops
+      for (let i = tr.hops.length - 1; i >= 0; i--) {
+        if (tr.hops[i].latencyAvg != null) {
+          destLatencySum += tr.hops[i].latencyAvg!
+          destLatencyCount++
+          break
         }
       }
     }
 
-    const avgLatency = latencyCount > 0 ? latencySum / latencyCount : null
+    const avgLatency = destLatencyCount > 0 ? destLatencySum / destLatencyCount : null
     const stability = totalHopCount > 0 ? Math.round(((totalHopCount - problemHopCount) / totalHopCount) * 100) : null
 
     return { stability, problemHopCount, avgLatency }
