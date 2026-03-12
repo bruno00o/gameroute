@@ -222,7 +222,7 @@
   "network_map_sessions": "{count} sesiones",
   "network_map_latency": "Latencia",
   "network_problem_hops_title": "Saltos problemáticos recurrentes",
-  "network_problem_hops_empty": "No se detectaron saltos problemáticos recurrentes entre sesiones.",
+  "network_problem_hops_empty": "No se detectaron saltos problemáticos.",
   "network_col_ip": "IP",
   "network_col_asn": "ASN",
   "network_col_isp": "Proveedor",
@@ -233,7 +233,7 @@
   "network_other_servers_title": "Otros servidores",
   "network_game_server_hops_title": "Problemas en rutas de juego",
   "network_other_hops_title": "Problemas en otras rutas",
-  "network_no_game_server_issues": "Sin problemas recurrentes en las rutas de servidores de juego.",
+  "network_no_game_server_issues": "Sin problemas en las rutas de servidores de juego.",
   "network_empty_title": "Sin datos de red",
   "network_empty_description": "Inicia el monitoreo de juegos y ejecuta trazas para ver tu vista de red.",
 

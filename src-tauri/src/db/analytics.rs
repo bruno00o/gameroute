@@ -60,7 +60,6 @@ impl AnalyticsRepository {
              ) gs ON gs.ip = t.target_ip
              WHERE h.is_problem_hop = 1 AND h.ip IS NOT NULL
              GROUP BY h.ip
-             HAVING COUNT(DISTINCT t.session_id) > 1
              ORDER BY is_game_server_route DESC, occurrence_count DESC",
         )
         .fetch_all(&self.pool)

@@ -222,7 +222,7 @@
   "network_map_sessions": "{count} sessions",
   "network_map_latency": "Latency",
   "network_problem_hops_title": "Recurring Problem Hops",
-  "network_problem_hops_empty": "No recurring problem hops detected across sessions.",
+  "network_problem_hops_empty": "No problem hops detected.",
   "network_col_ip": "IP",
   "network_col_asn": "ASN",
   "network_col_isp": "Provider",
@@ -233,7 +233,7 @@
   "network_other_servers_title": "Other Servers",
   "network_game_server_hops_title": "Issues on Game Server Routes",
   "network_other_hops_title": "Issues on Other Routes",
-  "network_no_game_server_issues": "No recurring issues on game server routes.",
+  "network_no_game_server_issues": "No issues on game server routes.",
   "network_empty_title": "No network data yet",
   "network_empty_description": "Start monitoring games and running traceroutes to see your network overview.",
 
