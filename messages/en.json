@@ -210,6 +210,9 @@
 
   "network_title": "Network",
   "network_description": "Global overview of your gaming network.",
+  "network_tab_overview": "Overview",
+  "network_tab_trends": "Trends",
+  "network_tab_servers": "Servers",
   "network_unique_ips": "Unique Server IPs",
   "network_total_traceroutes": "Total Traceroutes",
   "network_total_problem_hops": "Problem Hops",
@@ -285,7 +288,7 @@
   "help_faq_manual_game": "How do I add a game manually?",
   "help_faq_manual_game_answer": "Go to the Games page, click \"Add Game\", enter the game name and browse to select the game's executable file (.exe on Windows, .app on macOS).",
   "help_faq_high_latency": "What causes high latency?",
-  "help_faq_high_latency_answer": "High latency can be caused by geographic distance to the server, network congestion, ISP routing issues, or problems at specific hops along the route. Check the Network and Insights pages to identify patterns.",
+  "help_faq_high_latency_answer": "High latency can be caused by geographic distance to the server, network congestion, ISP routing issues, or problems at specific hops along the route. Check the Network page to identify patterns.",
   "help_faq_no_data_collection": "Does GameRoute collect my data?",
   "help_faq_no_data_collection_answer": "No. GameRoute does not collect any personal data. All your session data, game library, and network analysis are stored locally on your machine in a SQLite database and are never transmitted to any server. The only external communication is with ip-api.com to resolve IP geolocation (see the Data & APIs section below).",
   "help_data_title": "Data & APIs",

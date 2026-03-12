@@ -4,7 +4,6 @@ import {
   RiGamepadLine,
   RiHistoryLine,
   RiLifebuoyLine,
-  RiLightbulbLine,
   RiRouteLine,
   RiSettings3Line,
   RiWifiLine,
@@ -38,7 +37,6 @@ export function getNavigationData() {
     label: m.nav_analytics_label(),
     items: [
       { title: m.nav_network(), to: '/network', icon: RiWifiLine },
-      { title: m.nav_insights(), to: '/insights', icon: RiLightbulbLine },
     ],
   }
 

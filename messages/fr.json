@@ -210,6 +210,9 @@
 
   "network_title": "Réseau",
   "network_description": "Vue globale de votre réseau gaming.",
+  "network_tab_overview": "Vue d'ensemble",
+  "network_tab_trends": "Tendances",
+  "network_tab_servers": "Serveurs",
   "network_unique_ips": "IPs serveur uniques",
   "network_total_traceroutes": "Traceroutes totaux",
   "network_total_problem_hops": "Sauts problématiques",
@@ -285,7 +288,7 @@
   "help_faq_manual_game": "Comment ajouter un jeu manuellement ?",
   "help_faq_manual_game_answer": "Allez sur la page Jeux, cliquez sur « Ajouter un jeu », entrez le nom du jeu et parcourez pour sélectionner le fichier exécutable du jeu (.exe sur Windows, .app sur macOS).",
   "help_faq_high_latency": "Qu'est-ce qui cause une latence élevée ?",
-  "help_faq_high_latency_answer": "Une latence élevée peut être causée par la distance géographique au serveur, la congestion réseau, des problèmes de routage du FAI ou des problèmes à des sauts spécifiques. Consultez les pages Réseau et Analyses pour identifier les patterns.",
+  "help_faq_high_latency_answer": "Une latence élevée peut être causée par la distance géographique au serveur, la congestion réseau, des problèmes de routage du FAI ou des problèmes à des sauts spécifiques. Consultez la page Réseau pour identifier les patterns.",
   "help_faq_no_data_collection": "Est-ce que GameRoute collecte mes données ?",
   "help_faq_no_data_collection_answer": "Non. GameRoute ne collecte aucune donnée personnelle. Toutes vos données de session, bibliothèque de jeux et analyses réseau sont stockées localement sur votre machine dans une base SQLite et ne sont jamais transmises à un quelconque serveur. La seule communication externe se fait avec ip-api.com pour résoudre la géolocalisation des IPs (voir la section Données & APIs ci-dessous).",
   "help_data_title": "Données & APIs",
