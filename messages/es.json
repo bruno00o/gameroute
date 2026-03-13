@@ -51,6 +51,7 @@
   "sessions_page_info": "{start}-{end} de {total}",
   "sessions_col_game": "Juego",
   "sessions_col_status": "Estado",
+  "sessions_search_placeholder": "Buscar sesiones...",
   "sessions_col_date": "Fecha",
   "sessions_loading_error": "Error al cargar las sesiones.",
   "session_not_found": "Sesión no encontrada.",
@@ -317,7 +318,10 @@
   "welcome_launch_button": "Entendido, iniciar",
 
   "service_warning_title": "Funcionalidad limitada",
-  "service_warning_body": "El servicio de monitoreo de red no está activo. Algunas conexiones de juego podrían no ser detectadas. Reinstala la aplicación o consulta la página de ayuda.",
+  "service_warning_body": "El servicio de monitoreo de red no está activo. Algunas conexiones de juego podrían no ser detectadas.",
+  "service_warning_fix": "Reiniciar servicio",
+  "service_warning_fix_success": "Servicio reiniciado con éxito",
+  "service_warning_fix_error": "No se pudo reiniciar el servicio. Intenta reinstalar la aplicación o ejecutarla como administrador.",
 
   "session_game_servers": "Servidores de juego",
   "session_game_servers_hint": "Estos son probablemente servidores de juego, basado en tráfico UDP de más de 30 segundos. Compara las duraciones con tu tiempo de juego real para confirmar.",
@@ -365,5 +369,18 @@
   "error_not_monitoring": "El monitoreo no está activo",
   "error_repo_not_initialized": "Base de datos no lista. Intenta reiniciar la aplicación.",
   "error_process_not_found": "Ese proceso ya no está en ejecución",
-  "error_monitoring_generic": "No se pudo iniciar el monitoreo. Inténtalo de nuevo o reinicia la aplicación."
+  "error_monitoring_generic": "No se pudo iniciar el monitoreo. Inténtalo de nuevo o reinicia la aplicación.",
+
+  "export_llm_button": "Copiar para IA",
+  "export_llm_tooltip": "Copiar un resumen estructurado para pegar en ChatGPT, Claude o Gemini y obtener ayuda con el diagnóstico de red",
+  "export_llm_copied": "Copiado — pega en ChatGPT, Claude o Gemini",
+  "export_llm_error": "Error al copiar al portapapeles",
+
+  "export_csv_button": "Exportar CSV",
+  "export_csv_saved": "Archivo CSV guardado",
+  "export_csv_error": "Error al exportar CSV",
+
+  "games_source_manual_tooltip": "Agregado manualmente — no detectado automáticamente desde un lanzador de juegos",
+  "welcome_help_prefix": "¿Necesitas ayuda? Visita la",
+  "welcome_help_link_text": "página de ayuda"
 }

@@ -37,6 +37,7 @@ import { formatDate, formatDuration } from '@/lib/format'
 import { errorMessage } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -130,11 +131,38 @@ function GamesPage() {
   }
 
   const handleToggleMonitored = async (id: number, monitored: boolean) => {
+    // Cancel any in-flight queries so they don't overwrite our optimistic update
+    await queryClient.cancelQueries({ queryKey: ['games'] })
+
+    // Snapshot all current games query caches for rollback
+    const previousQueries = queryClient.getQueriesData<{ items: GameListItem[]; count: number }>({
+      queryKey: ['games'],
+    })
+
+    // Optimistically update every cached games query
+    queryClient.setQueriesData<{ items: GameListItem[]; count: number }>(
+      { queryKey: ['games'] },
+      (old) => {
+        if (!old) return old
+        return {
+          ...old,
+          items: old.items.map((game) =>
+            game.id === id ? { ...game, monitored } : game,
+          ),
+        }
+      },
+    )
+
     try {
       await toggleGameMonitored(id, monitored)
-      queryClient.invalidateQueries({ queryKey: ['games'] })
     } catch (err) {
+      // Rollback all cached queries to their previous state
+      for (const [queryKey, data] of previousQueries) {
+        queryClient.setQueryData(queryKey, data)
+      }
       toast.error(errorMessage(err))
+    } finally {
+      queryClient.invalidateQueries({ queryKey: ['games'] })
     }
   }
 
@@ -152,7 +180,17 @@ function GamesPage() {
     () => [
       columnHelper.accessor('name', {
         header: () => m.games_col_name(),
-        cell: info => <span className="font-medium">{info.getValue()}</span>,
+        cell: info => {
+          const game = info.row.original
+          return (
+            <div>
+              <span className="font-medium">{info.getValue()}</span>
+              {game.executableName && (
+                <span className="text-muted-foreground block text-xs">{game.executableName}</span>
+              )}
+            </div>
+          )
+        },
       }),
       columnHelper.accessor('source', {
         header: () => m.games_col_source(),
@@ -166,6 +204,16 @@ function GamesPage() {
                 : source === 'manual'
                   ? 'Manual'
                   : source
+          if (source === 'manual') {
+            return (
+              <Tooltip>
+                <TooltipTrigger className="cursor-default">
+                  <Badge variant="secondary">{label}</Badge>
+                </TooltipTrigger>
+                <TooltipContent>{m.games_source_manual_tooltip()}</TooltipContent>
+              </Tooltip>
+            )
+          }
           return <Badge variant="secondary">{label}</Badge>
         },
       }),

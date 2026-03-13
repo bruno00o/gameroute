@@ -51,6 +51,7 @@
   "sessions_page_info": "{start}-{end} of {total}",
   "sessions_col_game": "Game",
   "sessions_col_status": "Status",
+  "sessions_search_placeholder": "Search sessions...",
   "sessions_col_date": "Date",
   "sessions_loading_error": "Failed to load sessions.",
   "session_not_found": "Session not found.",
@@ -317,7 +318,10 @@
   "welcome_launch_button": "I understand, launch",
 
   "service_warning_title": "Limited functionality",
-  "service_warning_body": "The network monitoring service is not active. Some game connections may not be detected. Reinstall the app or check the Help page for instructions.",
+  "service_warning_body": "The network monitoring service is not active. Some game connections may not be detected.",
+  "service_warning_fix": "Restart service",
+  "service_warning_fix_success": "Service restarted successfully",
+  "service_warning_fix_error": "Could not restart the service. Try reinstalling the app or running it as administrator.",
 
   "session_game_servers": "Game Servers",
   "session_game_servers_hint": "These are likely game servers based on UDP traffic lasting over 30 seconds. Compare durations with your actual play time to confirm.",
@@ -365,5 +369,18 @@
   "error_not_monitoring": "Monitoring is not running",
   "error_repo_not_initialized": "Database not ready. Try restarting the app.",
   "error_process_not_found": "That process is no longer running",
-  "error_monitoring_generic": "Could not start monitoring. Try again or restart the app."
+  "error_monitoring_generic": "Could not start monitoring. Try again or restart the app.",
+
+  "export_llm_button": "Copy for AI",
+  "export_llm_tooltip": "Copy a structured summary to paste into ChatGPT, Claude, or Gemini for network diagnosis help",
+  "export_llm_copied": "Copied to clipboard — paste into ChatGPT, Claude, or Gemini",
+  "export_llm_error": "Failed to copy to clipboard",
+
+  "export_csv_button": "Export CSV",
+  "export_csv_saved": "CSV file saved",
+  "export_csv_error": "Failed to export CSV",
+
+  "games_source_manual_tooltip": "Added manually — not auto-detected from a game launcher",
+  "welcome_help_prefix": "Need help? Visit the",
+  "welcome_help_link_text": "Help page"
 }

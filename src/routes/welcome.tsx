@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import {
   RiShieldKeyholeLine,
   RiEyeOffLine,
@@ -76,10 +76,16 @@ function WelcomePage() {
           </Card>
         </div>
 
-        <div className="text-center">
+        <div className="text-center space-y-3">
           <Button size="lg" onClick={handleLaunch}>
             {m.welcome_launch_button()}
           </Button>
+          <p className="text-muted-foreground text-xs">
+            {m.welcome_help_prefix()}{' '}
+            <Link to="/help" className="text-primary underline underline-offset-2">
+              {m.welcome_help_link_text()}
+            </Link>
+          </p>
         </div>
       </div>
     </div>

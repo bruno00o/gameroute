@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -15,6 +15,8 @@ import {
   RiArrowRightSLine,
   RiArrowUpSLine,
   RiArrowDownSLine,
+  RiClipboardLine,
+  RiDownloadLine,
   RiExpandUpDownLine,
   RiEarthLine,
   RiGamepadLine,
@@ -45,7 +47,11 @@ import {
   getHourlyQuality,
   getServerStability,
 } from '@/lib/tauri'
+import { toast } from 'sonner'
+
 import { formatMs, formatLoss, formatDate, latencyColor } from '@/lib/format'
+import { generateNetworkExport } from '@/lib/export-llm'
+import { exportServerStability } from '@/lib/export-csv'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Map, MapMarker, MarkerContent, MarkerTooltip, MapPopup, MapControls } from '@/components/ui/map'
@@ -61,6 +67,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   type ChartConfig,
@@ -76,10 +83,63 @@ export const Route = createFileRoute('/network')({
 })
 
 function NetworkPage() {
+  const { data: exportStats } = useQuery({
+    queryKey: ['network-overview-stats'],
+    queryFn: getNetworkOverviewStats,
+  })
+  const { data: exportProblemHops } = useQuery({
+    queryKey: ['network-problem-hops'],
+    queryFn: getRecurringProblemHops,
+  })
+  const { data: exportStability } = useQuery({
+    queryKey: ['insights-stability'],
+    queryFn: getServerStability,
+  })
+
+  const handleExportLlm = useCallback(async () => {
+    if (!exportStats) return
+    try {
+      const text = generateNetworkExport(
+        exportStats,
+        exportProblemHops ?? [],
+        exportStability ?? [],
+      )
+      await navigator.clipboard.writeText(text)
+      toast.success(m.export_llm_copied())
+    } catch {
+      toast.error(m.export_llm_error())
+    }
+  }, [exportStats, exportProblemHops, exportStability])
+
   return (
     <div className="h-full overflow-y-auto p-4">
-      <h1 className="text-2xl font-bold">{m.network_title()}</h1>
-      <p className="text-muted-foreground mt-2">{m.network_description()}</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">{m.network_title()}</h1>
+          <p className="text-muted-foreground mt-2">{m.network_description()}</p>
+        </div>
+        {exportStats && exportStats.totalTraceroutes > 0 && (
+          <div className="flex gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportServerStability(exportStability ?? [])}
+            >
+              <RiDownloadLine data-icon="inline-start" />
+              {m.export_csv_button()}
+            </Button>
+            <Tooltip>
+              <TooltipTrigger render={
+                <Button variant="outline" size="sm" onClick={handleExportLlm} />
+              }>
+                <RiClipboardLine data-icon="inline-start" />
+                {m.export_llm_button()}
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{m.export_llm_tooltip()}</TooltipContent>
+            </Tooltip>
+          </div>
+        )}
+      </div>
 
       <Tabs defaultValue="overview" className="mt-6">
         <TabsList variant="line">

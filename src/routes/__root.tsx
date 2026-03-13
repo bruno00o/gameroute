@@ -1,8 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, createRootRoute, useLocation, useNavigate } from '@tanstack/react-router'
-import { RiAlertLine } from '@remixicon/react'
+import { useQueryClient } from '@tanstack/react-query'
+import { RiAlertLine, RiLoopLeftLine } from '@remixicon/react'
+import { toast } from 'sonner'
 
 import * as m from '@/paraglide/messages'
+import { restartCaptureService } from '@/lib/tauri'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { Header } from '@/components/header'
 import { AppSidebar } from '@/components/sidebar/app-sidebar'
@@ -49,10 +52,28 @@ function RootLayout() {
 function MainLayout() {
   const localeVersion = useSettingsStore(s => s._localeVersion)
   const { isServiceRunning, isLoading } = useServiceHealthCheck()
+  const queryClient = useQueryClient()
+  const [isFixing, setIsFixing] = useState(false)
   useMonitoringEvents()
   useTracerouteEvents()
   useAutoStartMonitoring()
   useInitTraySettings()
+
+  const handleFixService = async () => {
+    setIsFixing(true)
+    try {
+      await restartCaptureService()
+      toast.success(m.service_warning_fix_success())
+      // Re-check service status after a short delay
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['capture-service-status'] })
+      }, 2000)
+    } catch {
+      toast.error(m.service_warning_fix_error())
+    } finally {
+      setIsFixing(false)
+    }
+  }
 
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
@@ -64,11 +85,19 @@ function MainLayout() {
             {!isServiceRunning && !isLoading && (
               <div className="flex items-center gap-2 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
                 <RiAlertLine className="size-4 shrink-0" />
-                <div>
+                <div className="flex-1">
                   <span className="font-medium">{m.service_warning_title()}</span>
                   {' — '}
                   {m.service_warning_body()}
                 </div>
+                <button
+                  onClick={handleFixService}
+                  disabled={isFixing}
+                  className="inline-flex items-center gap-1 whitespace-nowrap rounded border border-amber-500/40 px-2 py-0.5 text-xs font-medium text-amber-300 transition-colors hover:bg-amber-500/20 disabled:opacity-50"
+                >
+                  <RiLoopLeftLine className={`size-3 ${isFixing ? 'animate-spin' : ''}`} />
+                  {m.service_warning_fix()}
+                </button>
               </div>
             )}
             <div className="flex-1 min-h-0 overflow-hidden">

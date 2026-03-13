@@ -1,3 +1,4 @@
+use crate::config;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
 use std::path::Path;
 use std::str::FromStr;
@@ -48,6 +49,7 @@ pub async fn init_database(app_data_dir: &Path) -> Result<SqlitePool, DbError> {
 
     let pool = SqlitePoolOptions::new()
         .max_connections(4)
+        .acquire_timeout(config::DB_CONNECT_TIMEOUT)
         .connect_with(opts)
         .await?;
 

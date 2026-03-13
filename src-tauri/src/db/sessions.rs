@@ -139,6 +139,75 @@ impl SessionRepository {
         Ok(count)
     }
 
+    /// Find the ID of the most recent completed session for the same game,
+    /// started before the given timestamp.
+    pub async fn get_previous_session_id(
+        &self,
+        game_name: &str,
+        before_started_at: &str,
+    ) -> Result<Option<i64>, DbError> {
+        let row: Option<(i64,)> = sqlx::query_as(
+            "SELECT id FROM sessions
+             WHERE game_name = $1 AND started_at < $2 AND ended_at IS NOT NULL
+             ORDER BY started_at DESC
+             LIMIT 1",
+        )
+        .bind(game_name)
+        .bind(before_started_at)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.0))
+    }
+
+    pub async fn search_sessions(
+        &self,
+        query: &str,
+        limit: i32,
+        offset: i32,
+    ) -> Result<Vec<SessionListItem>, DbError> {
+        let pattern = format!("%{}%", query);
+        sqlx::query_as::<_, SessionListItem>(
+            "SELECT
+                s.id,
+                s.game_name,
+                s.started_at,
+                s.ended_at,
+                COALESCE(ip_counts.unique_ip_count, 0) as unique_ip_count,
+                COALESCE(tr_counts.traceroute_count, 0) as traceroute_count
+             FROM sessions s
+             LEFT JOIN (
+                 SELECT session_id, COUNT(DISTINCT ip) as unique_ip_count
+                 FROM ip_periods
+                 GROUP BY session_id
+             ) ip_counts ON ip_counts.session_id = s.id
+             LEFT JOIN (
+                 SELECT session_id, COUNT(*) as traceroute_count
+                 FROM traceroutes
+                 GROUP BY session_id
+             ) tr_counts ON tr_counts.session_id = s.id
+             WHERE s.game_name LIKE $1
+             ORDER BY s.started_at DESC
+             LIMIT $2 OFFSET $3",
+        )
+        .bind(&pattern)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
+    pub async fn search_session_count(&self, query: &str) -> Result<i64, DbError> {
+        let pattern = format!("%{}%", query);
+        let row: (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM sessions WHERE game_name LIKE $1")
+                .bind(&pattern)
+                .fetch_one(&self.pool)
+                .await?;
+        Ok(row.0)
+    }
+
     pub async fn get_session_count(&self) -> Result<i64, DbError> {
         let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM sessions")
             .fetch_one(&self.pool)

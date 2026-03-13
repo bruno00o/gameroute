@@ -68,6 +68,11 @@ pub const ASN_MAX_RETRIES: u32 = 2;
 /// Cooldown before retrying API requests after going offline.
 pub const ASN_OFFLINE_RETRY_INTERVAL: Duration = Duration::from_secs(60);
 
+// ── Database ──────────────────────────────────────────────────────────────
+
+/// Timeout for acquiring a connection from the SQLite pool.
+pub const DB_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+
 // ── Cache ───────────────────────────────────────────────────────────────────
 
 /// Maximum age (days) for IP metadata cache entries before pruning.

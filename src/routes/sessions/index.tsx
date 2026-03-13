@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -7,14 +7,27 @@ import {
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { RiArrowLeftSLine, RiArrowRightSLine, RiInboxLine } from '@remixicon/react'
+import {
+  RiArrowLeftSLine,
+  RiArrowRightSLine,
+  RiDownloadLine,
+  RiInboxLine,
+  RiSearchLine,
+} from '@remixicon/react'
 
 import * as m from '@/paraglide/messages'
 import type { SessionListItem } from '@/types/backend'
-import { getSessions, getSessionCount } from '@/lib/tauri'
+import {
+  getSessions,
+  getSessionCount,
+  searchSessions,
+  searchSessionCount,
+} from '@/lib/tauri'
+import { exportSessionsList } from '@/lib/export-csv'
 import { formatDate, formatDuration, computeDurationSecs } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -35,14 +48,29 @@ const columnHelper = createColumnHelper<SessionListItem>()
 
 function SessionsPage() {
   const [page, setPage] = useState(0)
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const navigate = useNavigate()
 
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value)
+    setPage(0)
+    clearTimeout(debounceTimer.current)
+    debounceTimer.current = setTimeout(() => setDebouncedSearch(value), 300)
+  }, [])
+
+  const isSearching = debouncedSearch.trim().length > 0
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['sessions', page],
+    queryKey: ['sessions', page, debouncedSearch],
     queryFn: async () => {
+      const query = debouncedSearch.trim()
       const [items, count] = await Promise.all([
-        getSessions(PAGE_SIZE, page * PAGE_SIZE),
-        getSessionCount(),
+        query
+          ? searchSessions(query, PAGE_SIZE, page * PAGE_SIZE)
+          : getSessions(PAGE_SIZE, page * PAGE_SIZE),
+        query ? searchSessionCount(query) : getSessionCount(),
       ])
       return { items, count }
     },
@@ -97,20 +125,59 @@ function SessionsPage() {
     getCoreRowModel: getCoreRowModel(),
   })
 
+  const hasData = !isLoading && (sessions.length > 0 || isSearching)
+
   return (
     <div className="h-full overflow-y-auto p-4">
-      <h1 className="text-2xl font-bold">{m.page_sessions_title()}</h1>
-      <p className="text-muted-foreground mt-2">{m.page_sessions_description()}</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">{m.page_sessions_title()}</h1>
+          <p className="text-muted-foreground mt-2">{m.page_sessions_description()}</p>
+        </div>
+        {hasData && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              const query = debouncedSearch.trim()
+              const all = query
+                ? await searchSessions(query, 10000, 0)
+                : await getSessions(10000, 0)
+              exportSessionsList(all)
+            }}
+          >
+            <RiDownloadLine data-icon="inline-start" />
+            {m.export_csv_button()}
+          </Button>
+        )}
+      </div>
+
+      {hasData && (
+        <div className="relative mt-4">
+          <RiSearchLine className="text-muted-foreground pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2" />
+          <Input
+            className="pl-8"
+            placeholder={m.sessions_search_placeholder()}
+            value={search}
+            onChange={e => handleSearchChange(e.target.value)}
+          />
+        </div>
+      )}
 
       {isError && <div className="text-destructive mt-6 text-sm">{m.sessions_loading_error()}</div>}
 
       {isLoading ? (
         <SessionsTableSkeleton />
-      ) : sessions.length === 0 ? (
+      ) : sessions.length === 0 && !isSearching ? (
         <EmptyState />
+      ) : sessions.length === 0 && isSearching ? (
+        <div className="mt-16 flex flex-col items-center gap-3 text-center">
+          <RiSearchLine className="text-muted-foreground size-10" />
+          <p className="text-muted-foreground text-sm">{m.command_empty()}</p>
+        </div>
       ) : (
         <>
-          <div className="mt-6">
+          <div className="mt-4">
             <Table>
               <TableHeader>
                 {table.getHeaderGroups().map(headerGroup => (

@@ -11,6 +11,7 @@ use commands::asn::{
     clear_ip_metadata_cache, get_ip_metadata_stats, prune_ip_metadata_cache, resolve_asn,
 };
 use commands::dashboard::get_dashboard_data;
+use commands::export::write_export_file;
 use commands::games::{
     add_manual_game, get_game_count, get_games, remove_game, scan_all_games, scan_epic_games,
     scan_riot_games, scan_steam_games, search_game_count, search_games, toggle_game_monitored,
@@ -23,9 +24,10 @@ use commands::monitoring::{
 use commands::network::{
     get_network_map_data, get_network_overview_stats, get_recurring_problem_hops,
 };
-use commands::service::{check_capture_service_status, set_minimize_to_tray};
+use commands::service::{check_capture_service_status, restart_capture_service, set_minimize_to_tray};
 use commands::sessions::{
-    delete_session, get_session_count, get_session_detail, get_sessions, retry_traceroutes,
+    delete_session, get_previous_session_id, get_session_count, get_session_detail, get_sessions,
+    retry_traceroutes, search_session_count, search_sessions,
 };
 use config::{CACHE_MAX_TTL_DAYS, SESSION_RETENTION_DAYS};
 use db::{get_ip_metadata_repository, get_session_repository};
@@ -181,6 +183,9 @@ pub fn run() {
             prune_ip_metadata_cache,
             get_sessions,
             get_session_detail,
+            get_previous_session_id,
+            search_sessions,
+            search_session_count,
             delete_session,
             get_session_count,
             retry_traceroutes,
@@ -203,7 +208,9 @@ pub fn run() {
             get_server_stability,
             get_hourly_quality,
             check_capture_service_status,
+            restart_capture_service,
             set_minimize_to_tray,
+            write_export_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

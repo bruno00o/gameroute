@@ -45,6 +45,12 @@ export const getSessions = (limit: number, offset: number) =>
 export const getSessionDetail = (id: number) =>
   invoke<SessionDetail | null>('get_session_detail', { id })
 export const getSessionCount = () => invoke<number>('get_session_count')
+export const getPreviousSessionId = (gameName: string, beforeStartedAt: string) =>
+  invoke<number | null>('get_previous_session_id', { gameName, beforeStartedAt })
+export const searchSessions = (query: string, limit: number, offset: number) =>
+  invoke<SessionListItem[]>('search_sessions', { query, limit, offset })
+export const searchSessionCount = (query: string) =>
+  invoke<number>('search_session_count', { query })
 export const deleteSession = (id: number) => invoke<void>('delete_session', { id })
 export const retryTraceroutes = (sessionId: number) =>
   invoke<void>('retry_traceroutes', { sessionId })
@@ -91,8 +97,13 @@ export const pruneIpMetadataCache = () => invoke<PruneCacheResult>('prune_ip_met
 // ===== Service =====
 export const checkCaptureServiceStatus = () =>
   invoke<ServiceStatus>('check_capture_service_status')
+export const restartCaptureService = () => invoke<void>('restart_capture_service')
 export const setMinimizeToTray = (enabled: boolean) =>
   invoke<void>('set_minimize_to_tray', { enabled })
+
+// ===== Export =====
+export const writeExportFile = (path: string, content: string) =>
+  invoke<void>('write_export_file', { path, content })
 
 // ===== Event listeners =====
 export const onGameDetected = (cb: (game: DetectedGame) => void): Promise<UnlistenFn> =>

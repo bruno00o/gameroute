@@ -89,6 +89,42 @@ pub async fn get_session_detail(id: i64) -> Result<Option<SessionDetail>, Comman
 }
 
 #[tauri::command]
+pub async fn search_sessions(
+    query: String,
+    limit: i32,
+    offset: i32,
+) -> Result<Vec<SessionListItem>, CommandError> {
+    let (limit, offset) = validate_pagination(limit, offset);
+    let repo =
+        get_session_repository().ok_or_else(|| CommandError::repo_not_initialized("Session"))?;
+    repo.search_sessions(&query, limit, offset)
+        .await
+        .map_err(|e| CommandError::internal(e.to_string()))
+}
+
+#[tauri::command]
+pub async fn search_session_count(query: String) -> Result<i64, CommandError> {
+    let repo =
+        get_session_repository().ok_or_else(|| CommandError::repo_not_initialized("Session"))?;
+    repo.search_session_count(&query)
+        .await
+        .map_err(|e| CommandError::internal(e.to_string()))
+}
+
+#[tauri::command]
+pub async fn get_previous_session_id(
+    game_name: String,
+    before_started_at: String,
+) -> Result<Option<i64>, CommandError> {
+    let repo =
+        get_session_repository().ok_or_else(|| CommandError::repo_not_initialized("Session"))?;
+
+    repo.get_previous_session_id(&game_name, &before_started_at)
+        .await
+        .map_err(|e| CommandError::internal(e.to_string()))
+}
+
+#[tauri::command]
 pub async fn delete_session(id: i64) -> Result<(), CommandError> {
     if id <= 0 {
         return Err(CommandError::validation("Invalid session ID"));

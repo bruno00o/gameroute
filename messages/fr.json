@@ -51,6 +51,7 @@
   "sessions_page_info": "{start}-{end} sur {total}",
   "sessions_col_game": "Jeu",
   "sessions_col_status": "Statut",
+  "sessions_search_placeholder": "Rechercher des sessions...",
   "sessions_col_date": "Date",
   "sessions_loading_error": "Impossible de charger les sessions.",
   "session_not_found": "Session introuvable.",
@@ -317,7 +318,10 @@
   "welcome_launch_button": "J'ai compris, lancer",
 
   "service_warning_title": "Fonctionnalités limitées",
-  "service_warning_body": "Le service de surveillance réseau n'est pas actif. Certaines connexions de jeu pourraient ne pas être détectées. Réinstallez l'application ou consultez la page d'aide.",
+  "service_warning_body": "Le service de surveillance réseau n'est pas actif. Certaines connexions de jeu pourraient ne pas être détectées.",
+  "service_warning_fix": "Redémarrer le service",
+  "service_warning_fix_success": "Service redémarré avec succès",
+  "service_warning_fix_error": "Impossible de redémarrer le service. Essayez de réinstaller l'application ou de la lancer en tant qu'administrateur.",
 
   "session_game_servers": "Serveurs de jeu",
   "session_game_servers_hint": "Ces serveurs sont probablement des serveurs de jeu, basé sur du trafic UDP de plus de 30 secondes. Comparez les durées avec votre temps de jeu réel pour confirmer.",
@@ -365,5 +369,18 @@
   "error_not_monitoring": "Le monitoring n'est pas actif",
   "error_repo_not_initialized": "Base de données non prête. Essayez de redémarrer l'application.",
   "error_process_not_found": "Ce processus n'est plus en cours d'exécution",
-  "error_monitoring_generic": "Impossible de démarrer le monitoring. Réessayez ou redémarrez l'application."
+  "error_monitoring_generic": "Impossible de démarrer le monitoring. Réessayez ou redémarrez l'application.",
+
+  "export_llm_button": "Copier pour l'IA",
+  "export_llm_tooltip": "Copier un résumé structuré à coller dans ChatGPT, Claude ou Gemini pour obtenir de l'aide sur le diagnostic réseau",
+  "export_llm_copied": "Copié — collez dans ChatGPT, Claude ou Gemini",
+  "export_llm_error": "Impossible de copier dans le presse-papiers",
+
+  "export_csv_button": "Exporter CSV",
+  "export_csv_saved": "Fichier CSV enregistré",
+  "export_csv_error": "Échec de l'export CSV",
+
+  "games_source_manual_tooltip": "Ajouté manuellement — non détecté automatiquement depuis un lanceur de jeux",
+  "welcome_help_prefix": "Besoin d'aide ? Visitez la",
+  "welcome_help_link_text": "page d'aide"
 }
