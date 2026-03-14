@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { RiArrowDownSLine, RiDeleteBinLine, RiFilterLine } from '@remixicon/react'
 import { toast } from 'sonner'
@@ -37,6 +37,8 @@ function SettingsPage() {
         <ThemeSetting />
         <AutoStartSetting />
         <MinimizeToTraySetting />
+        <AdvancedModeSetting />
+        <ReplayOnboardingSetting />
         <Separator />
         <SectionTitle>{m.settings_section_cache()}</SectionTitle>
         <CacheSection />
@@ -143,6 +145,43 @@ function MinimizeToTraySetting() {
       description={m.settings_minimize_to_tray_description()}
     >
       <Switch checked={minimizeToTray} onCheckedChange={setMinimizeToTray} />
+    </SettingRow>
+  )
+}
+
+function AdvancedModeSetting() {
+  const advancedMode = useSettingsStore(s => s.advancedMode)
+  const setAdvancedMode = useSettingsStore(s => s.setAdvancedMode)
+
+  return (
+    <SettingRow
+      label={m.settings_advanced_mode()}
+      description={m.settings_advanced_mode_description()}
+    >
+      <Switch checked={advancedMode} onCheckedChange={setAdvancedMode} />
+    </SettingRow>
+  )
+}
+
+function ReplayOnboardingSetting() {
+  const setOnboardingCompleted = useSettingsStore(s => s.setOnboardingCompleted)
+  const navigate = useNavigate()
+
+  return (
+    <SettingRow
+      label={m.settings_replay_onboarding()}
+      description={m.settings_replay_onboarding_description()}
+    >
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          setOnboardingCompleted(false)
+          navigate({ to: '/welcome' })
+        }}
+      >
+        {m.settings_replay_onboarding_button()}
+      </Button>
     </SettingRow>
   )
 }

@@ -23,11 +23,13 @@ export function HopTable({
   asnData,
   problemHopIndex,
   targetIp,
+  advancedMode = true,
 }: {
   hops: DbHop[]
   asnData?: Map<string, ResolvedIpData>
   problemHopIndex?: number | null
   targetIp?: string
+  advancedMode?: boolean
 }) {
   // Check if destination is already in the hop list
   const destinationReached = targetIp
@@ -97,10 +99,14 @@ export function HopTable({
         <TableRow>
           <TableHead className="w-10">{m.session_hop_number()}</TableHead>
           <TableHead>{m.session_hop_ip()}</TableHead>
-          <TableHead className="hidden sm:table-cell">{m.session_hop_hostname()}</TableHead>
-          <TableHead className="text-right">{m.session_hop_latency()}</TableHead>
+          {advancedMode && (
+            <TableHead className="hidden sm:table-cell">{m.session_hop_hostname()}</TableHead>
+          )}
+          <TableHead className="text-right">{advancedMode ? m.session_hop_latency() : m.simple_latency()}</TableHead>
           <TableHead className="text-right">{m.session_hop_loss()}</TableHead>
-          <TableHead className="hidden text-right md:table-cell">{m.session_hop_source()}</TableHead>
+          {advancedMode && (
+            <TableHead className="hidden text-right md:table-cell">{m.session_hop_source()}</TableHead>
+          )}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -138,9 +144,11 @@ export function HopTable({
                   <span className="text-muted-foreground">*</span>
                 )}
               </TableCell>
-              <TableCell className="hidden max-w-48 truncate sm:table-cell">
-                {hop.hostname ?? <span className="text-muted-foreground">-</span>}
-              </TableCell>
+              {advancedMode && (
+                <TableCell className="hidden max-w-48 truncate sm:table-cell">
+                  {hop.hostname ?? <span className="text-muted-foreground">-</span>}
+                </TableCell>
+              )}
               <TableCell className="text-right tabular-nums">
                 {hop.latencyAvg != null ? (
                   <Tooltip>
@@ -170,15 +178,17 @@ export function HopTable({
                   <span className="text-muted-foreground">-</span>
                 )}
               </TableCell>
-              <TableCell className="hidden text-right md:table-cell">
-                {hop.source ? (
-                  <Badge variant="outline" className="text-xs font-normal">
-                    {hop.source}
-                  </Badge>
-                ) : (
-                  <span className="text-muted-foreground text-xs">{m.session_hop_default_source()}</span>
-                )}
-              </TableCell>
+              {advancedMode && (
+                <TableCell className="hidden text-right md:table-cell">
+                  {hop.source ? (
+                    <Badge variant="outline" className="text-xs font-normal">
+                      {hop.source}
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground text-xs">{m.session_hop_default_source()}</span>
+                  )}
+                </TableCell>
+              )}
             </TableRow>
           )
         })}
@@ -187,7 +197,7 @@ export function HopTable({
             {lastRespondingHop > 0 && (
               <TableRow>
                 <TableCell className="text-muted-foreground tabular-nums">…</TableCell>
-                <TableCell colSpan={5}>
+                <TableCell colSpan={advancedMode ? 5 : 3}>
                   <span className="text-muted-foreground text-xs italic">
                     {m.session_hop_unknown_hops()}
                   </span>
@@ -216,20 +226,24 @@ export function HopTable({
                   )
                 })()}
               </TableCell>
-              <TableCell className="hidden sm:table-cell">
-                <span className="text-muted-foreground">-</span>
-              </TableCell>
+              {advancedMode && (
+                <TableCell className="hidden sm:table-cell">
+                  <span className="text-muted-foreground">-</span>
+                </TableCell>
+              )}
               <TableCell className="text-right">
                 <span className="text-muted-foreground text-xs">
-                  {m.session_hop_unreachable()}
+                  {advancedMode ? m.session_hop_unreachable() : m.simple_icmp_blocked()}
                 </span>
               </TableCell>
               <TableCell className="text-right">
                 <span className="text-muted-foreground">-</span>
               </TableCell>
-              <TableCell className="hidden text-right md:table-cell">
-                <span className="text-muted-foreground">-</span>
-              </TableCell>
+              {advancedMode && (
+                <TableCell className="hidden text-right md:table-cell">
+                  <span className="text-muted-foreground">-</span>
+                </TableCell>
+              )}
             </TableRow>
           </>
         )}

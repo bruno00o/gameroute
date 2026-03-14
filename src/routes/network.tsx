@@ -49,6 +49,7 @@ import {
 } from '@/lib/tauri'
 import { toast } from 'sonner'
 
+import { useSettingsStore } from '@/stores/settings-store'
 import { formatMs, formatLoss, formatDate, latencyColor } from '@/lib/format'
 import { generateNetworkExport } from '@/lib/export-llm'
 import { exportServerStability } from '@/lib/export-csv'
@@ -168,6 +169,7 @@ const HOPS_PAGE_SIZE = 10
 const hopColumnHelper = createColumnHelper<RecurringProblemHop>()
 
 function OverviewTab() {
+  const advancedMode = useSettingsStore(s => s.advancedMode)
   const [gsHopSorting, setGsHopSorting] = useState<SortingState>([])
   const [otherHopSorting, setOtherHopSorting] = useState<SortingState>([])
 
@@ -224,7 +226,7 @@ function OverviewTab() {
         cell: info => <Badge variant="secondary">{info.getValue()}</Badge>,
       }),
       hopColumnHelper.accessor('avgLatency', {
-        header: () => m.network_col_avg_latency(),
+        header: () => advancedMode ? m.network_col_avg_latency() : m.simple_latency(),
         cell: info => (
           <span className={latencyColor(info.getValue())}>
             {formatMs(info.getValue())} ms
@@ -232,11 +234,11 @@ function OverviewTab() {
         ),
       }),
       hopColumnHelper.accessor('avgPacketLoss', {
-        header: () => m.network_col_avg_loss(),
+        header: () => advancedMode ? m.network_col_avg_loss() : m.simple_loss(),
         cell: info => formatLoss(info.getValue()),
       }),
     ],
-    [],
+    [advancedMode],
   )
 
   const gsHopTable = useReactTable({
@@ -293,13 +295,13 @@ function OverviewTab() {
           isLoading={statsLoading}
         />
         <StatCard
-          title={m.network_total_problem_hops()}
+          title={advancedMode ? m.network_total_problem_hops() : m.simple_total_problem_hops()}
           value={stats?.totalProblemHops}
           icon={<RiAlertLine className="text-muted-foreground size-4" />}
           isLoading={statsLoading}
         />
         <StatCard
-          title={m.network_avg_latency()}
+          title={advancedMode ? m.network_avg_latency() : m.simple_avg_latency()}
           value={stats?.avgLatency != null ? `${stats.avgLatency.toFixed(1)} ms` : '-'}
           icon={<RiTimeLine className="text-muted-foreground size-4" />}
           isLoading={statsLoading}

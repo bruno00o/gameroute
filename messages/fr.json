@@ -320,6 +320,8 @@
   "welcome_privacy_body": "Toutes les données de session sont stockées dans une base SQLite locale sur votre machine. Le seul appel externe est vers ip-api.com pour la géolocalisation et la résolution ASN.",
   "welcome_no_collection_title": "Ce que l'application ne fait PAS",
   "welcome_no_collection_body": "Pas de télémétrie, pas de comptes utilisateur, pas de synchronisation cloud, pas de collecte de données personnelles. GameRoute est entièrement hors ligne sauf pour les recherches d'IP.",
+  "welcome_advanced_mode": "Je connais les bases du réseau",
+  "welcome_advanced_mode_description": "Afficher les détails techniques comme les protocoles, hostnames et compteurs de paquets. Modifiable dans les Paramètres.",
   "welcome_launch_button": "J'ai compris, lancer",
 
   "service_warning_title": "Fonctionnalités limitées",
@@ -334,6 +336,8 @@
 
   "settings_minimize_to_tray": "Réduire dans la zone de notification",
   "settings_minimize_to_tray_description": "Garder l'application active dans la zone de notification lorsque la fenêtre est fermée.",
+  "settings_advanced_mode": "Mode avancé",
+  "settings_advanced_mode_description": "Afficher les détails techniques comme les hostnames, protocoles, ports et compteurs de paquets. Désactivez pour une vue simplifiée.",
 
   "session_server_location": "Localisation du serveur",
   "session_traceroute_map": "Carte de la route",
@@ -368,6 +372,9 @@
   "welcome_performance_title": "Léger en arrière-plan",
   "welcome_performance_body": "GameRoute utilise un minimum de CPU et de bande passante. Le monitoring n'interfère pas avec vos jeux ni vos streams.",
 
+  "settings_replay_onboarding": "Écran de bienvenue",
+  "settings_replay_onboarding_description": "Rejouer l'écran d'introduction affiché au premier lancement.",
+  "settings_replay_onboarding_button": "Rejouer",
   "settings_cache_details": "Détails techniques",
 
   "error_already_monitoring": "Le monitoring est déjà en cours",
@@ -384,6 +391,22 @@
   "export_csv_button": "Exporter CSV",
   "export_csv_saved": "Fichier CSV enregistré",
   "export_csv_error": "Échec de l'export CSV",
+
+  "simple_traceroutes": "Tests de connexion",
+  "simple_traceroute": "Test de connexion",
+  "simple_latency": "Ping",
+  "simple_avg_latency": "Ping moy.",
+  "simple_problem_hops": "Points de blocage",
+  "simple_route_stability": "Qualité de connexion",
+  "simple_route_stability_tooltip": "Pourcentage du chemin de connexion sans problème détecté. Plus c'est haut, mieux c'est — 90%+ signifie une connexion stable.",
+  "simple_avg_latency_tooltip": "Temps de réponse moyen des serveurs de jeu. Plus c'est bas, mieux c'est — moins de 50ms est idéal.",
+  "simple_problem_hops_tooltip": "Points le long de la route vers les serveurs de jeu où des ralentissements ou pertes ont été détectés. Peuvent causer du lag.",
+  "simple_loss": "Perte",
+  "simple_icmp_blocked": "Serveur ne répond pas",
+  "simple_servers": "Serveurs",
+  "simple_total_problem_hops": "Points de blocage",
+  "simple_dashboard_avg_latency_tooltip": "Temps de réponse moyen des serveurs de jeu.",
+  "simple_dashboard_problem_hops_tooltip": "Nombre de points sur la route causant des ralentissements ou pertes.",
 
   "games_source_manual_tooltip": "Ajouté manuellement — non détecté automatiquement depuis un lanceur de jeux",
   "welcome_help_prefix": "Besoin d'aide ? Visitez la",

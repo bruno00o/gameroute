@@ -22,6 +22,7 @@ import { generateSessionExport } from '@/lib/export-llm'
 import { exportSessionDetail } from '@/lib/export-csv'
 import { getPreviousSessionId, getSessionDetail } from '@/lib/tauri'
 import { cn } from '@/lib/utils'
+import { useSettingsStore } from '@/stores/settings-store'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -102,6 +103,7 @@ function DeltaBadge({ current, previous, unit = '', invert = false }: {
 }
 
 export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverviewProps) {
+  const advancedMode = useSettingsStore(s => s.advancedMode)
   const isActive = detail.endedAt === null
   const durationSecs = computeDurationSecs(detail.startedAt, detail.endedAt)
 
@@ -198,7 +200,7 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <RiRouteLine className="text-muted-foreground size-3.5" />
-              {m.session_traceroutes_count()}
+              {advancedMode ? m.session_traceroutes_count() : m.simple_traceroutes()}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -224,9 +226,9 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
             <Tooltip>
               <TooltipTrigger render={<CardTitle className="flex items-center gap-2 cursor-help" />}>
                   <RiShieldCheckLine className="text-muted-foreground size-3.5" />
-                  <span className="underline decoration-dotted">{m.session_route_stability()}</span>
+                  <span className="underline decoration-dotted">{advancedMode ? m.session_route_stability() : m.simple_route_stability()}</span>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">{m.session_route_stability_tooltip()}</TooltipContent>
+              <TooltipContent side="bottom" className="max-w-xs">{advancedMode ? m.session_route_stability_tooltip() : m.simple_route_stability_tooltip()}</TooltipContent>
             </Tooltip>
           </CardHeader>
           <CardContent>
@@ -248,9 +250,9 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
             <Tooltip>
               <TooltipTrigger render={<CardTitle className="flex items-center gap-2 cursor-help" />}>
                   <RiSpeedLine className="text-muted-foreground size-3.5" />
-                  <span className="underline decoration-dotted">{m.session_avg_latency()}</span>
+                  <span className="underline decoration-dotted">{advancedMode ? m.session_avg_latency() : m.simple_avg_latency()}</span>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">{m.session_avg_latency_tooltip()}</TooltipContent>
+              <TooltipContent side="bottom" className="max-w-xs">{advancedMode ? m.session_avg_latency_tooltip() : m.simple_avg_latency_tooltip()}</TooltipContent>
             </Tooltip>
           </CardHeader>
           <CardContent>
@@ -268,9 +270,9 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
             <Tooltip>
               <TooltipTrigger render={<CardTitle className="flex items-center gap-2 cursor-help" />}>
                   <RiAlertLine className="text-muted-foreground size-3.5" />
-                  <span className="underline decoration-dotted">{m.session_problem_hops()}</span>
+                  <span className="underline decoration-dotted">{advancedMode ? m.session_problem_hops() : m.simple_problem_hops()}</span>
               </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">{m.session_problem_hops_tooltip()}</TooltipContent>
+              <TooltipContent side="bottom" className="max-w-xs">{advancedMode ? m.session_problem_hops_tooltip() : m.simple_problem_hops_tooltip()}</TooltipContent>
             </Tooltip>
           </CardHeader>
           <CardContent>

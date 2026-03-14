@@ -320,6 +320,8 @@
   "welcome_privacy_body": "Todos los datos de sesión se almacenan en una base de datos SQLite local en tu máquina. La única llamada externa es a ip-api.com para geolocalización de IP y resolución ASN.",
   "welcome_no_collection_title": "Lo que NO hace",
   "welcome_no_collection_body": "Sin telemetría, sin cuentas de usuario, sin sincronización en la nube, sin recopilación de datos personales. GameRoute funciona completamente sin conexión excepto para búsquedas de IP.",
+  "welcome_advanced_mode": "Conozco lo básico de redes",
+  "welcome_advanced_mode_description": "Mostrar detalles técnicos como protocolos, hostnames y contadores de paquetes. Se puede cambiar en Configuración.",
   "welcome_launch_button": "Entendido, iniciar",
 
   "service_warning_title": "Funcionalidad limitada",
@@ -334,6 +336,8 @@
 
   "settings_minimize_to_tray": "Minimizar a la bandeja",
   "settings_minimize_to_tray_description": "Mantener la aplicación activa en la bandeja del sistema al cerrar la ventana.",
+  "settings_advanced_mode": "Modo avanzado",
+  "settings_advanced_mode_description": "Mostrar detalles técnicos como hostnames, protocolos, puertos y contadores de paquetes. Desactiva para una vista simplificada.",
 
   "session_server_location": "Ubicación del servidor",
   "session_traceroute_map": "Mapa de la ruta",
@@ -368,6 +372,9 @@
   "welcome_performance_title": "Ligero en segundo plano",
   "welcome_performance_body": "GameRoute usa mínimos recursos de CPU y ancho de banda. El monitoreo no interfiere con tus juegos ni transmisiones.",
 
+  "settings_replay_onboarding": "Pantalla de bienvenida",
+  "settings_replay_onboarding_description": "Repetir la pantalla de introducción mostrada en el primer inicio.",
+  "settings_replay_onboarding_button": "Repetir",
   "settings_cache_details": "Detalles técnicos",
 
   "error_already_monitoring": "El monitoreo ya está en ejecución",
@@ -384,6 +391,22 @@
   "export_csv_button": "Exportar CSV",
   "export_csv_saved": "Archivo CSV guardado",
   "export_csv_error": "Error al exportar CSV",
+
+  "simple_traceroutes": "Tests de conexión",
+  "simple_traceroute": "Test de conexión",
+  "simple_latency": "Ping",
+  "simple_avg_latency": "Ping prom.",
+  "simple_problem_hops": "Puntos de bloqueo",
+  "simple_route_stability": "Calidad de conexión",
+  "simple_route_stability_tooltip": "Porcentaje del camino de conexión sin problemas detectados. Más alto es mejor — 90%+ significa una conexión estable.",
+  "simple_avg_latency_tooltip": "Tiempo de respuesta promedio a los servidores de juego. Más bajo es mejor — menos de 50ms es ideal.",
+  "simple_problem_hops_tooltip": "Puntos en la ruta hacia los servidores de juego donde se detectaron retrasos o pérdidas. Pueden causar lag.",
+  "simple_loss": "Pérdida",
+  "simple_icmp_blocked": "Servidor no responde",
+  "simple_servers": "Servidores",
+  "simple_total_problem_hops": "Puntos de bloqueo",
+  "simple_dashboard_avg_latency_tooltip": "Tiempo de respuesta promedio a los servidores de juego.",
+  "simple_dashboard_problem_hops_tooltip": "Número de puntos en la ruta causando retrasos o pérdidas.",
 
   "games_source_manual_tooltip": "Agregado manualmente — no detectado automáticamente desde un lanzador de juegos",
   "welcome_help_prefix": "¿Necesitas ayuda? Visita la",

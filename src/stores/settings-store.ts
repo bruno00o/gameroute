@@ -9,6 +9,8 @@ type SettingsStore = {
   setOnboardingCompleted: (value: boolean) => void
   minimizeToTray: boolean
   setMinimizeToTray: (value: boolean) => void
+  advancedMode: boolean
+  setAdvancedMode: (value: boolean) => void
   /**
    * Monotonic counter incremented on locale change. Used as a React `key` on the
    * root SidebarProvider in `__root.tsx` to force a full re-render of the component
@@ -32,6 +34,8 @@ export const useSettingsStore = create<SettingsStore>()(
         set({ minimizeToTray: value })
         invoke('set_minimize_to_tray', { enabled: value }).catch(() => {})
       },
+      advancedMode: false,
+      setAdvancedMode: value => set({ advancedMode: value }),
       _localeVersion: 0,
       bumpLocaleVersion: () => set(s => ({ _localeVersion: s._localeVersion + 1 })),
     }),
@@ -41,6 +45,7 @@ export const useSettingsStore = create<SettingsStore>()(
         autoStartMonitoring: s.autoStartMonitoring,
         onboardingCompleted: s.onboardingCompleted,
         minimizeToTray: s.minimizeToTray,
+        advancedMode: s.advancedMode,
       }),
     }
   )

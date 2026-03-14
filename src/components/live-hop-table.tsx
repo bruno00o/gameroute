@@ -12,15 +12,25 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 
-export function LiveHopTable({ hops }: { hops: TracerouteHopEvent[] }) {
+export function LiveHopTable({
+  hops,
+  advancedMode = true,
+}: {
+  hops: TracerouteHopEvent[]
+  advancedMode?: boolean
+}) {
   return (
     <Table>
       <TableHeader>
         <TableRow>
           <TableHead className="w-10">{m.trace_hop_number()}</TableHead>
           <TableHead>{m.trace_hop_ip()}</TableHead>
-          <TableHead className="hidden sm:table-cell">{m.trace_hop_hostname()}</TableHead>
-          <TableHead className="text-right">{m.trace_hop_latency()}</TableHead>
+          {advancedMode && (
+            <TableHead className="hidden sm:table-cell">{m.trace_hop_hostname()}</TableHead>
+          )}
+          <TableHead className="text-right">
+            {advancedMode ? m.trace_hop_latency() : m.simple_latency()}
+          </TableHead>
           <TableHead className="text-right">{m.trace_hop_status()}</TableHead>
         </TableRow>
       </TableHeader>
@@ -31,9 +41,11 @@ export function LiveHopTable({ hops }: { hops: TracerouteHopEvent[] }) {
             <TableCell className="font-mono">
               {hop.ip ? hop.ip : <span className="text-muted-foreground">*</span>}
             </TableCell>
-            <TableCell className="hidden max-w-48 truncate sm:table-cell">
-              {hop.hostname ?? <span className="text-muted-foreground">-</span>}
-            </TableCell>
+            {advancedMode && (
+              <TableCell className="hidden max-w-48 truncate sm:table-cell">
+                {hop.hostname ?? <span className="text-muted-foreground">-</span>}
+              </TableCell>
+            )}
             <TableCell className="text-right tabular-nums">
               {hop.rttMs != null ? (
                 <span className={cn(latencyColor(hop.rttMs))}>{formatMs(hop.rttMs)}ms</span>

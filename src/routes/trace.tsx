@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 
 import * as m from '@/paraglide/messages'
 import { cancelTraceroute } from '@/lib/tauri'
+import { useSettingsStore } from '@/stores/settings-store'
 import { useTraceStore } from '@/stores/trace-store'
 import { LiveHopTable } from '@/components/live-hop-table'
 import type { TracerouteHopEvent } from '@/types/backend'
@@ -194,6 +195,7 @@ function TraceIpCollapsible({
   isCurrent: boolean
   defaultOpen: boolean
 }) {
+  const advancedMode = useSettingsStore(s => s.advancedMode)
   const verdict = completed === true ? getTraceVerdict(hops) : null
 
   return (
@@ -217,7 +219,7 @@ function TraceIpCollapsible({
       </CollapsibleTrigger>
       <CollapsibleContent className="ring-foreground/10 ring-1 ring-t-0">
         {hops.length > 0 ? (
-          <LiveHopTable hops={hops} />
+          <LiveHopTable hops={hops} advancedMode={advancedMode} />
         ) : (
           <div className="text-muted-foreground py-6 text-center text-sm">{m.trace_pending()}</div>
         )}

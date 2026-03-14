@@ -9,6 +9,7 @@ import {
 } from '@remixicon/react'
 
 import * as m from '@/paraglide/messages'
+import { useSettingsStore } from '@/stores/settings-store'
 import { getDashboardData, getNetworkOverviewStats } from '@/lib/tauri'
 import { formatDuration, formatDate, formatMs, latencyColor, computeDurationSecs } from '@/lib/format'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -68,6 +69,7 @@ const verdictConfig = {
 } as const
 
 function DashboardPage() {
+  const advancedMode = useSettingsStore(s => s.advancedMode)
   const navigate = useNavigate()
 
   const { data, isLoading } = useQuery({
@@ -129,11 +131,11 @@ function DashboardPage() {
                         {formatMs(networkStats.avgLatency)} ms
                       </div>
                       <div className="text-muted-foreground text-xs underline decoration-dotted">
-                        {m.dashboard_avg_latency()}
+                        {advancedMode ? m.dashboard_avg_latency() : m.simple_avg_latency()}
                       </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-xs">
-                    {m.dashboard_avg_latency_tooltip()}
+                    {advancedMode ? m.dashboard_avg_latency_tooltip() : m.simple_dashboard_avg_latency_tooltip()}
                   </TooltipContent>
                 </Tooltip>
                 <Tooltip>
@@ -142,11 +144,11 @@ function DashboardPage() {
                         {networkStats.totalProblemHops}
                       </div>
                       <div className="text-muted-foreground text-xs underline decoration-dotted">
-                        {m.dashboard_problem_hops()}
+                        {advancedMode ? m.dashboard_problem_hops() : m.simple_problem_hops()}
                       </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-xs">
-                    {m.dashboard_problem_hops_tooltip()}
+                    {advancedMode ? m.dashboard_problem_hops_tooltip() : m.simple_dashboard_problem_hops_tooltip()}
                   </TooltipContent>
                 </Tooltip>
               </div>

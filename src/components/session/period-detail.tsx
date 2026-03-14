@@ -6,6 +6,7 @@ import type { IpPeriod, IpPeriodSummary, TracerouteWithHops } from '@/types/back
 import { formatDate, formatDuration, formatMs, latencyColor, computeDurationSecs } from '@/lib/format'
 import { useAsnResolution } from '@/hooks/use-asn-resolution'
 import { cn } from '@/lib/utils'
+import { useSettingsStore } from '@/stores/settings-store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -22,6 +23,7 @@ export function PeriodDetail({
   summary: IpPeriodSummary | undefined
   traceroute: TracerouteWithHops | undefined
 }) {
+  const advancedMode = useSettingsStore(s => s.advancedMode)
   const durationSecs = computeDurationSecs(period.startedAt, period.endedAt)
 
   // Collect all IPs for ASN resolution: period IP + hop IPs
@@ -158,22 +160,26 @@ export function PeriodDetail({
       <section>
         <h3 className="mb-3 text-sm font-medium">{m.session_period()}</h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Card size="sm">
-            <CardHeader>
-              <CardTitle>{m.session_period_protocol()}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm font-medium">{period.protocol || '-'}</p>
-            </CardContent>
-          </Card>
-          <Card size="sm">
-            <CardHeader>
-              <CardTitle>{m.session_period_port()}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm font-medium tabular-nums">{period.port || '-'}</p>
-            </CardContent>
-          </Card>
+          {advancedMode && (
+            <Card size="sm">
+              <CardHeader>
+                <CardTitle>{m.session_period_protocol()}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm font-medium">{period.protocol || '-'}</p>
+              </CardContent>
+            </Card>
+          )}
+          {advancedMode && (
+            <Card size="sm">
+              <CardHeader>
+                <CardTitle>{m.session_period_port()}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm font-medium tabular-nums">{period.port || '-'}</p>
+              </CardContent>
+            </Card>
+          )}
           <Card size="sm">
             <CardHeader>
               <CardTitle>{m.session_period_start()}</CardTitle>
@@ -198,14 +204,16 @@ export function PeriodDetail({
               <p className="text-sm font-medium">{formatDuration(durationSecs)}</p>
             </CardContent>
           </Card>
-          <Card size="sm">
-            <CardHeader>
-              <CardTitle>{m.session_period_packets()}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm font-medium tabular-nums">{period.packetCount}</p>
-            </CardContent>
-          </Card>
+          {advancedMode && (
+            <Card size="sm">
+              <CardHeader>
+                <CardTitle>{m.session_period_packets()}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm font-medium tabular-nums">{period.packetCount}</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </section>
 
@@ -223,14 +231,16 @@ export function PeriodDetail({
                 </p>
               </CardContent>
             </Card>
-            <Card size="sm">
-              <CardHeader>
-                <CardTitle>{m.session_ip_total_packets()}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm font-medium tabular-nums">{summary.totalPacketCount}</p>
-              </CardContent>
-            </Card>
+            {advancedMode && (
+              <Card size="sm">
+                <CardHeader>
+                  <CardTitle>{m.session_ip_total_packets()}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm font-medium tabular-nums">{summary.totalPacketCount}</p>
+                </CardContent>
+              </Card>
+            )}
             <Card size="sm">
               <CardHeader>
                 <CardTitle>{m.session_ip_first_seen()}</CardTitle>
@@ -259,7 +269,7 @@ export function PeriodDetail({
       <section>
         <div className="mb-3 flex items-center gap-2">
           <h3 className="text-sm font-medium">{m.session_traceroute()}</h3>
-          {traceroute?.tracerouteMethod && (
+          {advancedMode && traceroute?.tracerouteMethod && (
             <Badge variant="outline" className="text-xs font-normal">
               {traceroute.tracerouteMethod}
             </Badge>
@@ -271,6 +281,7 @@ export function PeriodDetail({
             asnData={asnData}
             problemHopIndex={traceroute.problemHopIndex}
             targetIp={traceroute.targetIp}
+            advancedMode={advancedMode}
           />
         ) : (
           <p className="text-muted-foreground text-xs">{m.session_no_traceroute()}</p>

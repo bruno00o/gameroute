@@ -15,6 +15,7 @@ import * as m from '@/paraglide/messages'
 import type { SessionDetail } from '@/types/backend'
 import { formatDuration, computeDurationSecs } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { useSettingsStore } from '@/stores/settings-store'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   AlertDialog,
@@ -231,6 +232,7 @@ function PeriodItem({
   onSelect: (id: number) => void
   highlight: boolean
 }) {
+  const advancedMode = useSettingsStore(s => s.advancedMode)
   const durationSecs = computeDurationSecs(period.startedAt, period.endedAt)
   return (
     <SidebarMenuItem>
@@ -252,14 +254,16 @@ function PeriodItem({
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center gap-1.5">
             <span className="truncate font-mono text-xs">{period.ip}</span>
-            {period.protocol && period.port > 0 && (
+            {advancedMode && period.protocol && period.port > 0 && (
               <Badge variant="outline" className="shrink-0 px-1 py-0 text-[10px] font-normal">
                 {period.protocol}:{period.port}
               </Badge>
             )}
           </div>
           <span className="text-muted-foreground text-[10px]">
-            {formatDuration(durationSecs)} &middot; {m.session_packets_short({ count: period.packetCount.toString() })}
+            {advancedMode
+              ? <>{formatDuration(durationSecs)} &middot; {m.session_packets_short({ count: period.packetCount.toString() })}</>
+              : formatDuration(durationSecs)}
           </span>
         </div>
       </SidebarMenuButton>

@@ -11,6 +11,7 @@ import * as m from '@/paraglide/messages'
 import { useSettingsStore } from '@/stores/settings-store'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
 
 export const Route = createFileRoute('/welcome')({
   component: WelcomePage,
@@ -18,6 +19,8 @@ export const Route = createFileRoute('/welcome')({
 
 function WelcomePage() {
   const setOnboardingCompleted = useSettingsStore(s => s.setOnboardingCompleted)
+  const advancedMode = useSettingsStore(s => s.advancedMode)
+  const setAdvancedMode = useSettingsStore(s => s.setAdvancedMode)
   const navigate = useNavigate()
 
   const handleLaunch = () => {
@@ -74,6 +77,14 @@ function WelcomePage() {
               <p className="text-muted-foreground text-xs">{m.welcome_performance_body()}</p>
             </CardContent>
           </Card>
+        </div>
+
+        <div className="flex items-center justify-between rounded-lg border px-4 py-3">
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium">{m.welcome_advanced_mode()}</p>
+            <p className="text-muted-foreground text-xs">{m.welcome_advanced_mode_description()}</p>
+          </div>
+          <Switch checked={advancedMode} onCheckedChange={setAdvancedMode} />
         </div>
 
         <div className="text-center space-y-3">
