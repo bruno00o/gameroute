@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "gameroute",
+  "productName": "GameRoute",
   "identifier": "app.gameroute.desktop",
   "build": {
     "frontendDist": "../dist",

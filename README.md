@@ -1,3 +1,132 @@
-# React + TypeScript + Vite + shadcn/ui
+<p align="center">
+  <img src="src/assets/logo.svg" width="80" alt="GameRoute logo" />
+</p>
 
-This is a template for a new Vite project with React, TypeScript, and shadcn/ui.
+<h1 align="center">GameRoute</h1>
+
+<p align="center">
+  Monitor your game network connections in real time.
+</p>
+
+<p align="center">
+  <a href="https://github.com/bruno00o/gameroute/releases/latest">Download</a> &middot;
+  <a href="#features">Features</a> &middot;
+  <a href="#getting-started">Getting Started</a> &middot;
+  <a href="#development">Development</a>
+</p>
+
+---
+
+GameRoute is a Windows desktop app that detects running games, captures server connections, runs traceroutes, and tracks network quality metrics over time. All data stays local — no telemetry, no cloud, no accounts.
+
+## Features
+
+- **Automatic game detection** — detects monitored games from Steam, Epic, and Riot libraries
+- **Network capture** — captures server IPs via a lightweight Windows service (pktmon)
+- **Traceroute analysis** — runs route tests to every server and flags trouble spots
+- **Session history** — browse past sessions, compare quality between sessions
+- **Network overview** — server map, stability trends, problem hop tracking
+- **Export** — CSV export and "Copy for AI" to paste into ChatGPT/Claude/Gemini for diagnosis
+- **Simple & Advanced modes** — toggle technical details on/off in Settings
+- **Auto-update** — checks for new versions on startup via GitHub Releases
+- **Multilingual** — English, French, Spanish
+
+## Getting Started
+
+### Install
+
+1. Download the latest installer from [Releases](https://github.com/bruno00o/gameroute/releases/latest)
+2. Run `GameRoute_x.x.x_x64-setup.exe` — the installer requires admin privileges to set up the network capture service
+3. Launch GameRoute
+
+### First launch
+
+1. Go to **Games** and click **Scan All** to detect your installed games
+2. Click **Start** in the monitoring widget (sidebar)
+3. Play a game — GameRoute will automatically capture connections and run route tests
+4. Check **Sessions** to see the results
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19, TypeScript, TanStack Router/Query/Table, Zustand, Recharts, MapLibre GL |
+| Backend | Rust, Tauri v2 |
+| Database | SQLite (SQLx) |
+| UI | shadcn/ui (Base UI), Tailwind CSS v4, Remix Icon |
+| i18n | Inlang Paraglide |
+| Installer | NSIS (via Tauri bundler) |
+
+## Development
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) 22+
+- [pnpm](https://pnpm.io/) 10+
+- [Rust](https://rustup.rs/) (stable)
+- [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with "Desktop development with C++"
+
+### Setup
+
+```bash
+git clone https://github.com/bruno00o/gameroute.git
+cd gameroute
+pnpm install
+```
+
+### Run
+
+```bash
+# Full app (frontend + backend with hot reload)
+pnpm tauri dev
+
+# Frontend only (no Rust backend)
+pnpm dev
+```
+
+### Build
+
+```bash
+pnpm tauri build
+```
+
+### Test & Lint
+
+```bash
+pnpm test          # Vitest
+pnpm lint          # ESLint
+
+# Rust (from src-tauri/)
+cargo test --all-targets
+cargo clippy -- -D warnings
+```
+
+## Architecture
+
+```
+src/                    # React frontend
+├── routes/             # File-based routing (TanStack Router)
+├── components/         # UI components (shadcn/ui)
+├── stores/             # Zustand state stores
+├── hooks/              # React hooks (events, health check)
+├── lib/                # Utilities (IPC, format, export)
+└── types/              # TypeScript types matching Rust structs
+
+src-tauri/              # Rust backend
+├── src/
+│   ├── commands/       # Tauri IPC handlers
+│   ├── services/       # Business logic (traceroute, capture, ASN)
+│   ├── db/             # SQLx repositories (SQLite)
+│   ├── models/         # Shared data structures
+│   └── platform/       # OS-specific code (Windows)
+├── migrations/         # SQLite migrations
+└── bin/                # Capture service binary
+```
+
+## Privacy
+
+GameRoute does not collect any personal data. All session data, game library, and network analysis are stored locally in a SQLite database. The only external communication is with [ip-api.com](http://ip-api.com) for IP geolocation and ASN resolution — only IP addresses are sent, no personal information.
+
+## License
+
+[GPL-3.0](LICENSE)
