@@ -1,6 +1,7 @@
 import * as React from 'react'
-import { RiRouteLine } from '@remixicon/react'
 import { Link } from '@tanstack/react-router'
+
+import logoSvg from '@/assets/logo.svg'
 
 import { getNavigationData } from '@/lib/navigation'
 import * as m from '@/paraglide/messages'
@@ -29,8 +30,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link to="/" />}>
-              <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                <RiRouteLine className="size-4" />
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-[#e63946]">
+                <img src={logoSvg} alt="" className="size-5" />
               </div>
               <span className="ml-1 truncate text-base font-semibold">{m.nav_company_name()}</span>
             </SidebarMenuButton>

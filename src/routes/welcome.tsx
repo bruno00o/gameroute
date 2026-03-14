@@ -3,11 +3,11 @@ import {
   RiShieldKeyholeLine,
   RiEyeOffLine,
   RiLockLine,
-  RiRouterLine,
   RiSpeedLine,
 } from '@remixicon/react'
 
 import * as m from '@/paraglide/messages'
+import logoSvg from '@/assets/logo.svg'
 import { useSettingsStore } from '@/stores/settings-store'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,7 +32,7 @@ function WelcomePage() {
     <div className="flex min-h-screen items-center justify-center p-6">
       <div className="w-full max-w-2xl space-y-8">
         <div className="text-center space-y-2">
-          <RiRouterLine className="mx-auto size-14 text-primary" />
+          <img src={logoSvg} alt="GameRoute" className="mx-auto size-16" />
           <h1 className="text-3xl font-bold">{m.welcome_title()}</h1>
           <p className="text-muted-foreground">{m.welcome_subtitle()}</p>
         </div>
