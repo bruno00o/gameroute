@@ -138,7 +138,7 @@ export function DetailSidebar({
 
           {gameServerPeriods.length > 0 && (
             <>
-              <SidebarGroupLabel className="mt-2">
+              <SidebarGroupLabel className="mt-2 gap-1.5">
                 <RiGamepadLine className="size-3.5 text-amber-500" />
                 {m.session_game_servers()}
                 <Tooltip>

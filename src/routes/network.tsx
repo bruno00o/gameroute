@@ -324,7 +324,7 @@ function OverviewTab() {
       </div>
 
       {/* Problem Hops split */}
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
+      <div className="mt-8 space-y-8">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <RiGamepadLine className="size-5 text-amber-500" />
@@ -824,7 +824,7 @@ function ServerMapContent({ entries }: { entries: NetworkMapEntry[] }) {
             <div
               className={cn(
                 'size-3.5 rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.1)] transition-transform hover:scale-150',
-                entry.isGameServer ? 'bg-amber-500' : 'bg-red-500',
+                entry.isGameServer ? 'bg-blue-500' : 'bg-slate-400',
               )}
             />
           </MarkerContent>
@@ -880,12 +880,24 @@ function ServerMapContent({ entries }: { entries: NetworkMapEntry[] }) {
 
 function ServerMapView({ entries }: { entries: NetworkMapEntry[] }) {
   return (
-    <ExpandableMap
-      className="h-80"
-      renderExpanded={() => <ServerMapContent entries={entries} />}
-    >
-      <ServerMapContent entries={entries} />
-    </ExpandableMap>
+    <>
+      <ExpandableMap
+        className="h-80"
+        renderExpanded={() => <ServerMapContent entries={entries} />}
+      >
+        <ServerMapContent entries={entries} />
+      </ExpandableMap>
+      <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="size-2.5 rounded-full bg-blue-500" />
+          {m.network_map_legend_game_server()}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-2.5 rounded-full bg-slate-400" />
+          {m.network_map_legend_other()}
+        </span>
+      </div>
+    </>
   )
 }
 
@@ -925,6 +937,20 @@ function StabilityMapSection({
             >
               <StabilityMapContent servers={mappable} />
             </ExpandableMap>
+          </div>
+          <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="size-2.5 rounded-full bg-emerald-500" />
+              {m.network_map_legend_stable()}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="size-2.5 rounded-full bg-amber-500" />
+              {m.network_map_legend_some_issues()}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="size-2.5 rounded-full bg-red-500" />
+              {m.network_map_legend_problematic()}
+            </span>
           </div>
         </CardContent>
       </Card>
