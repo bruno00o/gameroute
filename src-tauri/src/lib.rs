@@ -24,7 +24,9 @@ use commands::monitoring::{
 use commands::network::{
     get_network_map_data, get_network_overview_stats, get_recurring_problem_hops,
 };
-use commands::service::{check_capture_service_status, restart_capture_service, set_minimize_to_tray};
+use commands::service::{
+    check_capture_service_status, open_log_dir, restart_capture_service, set_minimize_to_tray,
+};
 use commands::sessions::{
     delete_session, get_previous_session_id, get_session_count, get_session_detail, get_sessions,
     retry_traceroutes, search_session_count, search_sessions,
@@ -46,6 +48,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(AppMonitoringState::new())
         .manage(TraySettings {
             minimize_to_tray: AtomicBool::new(true),
@@ -60,9 +64,37 @@ pub fn run() {
 
             app.handle().plugin(
                 tauri_plugin_log::Builder::default()
+                    .targets([
+                        tauri_plugin_log::Target::new(
+                            tauri_plugin_log::TargetKind::LogDir {
+                                file_name: Some("gameroute".into()),
+                            },
+                        ),
+                        tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+                        tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
+                    ])
                     .level(log_level)
+                    .max_file_size(5_000_000)
+                    .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)
+                    .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
                     .build(),
             )?;
+
+            // Log panics to file before crashing
+            std::panic::set_hook(Box::new(|info| {
+                let msg = if let Some(s) = info.payload().downcast_ref::<&str>() {
+                    s.to_string()
+                } else if let Some(s) = info.payload().downcast_ref::<String>() {
+                    s.clone()
+                } else {
+                    "Unknown panic".to_string()
+                };
+                let location = info
+                    .location()
+                    .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+                    .unwrap_or_default();
+                log::error!("PANIC at {}: {}", location, msg);
+            }));
 
             let app_data_dir = app
                 .path()
@@ -209,6 +241,7 @@ pub fn run() {
             get_hourly_quality,
             check_capture_service_status,
             restart_capture_service,
+            open_log_dir,
             set_minimize_to_tray,
             write_export_file,
         ])

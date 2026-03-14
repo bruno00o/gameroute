@@ -373,6 +373,13 @@
   "welcome_performance_title": "Lightweight in background",
   "welcome_performance_body": "GameRoute uses minimal CPU and bandwidth. Monitoring does not interfere with your games or streams.",
 
+  "settings_check_updates": "Updates",
+  "settings_check_updates_description": "Check if a new version of GameRoute is available.",
+  "settings_check_updates_button": "Check for updates",
+  "settings_no_updates": "You're up to date!",
+  "settings_open_logs": "Application logs",
+  "settings_open_logs_description": "Open the folder containing diagnostic log files. Useful for troubleshooting.",
+  "settings_open_logs_button": "Open folder",
   "settings_replay_onboarding": "Show welcome screen",
   "settings_replay_onboarding_description": "Replay the introduction screen shown on first launch.",
   "settings_replay_onboarding_button": "Replay",

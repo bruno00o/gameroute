@@ -42,6 +42,7 @@ src-tauri/query
 
 .claude/
 .agents/
+.tauri/
 
 # Markdown files (except README and CHANGELOG)
 *.md

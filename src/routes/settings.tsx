@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { RiArrowDownSLine, RiDeleteBinLine, RiFilterLine } from '@remixicon/react'
@@ -7,7 +8,8 @@ import * as m from '@/paraglide/messages'
 import { getLocale, setLocale, locales } from '@/paraglide/runtime'
 import { useTheme } from '@/components/use-theme'
 import { useSettingsStore } from '@/stores/settings-store'
-import { clearIpMetadataCache, getIpMetadataStats, pruneIpMetadataCache } from '@/lib/tauri'
+import { clearIpMetadataCache, getIpMetadataStats, openLogDir, pruneIpMetadataCache } from '@/lib/tauri'
+import { checkForAppUpdates } from '@/lib/updater'
 import { formatDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -38,7 +40,9 @@ function SettingsPage() {
         <AutoStartSetting />
         <MinimizeToTraySetting />
         <AdvancedModeSetting />
+        <CheckUpdatesSetting />
         <ReplayOnboardingSetting />
+        <OpenLogsSetting />
         <Separator />
         <SectionTitle>{m.settings_section_cache()}</SectionTitle>
         <CacheSection />
@@ -163,6 +167,36 @@ function AdvancedModeSetting() {
   )
 }
 
+function CheckUpdatesSetting() {
+  const [isChecking, setIsChecking] = useState(false)
+
+  return (
+    <SettingRow
+      label={m.settings_check_updates()}
+      description={m.settings_check_updates_description()}
+    >
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={isChecking}
+        onClick={async () => {
+          setIsChecking(true)
+          try {
+            const hasUpdate = await checkForAppUpdates()
+            if (!hasUpdate) toast.info(m.settings_no_updates())
+          } catch {
+            toast.error(m.settings_cache_error())
+          } finally {
+            setIsChecking(false)
+          }
+        }}
+      >
+        {m.settings_check_updates_button()}
+      </Button>
+    </SettingRow>
+  )
+}
+
 function ReplayOnboardingSetting() {
   const setOnboardingCompleted = useSettingsStore(s => s.setOnboardingCompleted)
   const navigate = useNavigate()
@@ -181,6 +215,19 @@ function ReplayOnboardingSetting() {
         }}
       >
         {m.settings_replay_onboarding_button()}
+      </Button>
+    </SettingRow>
+  )
+}
+
+function OpenLogsSetting() {
+  return (
+    <SettingRow
+      label={m.settings_open_logs()}
+      description={m.settings_open_logs_description()}
+    >
+      <Button variant="outline" size="sm" onClick={() => openLogDir()}>
+        {m.settings_open_logs_button()}
       </Button>
     </SettingRow>
   )

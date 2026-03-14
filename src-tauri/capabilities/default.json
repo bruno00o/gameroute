@@ -11,6 +11,8 @@
     "log:default",
     "core:event:default",
     "dialog:default",
-    "notification:default"
+    "notification:default",
+    "updater:default",
+    "process:allow-restart"
   ]
 }

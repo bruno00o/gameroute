@@ -373,6 +373,13 @@
   "welcome_performance_title": "Ligero en segundo plano",
   "welcome_performance_body": "GameRoute usa mínimos recursos de CPU y ancho de banda. El monitoreo no interfiere con tus juegos ni transmisiones.",
 
+  "settings_check_updates": "Actualizaciones",
+  "settings_check_updates_description": "Verificar si hay una nueva versión de GameRoute disponible.",
+  "settings_check_updates_button": "Buscar actualizaciones",
+  "settings_no_updates": "¡Estás al día!",
+  "settings_open_logs": "Registros de la aplicación",
+  "settings_open_logs_description": "Abrir la carpeta con los archivos de diagnóstico. Útil para solucionar problemas.",
+  "settings_open_logs_button": "Abrir carpeta",
   "settings_replay_onboarding": "Pantalla de bienvenida",
   "settings_replay_onboarding_description": "Repetir la pantalla de introducción mostrada en el primer inicio.",
   "settings_replay_onboarding_button": "Repetir",

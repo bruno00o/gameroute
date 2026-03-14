@@ -1,5 +1,5 @@
 use serde::Serialize;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
 use super::CommandError;
 use crate::config::CAPTURE_SERVICE_PIPE_NAME;
@@ -71,6 +71,23 @@ pub async fn restart_capture_service() -> Result<(), CommandError> {
     })
     .await
     .map_err(|e| CommandError::internal(e.to_string()))?
+}
+
+#[tauri::command]
+pub async fn open_log_dir(app: AppHandle) -> Result<(), CommandError> {
+    let log_dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|e| CommandError::internal(format!("Failed to get log directory: {}", e)))?;
+
+    if !log_dir.exists() {
+        std::fs::create_dir_all(&log_dir)
+            .map_err(|e| CommandError::internal(format!("Failed to create log directory: {}", e)))?;
+    }
+
+    let path_str = log_dir.to_string_lossy().to_string();
+    tauri_plugin_opener::open_path(&path_str, None::<&str>)
+        .map_err(|e| CommandError::internal(format!("Failed to open log directory: {}", e)))
 }
 
 #[tauri::command]

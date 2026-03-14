@@ -56,19 +56,10 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # TODO: Code signing — configure these secrets to sign the Windows installer:
-          # TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          # TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          #
-          # For Windows SmartScreen trust, a code signing certificate (EV or OV) is also
-          # required. Set these secrets after purchasing a certificate:
-          # TAURI_SIGNING_IDENTITY: ${{ secrets.WINDOWS_CERTIFICATE_IDENTITY }}
-          #
-          # Steps to set up:
-          # 1. Generate a Tauri update signing key: pnpm tauri signer generate
-          # 2. Purchase an OV/EV code signing certificate from a trusted CA
-          # 3. Add TAURI_SIGNING_PRIVATE_KEY and certificate secrets to GitHub repo settings
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           releaseId: ${{ needs.release-please.outputs.release_id }}
           releaseBody: ""
           tauriScript: pnpm tauri
+          includeUpdaterJson: true

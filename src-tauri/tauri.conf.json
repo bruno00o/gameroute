@@ -22,9 +22,16 @@
       "csp": "default-src 'self'; script-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost https://*.steamstatic.com https://*.epicgames.com https://*.cartocdn.com https://*.carto.com data: blob:; font-src 'self' data:; connect-src ipc: http://ipc.localhost https://*.cartocdn.com https://*.carto.com; worker-src 'self' blob:"
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEREOTU3NDFERDU0RDdDM0QKUldROWZFM1ZIWFNWM2RIK2x3dHNjWnZKcEtzSTBxQ3pxNHNZTzBFU1RlTDJjMUNUOXgwZFliY3IK",
+      "endpoints": ["https://github.com/bruno00o/gameroute/releases/latest/download/latest.json"]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -32,9 +39,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": [
-      "binaries/gameroute-capture-service"
-    ],
+    "externalBin": ["binaries/gameroute-capture-service"],
     "windows": {
       "nsis": {
         "installMode": "perMachine",

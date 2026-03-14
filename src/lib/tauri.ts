@@ -98,6 +98,7 @@ export const pruneIpMetadataCache = () => invoke<PruneCacheResult>('prune_ip_met
 export const checkCaptureServiceStatus = () =>
   invoke<ServiceStatus>('check_capture_service_status')
 export const restartCaptureService = () => invoke<void>('restart_capture_service')
+export const openLogDir = () => invoke<void>('open_log_dir')
 export const setMinimizeToTray = (enabled: boolean) =>
   invoke<void>('set_minimize_to_tray', { enabled })
 

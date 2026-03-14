@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 
 import * as m from '@/paraglide/messages'
 import { restartCaptureService } from '@/lib/tauri'
+import { checkForAppUpdates } from '@/lib/updater'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { Header } from '@/components/header'
 import { AppSidebar } from '@/components/sidebar/app-sidebar'
@@ -58,6 +59,10 @@ function MainLayout() {
   useTracerouteEvents()
   useAutoStartMonitoring()
   useInitTraySettings()
+
+  useEffect(() => {
+    checkForAppUpdates(true)
+  }, [])
 
   const handleFixService = async () => {
     setIsFixing(true)
