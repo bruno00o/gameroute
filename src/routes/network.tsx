@@ -281,7 +281,7 @@ function OverviewTab() {
   return (
     <>
       {/* Stats */}
-      <div className="mt-4 grid grid-cols-4 gap-4">
+      <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           title={m.network_unique_ips()}
           value={stats?.uniqueServerIps}

@@ -96,6 +96,7 @@
   "session_hop_ip": "IP",
   "session_hop_hostname": "Hostname",
   "session_hop_latency": "Latencia",
+  "session_hop_latency_tooltip": "min {min} / avg {avg} / max {max}",
   "session_hop_loss": "Pérdida",
   "session_hop_timeout": "Timeout",
   "session_hop_problem": "Problema",
@@ -408,6 +409,8 @@
   "simple_dashboard_avg_latency_tooltip": "Tiempo de respuesta promedio a los servidores de juego.",
   "simple_dashboard_problem_hops_tooltip": "Número de puntos en la ruta causando retrasos o pérdidas.",
 
+  "games_loading_error": "Error al cargar los juegos.",
+  "games_source_manual": "Manual",
   "games_source_manual_tooltip": "Agregado manualmente — no detectado automáticamente desde un lanzador de juegos",
   "welcome_help_prefix": "¿Necesitas ayuda? Visita la",
   "welcome_help_link_text": "página de ayuda"

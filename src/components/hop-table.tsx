@@ -156,8 +156,11 @@ export function HopTable({
                       {formatMs(hop.latencyAvg)}ms
                     </TooltipTrigger>
                     <TooltipContent>
-                      min {formatMs(hop.latencyMin)} / avg {formatMs(hop.latencyAvg)} / max{' '}
-                      {formatMs(hop.latencyMax)}
+                      {m.session_hop_latency_tooltip({
+                        min: formatMs(hop.latencyMin),
+                        avg: formatMs(hop.latencyAvg),
+                        max: formatMs(hop.latencyMax),
+                      })}
                     </TooltipContent>
                   </Tooltip>
                 ) : (

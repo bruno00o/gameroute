@@ -202,7 +202,7 @@ function GamesPage() {
               : source === 'epic'
                 ? 'Epic'
                 : source === 'manual'
-                  ? 'Manual'
+                  ? m.games_source_manual()
                   : source
           if (source === 'manual') {
             return (
@@ -365,7 +365,7 @@ function GamesPage() {
         />
       </div>
 
-      {isError && <div className="text-destructive mt-6 text-sm">{m.sessions_loading_error()}</div>}
+      {isError && <div className="text-destructive mt-6 text-sm">{m.games_loading_error()}</div>}
 
       {isLoading ? (
         <GamesTableSkeleton />

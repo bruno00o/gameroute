@@ -12,6 +12,7 @@ import {
   RiArrowRightSLine,
   RiDownloadLine,
   RiInboxLine,
+  RiLoader4Line,
   RiSearchLine,
 } from '@remixicon/react'
 
@@ -50,6 +51,7 @@ function SessionsPage() {
   const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [isExporting, setIsExporting] = useState(false)
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const navigate = useNavigate()
 
@@ -138,15 +140,25 @@ function SessionsPage() {
           <Button
             variant="outline"
             size="sm"
+            disabled={isExporting}
             onClick={async () => {
-              const query = debouncedSearch.trim()
-              const all = query
-                ? await searchSessions(query, 10000, 0)
-                : await getSessions(10000, 0)
-              exportSessionsList(all)
+              setIsExporting(true)
+              try {
+                const query = debouncedSearch.trim()
+                const all = query
+                  ? await searchSessions(query, 10000, 0)
+                  : await getSessions(10000, 0)
+                exportSessionsList(all)
+              } finally {
+                setIsExporting(false)
+              }
             }}
           >
-            <RiDownloadLine data-icon="inline-start" />
+            {isExporting ? (
+              <RiLoader4Line className="animate-spin" data-icon="inline-start" />
+            ) : (
+              <RiDownloadLine data-icon="inline-start" />
+            )}
             {m.export_csv_button()}
           </Button>
         )}

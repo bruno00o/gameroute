@@ -314,7 +314,7 @@ function PeriodMapContent({
           <div
             className={cn(
               'size-4 rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.1)]',
-              isGameServer ? 'bg-amber-500' : 'bg-red-500',
+              isGameServer ? 'bg-blue-500' : 'bg-slate-400',
             )}
           />
         </MarkerContent>
