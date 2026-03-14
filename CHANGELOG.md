@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.13](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.12...gameroute-v0.1.13) (2026-03-14)
+
+
+### Features
+
+* add advanced mode toggle for simplified vs technical UI ([2f8aa66](https://github.com/bruno00o/gameroute/commit/2f8aa66df2caad1f1f5fd903b120b105e5e4abde))
+* add custom app icon and branding ([0aed4fc](https://github.com/bruno00o/gameroute/commit/0aed4fcbc85af1030a8283c0289b959c9d3ebdc7))
+* auto-update via GitHub Releases and file-based crash logging ([f6e7241](https://github.com/bruno00o/gameroute/commit/f6e724163fffe57033d3b02a6cf82efed3efb910))
+* export to LLM/CSV, session comparison, search, and UX improvements ([452435c](https://github.com/bruno00o/gameroute/commit/452435ca777461c0b5fd52856b04eab74eb217a4))
+
+
+### Bug Fixes
+
+* map legends, neutral colors, and table layout improvements ([2e385f4](https://github.com/bruno00o/gameroute/commit/2e385f44670ae3a696ff79dd863999a34af75538))
+* session overview stats now scoped to game server routes only ([59fb873](https://github.com/bruno00o/gameroute/commit/59fb8738bfa83aed3bfb5d32bab037f4e5994d4d))
+* show all problem hops in network tables, not just recurring ones ([ec29420](https://github.com/bruno00o/gameroute/commit/ec29420b65a70204b65ef18c181431b16741050d))
+* UI polish — wrong error message, responsive grid, translations, map colors ([dadae0b](https://github.com/bruno00o/gameroute/commit/dadae0bd9c2d03807e0ec44428c97e35af01064a))
+
 ## [0.1.12](https://github.com/bruno00o/gameroute/compare/gameroute-v0.1.11...gameroute-v0.1.12) (2026-03-12)
 
 
