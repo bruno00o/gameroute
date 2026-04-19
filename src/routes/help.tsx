@@ -103,9 +103,9 @@ function HelpPage() {
         <p className="text-muted-foreground mt-2 text-sm">{m.help_data_description()}</p>
         <div className="mt-3 grid gap-3">
           <ApiItem
-            name={m.help_data_ip_api()}
-            description={m.help_data_ip_api_desc()}
-            url="http://ip-api.com"
+            name={m.help_data_maxmind()}
+            description={m.help_data_maxmind_desc()}
+            url="https://www.maxmind.com"
           />
         </div>
       </div>

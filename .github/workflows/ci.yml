@@ -85,11 +85,14 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
-      - name: Create stub binary for Tauri build script
+      - name: Create stub binary and GeoLite2 placeholders for Tauri build script
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path src-tauri/binaries -Force
           New-Item -ItemType File -Path src-tauri/binaries/gameroute-capture-service-x86_64-pc-windows-msvc.exe -Force
+          New-Item -ItemType Directory -Path src-tauri/resources -Force
+          New-Item -ItemType File -Path src-tauri/resources/GeoLite2-City.mmdb -Force
+          New-Item -ItemType File -Path src-tauri/resources/GeoLite2-ASN.mmdb -Force
 
       - name: Build capture service
         working-directory: src-tauri

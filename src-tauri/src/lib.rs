@@ -33,6 +33,8 @@ use commands::sessions::{
 };
 use config::{CACHE_MAX_TTL_DAYS, SESSION_RETENTION_DAYS};
 use db::{get_ip_metadata_repository, get_session_repository};
+use services::asn_resolver;
+use tauri::path::BaseDirectory;
 use tauri::Manager;
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconBuilder;
@@ -100,6 +102,22 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .map_err(|e| format!("Failed to get app data directory: {}", e))?;
+
+            match (
+                app.path()
+                    .resolve("resources/GeoLite2-City.mmdb", BaseDirectory::Resource),
+                app.path()
+                    .resolve("resources/GeoLite2-ASN.mmdb", BaseDirectory::Resource),
+            ) {
+                (Ok(city_db), Ok(asn_db)) => {
+                    if let Err(e) = asn_resolver::init_resolver(&city_db, &asn_db) {
+                        log::error!("Failed to initialize ASN resolver: {}", e);
+                    }
+                }
+                (Err(e), _) | (_, Err(e)) => {
+                    log::error!("Failed to resolve GeoLite2 resource path: {}", e);
+                }
+            }
 
             let pool =
                 tauri::async_runtime::block_on(async { db::init_database(&app_data_dir).await });

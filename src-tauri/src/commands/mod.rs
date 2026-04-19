@@ -75,19 +75,10 @@ impl CommandError {
 
 impl From<asn_resolver::AsnError> for CommandError {
     fn from(e: asn_resolver::AsnError) -> Self {
-        match e {
-            asn_resolver::AsnError::RateLimitExceeded => Self {
-                code: "RATE_LIMIT_EXCEEDED".to_string(),
-                message: "Rate limit reached, please try again in a few moments".to_string(),
-            },
-            asn_resolver::AsnError::HttpError(_) => Self {
-                code: "NETWORK_ERROR".to_string(),
-                message: "Unable to reach the resolution service".to_string(),
-            },
-            asn_resolver::AsnError::InvalidResponse => Self {
-                code: "INVALID_RESPONSE".to_string(),
-                message: "Invalid response from the resolution service".to_string(),
-            },
+        let asn_resolver::AsnError::MaxMindError(err) = e;
+        Self {
+            code: "GEOLITE_ERROR".to_string(),
+            message: format!("GeoLite2 lookup failed: {}", err),
         }
     }
 }

@@ -40,6 +40,9 @@ src-tauri/PktMon.etl
 src-tauri/qc
 src-tauri/query
 
+# MaxMind GeoLite2 databases (downloaded via scripts/download-geolite.ps1)
+src-tauri/resources/*.mmdb
+
 .claude/
 .agents/
 .tauri/

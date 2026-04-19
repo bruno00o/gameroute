@@ -74,6 +74,18 @@ cd gameroute
 pnpm install
 ```
 
+### GeoLite2 databases
+
+GameRoute resolves ASN and geolocation data offline using [MaxMind GeoLite2](https://www.maxmind.com/en/geolite2/signup). Before you can run `pnpm tauri dev` or `pnpm tauri build`, download the databases once:
+
+```powershell
+# Sign up for a free license key at https://www.maxmind.com/en/geolite2/signup
+$env:MAXMIND_LICENSE_KEY = "your-license-key"
+pwsh scripts/download-geolite.ps1
+```
+
+The `.mmdb` files land in `src-tauri/resources/` and are gitignored.
+
 ### Run
 
 ```bash
@@ -125,7 +137,11 @@ src-tauri/              # Rust backend
 
 ## Privacy
 
-GameRoute does not collect any personal data. All session data, game library, and network analysis are stored locally in a SQLite database. The only external communication is with [ip-api.com](http://ip-api.com) for IP geolocation and ASN resolution — only IP addresses are sent, no personal information.
+GameRoute does not collect any personal data. All session data, game library, and network analysis are stored locally in a SQLite database. ASN and geolocation lookups are performed entirely offline using the bundled GeoLite2 database — no IP addresses or other information are sent to any external service.
+
+## Attributions
+
+This product includes GeoLite2 Data created by MaxMind, available from [https://www.maxmind.com](https://www.maxmind.com). GeoLite2 is licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 
 ## License
 

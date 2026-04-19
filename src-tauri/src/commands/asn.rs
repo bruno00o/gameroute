@@ -6,12 +6,18 @@ use std::net::IpAddr;
 
 const MAX_RESOLVE_BATCH: usize = 500;
 
+fn resolver_unavailable() -> CommandError {
+    CommandError {
+        code: "RESOLVER_UNAVAILABLE".to_string(),
+        message: "GeoLite2 databases are not loaded".to_string(),
+    }
+}
+
 #[tauri::command]
 pub async fn resolve_asn(ips: Vec<String>) -> Result<Vec<ResolvedIpData>, CommandError> {
     log::info!("resolve_asn called with {} IPs", ips.len());
 
     if ips.is_empty() {
-        log::debug!("No IPs to resolve, returning empty list");
         return Ok(Vec::new());
     }
 
@@ -38,8 +44,7 @@ pub async fn resolve_asn(ips: Vec<String>) -> Result<Vec<ResolvedIpData>, Comman
         return Ok(Vec::new());
     }
 
-    let resolver = asn_resolver::get_resolver();
-
+    let resolver = asn_resolver::get_resolver().ok_or_else(resolver_unavailable)?;
     let result = resolver.resolve_batch(valid_ips).await?;
 
     log::info!("ASN resolution complete: {} results", result.len());
@@ -49,9 +54,6 @@ pub async fn resolve_asn(ips: Vec<String>) -> Result<Vec<ResolvedIpData>, Comman
 #[tauri::command]
 pub async fn clear_ip_metadata_cache() -> Result<(), CommandError> {
     log::info!("Clearing IP metadata cache");
-
-    let resolver = asn_resolver::get_resolver();
-    resolver.clear_cache().await;
 
     if let Some(repo) = get_ip_metadata_repository() {
         if let Err(e) = repo.clear_all().await {
@@ -64,11 +66,8 @@ pub async fn clear_ip_metadata_cache() -> Result<(), CommandError> {
 
 #[tauri::command]
 pub async fn get_ip_metadata_stats() -> Result<IpMetadataCacheStats, CommandError> {
-    let resolver = asn_resolver::get_resolver();
-    let memory_stats = resolver.cache_stats().await;
-
     let mut stats = IpMetadataCacheStats {
-        memory_entries: memory_stats.memory_entries,
+        memory_entries: 0,
         sqlite_entries: 0,
         entries_with_asn: 0,
         entries_with_geo: 0,

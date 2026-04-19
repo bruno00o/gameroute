@@ -40,6 +40,10 @@
       "icons/icon.ico"
     ],
     "externalBin": ["binaries/gameroute-capture-service"],
+    "resources": [
+      "resources/GeoLite2-City.mmdb",
+      "resources/GeoLite2-ASN.mmdb"
+    ],
     "windows": {
       "nsis": {
         "installMode": "perMachine",

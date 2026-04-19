@@ -53,6 +53,12 @@ jobs:
           Copy-Item src-tauri/target/release/gameroute-capture-service.exe src-tauri/binaries/gameroute-capture-service-x86_64-pc-windows-msvc.exe -Force
         shell: pwsh
 
+      - name: Download GeoLite2 databases
+        env:
+          MAXMIND_LICENSE_KEY: ${{ secrets.MAXMIND_LICENSE_KEY }}
+        run: pwsh scripts/download-geolite.ps1
+        shell: pwsh
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

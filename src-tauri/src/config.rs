@@ -48,26 +48,6 @@ pub const LATENCY_INCREASE_THRESHOLD: f64 = 50.0;
 /// Minimum packet loss percentage to flag a hop as problematic.
 pub const PACKET_LOSS_THRESHOLD: f64 = 10.0;
 
-// ── ASN Resolution ──────────────────────────────────────────────────────────
-
-/// ip-api.com batch endpoint.
-pub const IP_API_BATCH_URL: &str = "http://ip-api.com/batch";
-
-/// Maximum IPs per single API batch request.
-pub const ASN_MAX_BATCH_SIZE: usize = 100;
-
-/// In-memory LRU cache capacity for resolved IPs.
-pub const ASN_MEMORY_CACHE_CAPACITY: usize = 2000;
-
-/// Minimum interval between ip-api.com requests (rate limiting).
-pub const ASN_MIN_REQUEST_INTERVAL: Duration = Duration::from_secs(4);
-
-/// Maximum retry attempts for a failed API request.
-pub const ASN_MAX_RETRIES: u32 = 2;
-
-/// Cooldown before retrying API requests after going offline.
-pub const ASN_OFFLINE_RETRY_INTERVAL: Duration = Duration::from_secs(60);
-
 // ── Database ──────────────────────────────────────────────────────────────
 
 /// Timeout for acquiring a connection from the SQLite pool.

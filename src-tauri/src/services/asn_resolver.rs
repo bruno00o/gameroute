@@ -1,224 +1,117 @@
-use crate::db::get_ip_metadata_repository;
-use crate::models::asn::{AsnInfo, GeoLocation, IpApiResponse, ResolvedIpData};
-use crate::models::ip_metadata::IpMetadataData;
-use crate::services::cache_ttl::{now_iso8601, should_use_cache, CacheDecision};
 use super::network_capture::is_private_or_special_ip;
-use lru::LruCache;
-use std::num::NonZeroUsize;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use crate::db::get_ip_metadata_repository;
+use crate::models::asn::{AsnInfo, GeoLocation, ResolvedIpData};
+use crate::models::ip_metadata::IpMetadataData;
+use chrono::Utc;
+use maxminddb::{geoip2, MaxMindDBError, Reader};
+use std::net::IpAddr;
+use std::path::Path;
+use std::sync::{Arc, OnceLock};
 use thiserror::Error;
-use tokio::sync::Mutex;
-
-use crate::config::{
-    ASN_MAX_BATCH_SIZE, ASN_MAX_RETRIES, ASN_MEMORY_CACHE_CAPACITY, ASN_MIN_REQUEST_INTERVAL,
-    ASN_OFFLINE_RETRY_INTERVAL, IP_API_BATCH_URL,
-};
 
 #[derive(Debug, Error)]
 pub enum AsnError {
-    #[error("HTTP request failed: {0}")]
-    HttpError(#[from] reqwest::Error),
-
-    #[error("Rate limit exceeded, try again later")]
-    RateLimitExceeded,
-
-    #[error("Invalid response from ip-api.com")]
-    InvalidResponse,
-}
-
-struct RateLimiter {
-    last_request: Mutex<Instant>,
-}
-
-impl RateLimiter {
-    fn new() -> Self {
-        Self {
-            last_request: Mutex::new(Instant::now() - ASN_MIN_REQUEST_INTERVAL),
-        }
-    }
-
-    async fn wait_if_needed(&self) {
-        let mut last = self.last_request.lock().await;
-        let elapsed = last.elapsed();
-
-        if elapsed < ASN_MIN_REQUEST_INTERVAL {
-            let wait_time = ASN_MIN_REQUEST_INTERVAL - elapsed;
-            log::info!(
-                "Rate limiting: waiting {} ms before ip-api.com request",
-                wait_time.as_millis()
-            );
-            tokio::time::sleep(wait_time).await;
-        }
-
-        *last = Instant::now();
-    }
+    #[error("MaxMind DB error: {0}")]
+    MaxMindError(#[from] MaxMindDBError),
 }
 
 pub struct AsnResolver {
-    client: reqwest::Client,
-    rate_limiter: RateLimiter,
-    memory_cache: Mutex<LruCache<String, ResolvedIpData>>,
-    went_offline_at: Mutex<Option<Instant>>,
+    city_reader: Reader<Vec<u8>>,
+    asn_reader: Reader<Vec<u8>>,
 }
 
 impl AsnResolver {
-    pub fn new() -> Self {
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(30))
-            .build()
-            .unwrap_or_else(|e| {
-                log::warn!(
-                    "Failed to create HTTP client with custom config: {}, using defaults",
-                    e
-                );
-                reqwest::Client::new()
-            });
-
-        Self {
-            client,
-            rate_limiter: RateLimiter::new(),
-            memory_cache: Mutex::new(LruCache::new(
-                NonZeroUsize::new(ASN_MEMORY_CACHE_CAPACITY)
-                    .expect("ASN_MEMORY_CACHE_CAPACITY must be > 0"),
-            )),
-            went_offline_at: Mutex::new(None),
-        }
+    pub fn new(city_db: &Path, asn_db: &Path) -> Result<Self, AsnError> {
+        let city_reader = Reader::open_readfile(city_db)?;
+        let asn_reader = Reader::open_readfile(asn_db)?;
+        log::info!(
+            "GeoLite2 databases loaded (City build: {}, ASN build: {})",
+            city_reader.metadata.build_epoch,
+            asn_reader.metadata.build_epoch
+        );
+        Ok(Self {
+            city_reader,
+            asn_reader,
+        })
     }
 
     pub async fn resolve_batch(&self, ips: Vec<String>) -> Result<Vec<ResolvedIpData>, AsnError> {
-        let mut results: Vec<ResolvedIpData> = Vec::new();
-        let mut ips_to_resolve: Vec<String> = Vec::new();
-        let is_offline = {
-            let offline_at = self.went_offline_at.lock().await;
-            match *offline_at {
-                Some(when) if when.elapsed() < ASN_OFFLINE_RETRY_INTERVAL => true,
-                Some(_) => {
-                    log::info!(
-                        "Offline cooldown expired ({}s), will retry API",
-                        ASN_OFFLINE_RETRY_INTERVAL.as_secs()
-                    );
-                    false
-                }
-                None => false,
+        let mut results = Vec::with_capacity(ips.len());
+
+        for ip_str in ips {
+            if is_private_or_special_ip(&ip_str) {
+                log::debug!("IP {} is private, skipping resolution", ip_str);
+                results.push(ResolvedIpData::private_ip(ip_str));
+                continue;
             }
-        };
 
-        {
-            let mut memory_cache = self.memory_cache.lock().await;
-
-            for ip in ips {
-                if is_private_or_special_ip(&ip) {
-                    log::debug!("IP {} is private, skipping resolution", ip);
-                    results.push(ResolvedIpData::private_ip(ip));
+            let ip: IpAddr = match ip_str.parse() {
+                Ok(ip) => ip,
+                Err(_) => {
+                    log::warn!("Invalid IP address: {}", ip_str);
+                    results.push(ResolvedIpData::failed(ip_str));
                     continue;
                 }
+            };
 
-                if let Some(cached) = memory_cache.get(&ip) {
-                    log::debug!("L1 cache hit for IP {}", ip);
-                    results.push(cached.clone());
-                    continue;
-                }
-
-                if let Some(resolved) = self.check_sqlite_cache(&ip, is_offline).await {
-                    log::debug!("L2 cache hit for IP {}", ip);
-                    results.push(resolved);
-                    continue;
-                }
-
-                if !ips_to_resolve.contains(&ip) {
-                    ips_to_resolve.push(ip);
-                }
-            }
+            let resolved = self.lookup(ip, &ip_str);
+            self.save_to_sqlite_cache(&resolved).await;
+            results.push(resolved);
         }
 
-        if ips_to_resolve.is_empty() {
-            log::debug!("All IPs resolved from cache, no API call needed");
-            return Ok(results);
-        }
-
-        if is_offline {
-            log::warn!(
-                "Offline mode: {} IPs could not be resolved from cache",
-                ips_to_resolve.len()
-            );
-            for ip in ips_to_resolve {
-                results.push(ResolvedIpData::failed(ip));
-            }
-            return Ok(results);
-        }
-
-        let api_results = self.resolve_from_api(ips_to_resolve).await?;
-
-        {
-            let mut memory_cache = self.memory_cache.lock().await;
-
-            for resolved in api_results {
-                memory_cache.put(resolved.ip.clone(), resolved.clone());
-
-                self.save_to_sqlite_cache(&resolved).await;
-
-                results.push(resolved);
-            }
-        }
-
-        log::info!("ASN resolution complete: {} IPs resolved", results.len());
+        log::debug!("ASN resolution complete: {} IPs resolved", results.len());
         Ok(results)
     }
 
-    async fn check_sqlite_cache(&self, ip: &str, is_offline: bool) -> Option<ResolvedIpData> {
-        let repo = get_ip_metadata_repository()?;
-        let metadata = repo.get_metadata(ip).await.ok().flatten()?;
-        let decision = should_use_cache(&metadata.resolved_at, is_offline);
+    fn lookup(&self, ip: IpAddr, ip_str: &str) -> ResolvedIpData {
+        let asn_info = match self.asn_reader.lookup::<geoip2::Asn>(ip) {
+            Ok(asn) => AsnInfo {
+                asn: asn.autonomous_system_number.map(|n| format!("AS{}", n)),
+                isp: asn.autonomous_system_organization.map(String::from),
+                org: asn.autonomous_system_organization.map(String::from),
+            },
+            Err(MaxMindDBError::AddressNotFoundError(_)) => AsnInfo::default(),
+            Err(e) => {
+                log::warn!("ASN lookup failed for {}: {}", ip_str, e);
+                AsnInfo::default()
+            }
+        };
 
-        match decision {
-            CacheDecision::UseCache | CacheDecision::PreferCacheAllowRefresh => {
-                log::debug!(
-                    "SQLite cache valid for IP {} (decision: {:?})",
-                    ip,
-                    decision
-                );
-                Some(self.build_resolved_from_metadata(ip, &metadata))
+        let geo = match self.city_reader.lookup::<geoip2::City>(ip) {
+            Ok(city) => GeoLocation {
+                lat: city.location.as_ref().and_then(|l| l.latitude),
+                lon: city.location.as_ref().and_then(|l| l.longitude),
+                city: city
+                    .city
+                    .as_ref()
+                    .and_then(|c| c.names.as_ref())
+                    .and_then(|n| n.get("en").copied())
+                    .map(String::from),
+                country: city
+                    .country
+                    .as_ref()
+                    .and_then(|c| c.names.as_ref())
+                    .and_then(|n| n.get("en").copied())
+                    .map(String::from),
+            },
+            Err(MaxMindDBError::AddressNotFoundError(_)) => GeoLocation::default(),
+            Err(e) => {
+                log::warn!("City lookup failed for {}: {}", ip_str, e);
+                GeoLocation::default()
             }
-            CacheDecision::UseStaleCache => {
-                log::warn!("Using stale SQLite cache for IP {} (offline mode)", ip);
-                Some(self.build_resolved_from_metadata(ip, &metadata))
-            }
-            CacheDecision::RequireRefresh => {
-                log::debug!("SQLite cache stale for IP {}, will refresh", ip);
-                None
-            }
-        }
-    }
+        };
 
-    fn build_resolved_from_metadata(
-        &self,
-        ip: &str,
-        metadata: &crate::models::ip_metadata::IpMetadata,
-    ) -> ResolvedIpData {
         ResolvedIpData {
-            ip: ip.to_string(),
-            asn_info: AsnInfo {
-                asn: metadata.asn.clone(),
-                isp: metadata.isp.clone(),
-                org: metadata.org.clone(),
-            },
-            geo: GeoLocation {
-                lat: metadata.lat,
-                lon: metadata.lon,
-                city: metadata.city.clone(),
-                country: metadata.country.clone(),
-            },
+            ip: ip_str.to_string(),
+            asn_info,
+            geo,
         }
     }
 
     async fn save_to_sqlite_cache(&self, resolved: &ResolvedIpData) {
         let Some(repo) = get_ip_metadata_repository() else {
-            log::debug!("SQLite cache not initialized, skipping persist");
             return;
         };
-
-        let now = now_iso8601();
 
         let data = IpMetadataData {
             ip: resolved.ip.clone(),
@@ -229,144 +122,26 @@ impl AsnResolver {
             city: resolved.geo.city.clone(),
             lat: resolved.geo.lat,
             lon: resolved.geo.lon,
-            resolved_at: now,
+            resolved_at: Utc::now().to_rfc3339(),
         };
 
         if let Err(e) = repo.upsert_metadata(&data).await {
             log::warn!("Failed to save IP metadata for {}: {}", resolved.ip, e);
-        } else {
-            log::debug!("Saved to SQLite cache: {}", resolved.ip);
         }
     }
 
-    async fn resolve_from_api(&self, ips: Vec<String>) -> Result<Vec<ResolvedIpData>, AsnError> {
-        let mut results = Vec::new();
-
-        for chunk in ips.chunks(ASN_MAX_BATCH_SIZE) {
-            self.rate_limiter.wait_if_needed().await;
-
-            log::info!(
-                "Resolving {} IPs via ip-api.com batch endpoint",
-                chunk.len()
-            );
-
-            let mut last_error: Option<AsnError> = None;
-            let mut api_responses: Option<Vec<IpApiResponse>> = None;
-
-            for attempt in 1..=ASN_MAX_RETRIES {
-                let response = match self.client.post(IP_API_BATCH_URL).json(&chunk).send().await {
-                    Ok(r) => r,
-                    Err(e) => {
-                        log::warn!(
-                            "ip-api.com request failed (attempt {}/{}): {}",
-                            attempt,
-                            ASN_MAX_RETRIES,
-                            e
-                        );
-
-                        if e.is_connect() || e.is_timeout() {
-                            *self.went_offline_at.lock().await = Some(Instant::now());
-                        }
-                        last_error = Some(AsnError::HttpError(e));
-                        if attempt < ASN_MAX_RETRIES {
-                            tokio::time::sleep(Duration::from_secs(1)).await;
-                        }
-                        continue;
-                    }
-                };
-
-                *self.went_offline_at.lock().await = None;
-
-                if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
-                    log::warn!("ip-api.com rate limit exceeded (HTTP 429)");
-                    return Err(AsnError::RateLimitExceeded);
-                }
-
-                if !response.status().is_success() {
-                    log::error!("ip-api.com returned error: {}", response.status());
-                    last_error = Some(AsnError::InvalidResponse);
-                    if attempt < ASN_MAX_RETRIES {
-                        tokio::time::sleep(Duration::from_secs(1)).await;
-                    }
-                    continue;
-                }
-
-                match response.json::<Vec<IpApiResponse>>().await {
-                    Ok(responses) => {
-                        api_responses = Some(responses);
-                        break;
-                    }
-                    Err(e) => {
-                        log::warn!("Failed to parse ip-api.com response: {}", e);
-                        last_error = Some(AsnError::HttpError(e));
-                        if attempt < ASN_MAX_RETRIES {
-                            tokio::time::sleep(Duration::from_secs(1)).await;
-                        }
-                    }
-                }
-            }
-
-            let api_responses = match api_responses {
-                Some(r) => r,
-                None => return Err(last_error.unwrap_or(AsnError::InvalidResponse)),
-            };
-
-            for api_response in api_responses {
-                let resolved = if api_response.status == "success" {
-                    ResolvedIpData::from_api_response(&api_response)
-                } else {
-                    log::debug!(
-                        "ip-api.com failed for IP {}: status={}",
-                        api_response.query,
-                        api_response.status
-                    );
-                    ResolvedIpData::failed(api_response.query.clone())
-                };
-
-                results.push(resolved);
-            }
-        }
-
-        Ok(results)
-    }
-
-    pub async fn clear_cache(&self) {
-        {
-            let mut cache = self.memory_cache.lock().await;
-            cache.clear();
-        }
-
-        log::info!("ASN memory cache cleared");
-    }
-
-    pub async fn cache_stats(&self) -> CacheStats {
-        let memory_count = {
-            let cache = self.memory_cache.lock().await;
-            cache.len()
-        };
-
-        CacheStats {
-            memory_entries: memory_count,
-        }
-    }
 }
 
-#[derive(Debug, Clone)]
-pub struct CacheStats {
-    pub memory_entries: usize,
-}
+static ASN_RESOLVER: OnceLock<Arc<AsnResolver>> = OnceLock::new();
 
-impl Default for AsnResolver {
-    fn default() -> Self {
-        Self::new()
+pub fn init_resolver(city_db: &Path, asn_db: &Path) -> Result<(), AsnError> {
+    let resolver = AsnResolver::new(city_db, asn_db)?;
+    if ASN_RESOLVER.set(Arc::new(resolver)).is_err() {
+        log::warn!("ASN resolver already initialized");
     }
+    Ok(())
 }
 
-static ASN_RESOLVER: std::sync::OnceLock<Arc<AsnResolver>> = std::sync::OnceLock::new();
-
-pub fn get_resolver() -> Arc<AsnResolver> {
-    ASN_RESOLVER
-        .get_or_init(|| Arc::new(AsnResolver::new()))
-        .clone()
+pub fn get_resolver() -> Option<Arc<AsnResolver>> {
+    ASN_RESOLVER.get().cloned()
 }
-
