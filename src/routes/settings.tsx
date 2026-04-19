@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { RiArrowDownSLine, RiDeleteBinLine, RiFilterLine } from '@remixicon/react'
 import { toast } from 'sonner'
+import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
 
 import * as m from '@/paraglide/messages'
 import { getLocale, setLocale, locales } from '@/paraglide/runtime'
@@ -38,6 +39,7 @@ function SettingsPage() {
         <LanguageSetting />
         <ThemeSetting />
         <AutoStartSetting />
+        <LaunchOnStartupSetting />
         <MinimizeToTraySetting />
         <AdvancedModeSetting />
         <CheckUpdatesSetting />
@@ -135,6 +137,37 @@ function AutoStartSetting() {
   return (
     <SettingRow label={m.settings_auto_start()} description={m.settings_auto_start_description()}>
       <Switch checked={autoStart} onCheckedChange={setAutoStart} />
+    </SettingRow>
+  )
+}
+
+function LaunchOnStartupSetting() {
+  const [enabled, setEnabled] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    isEnabled()
+      .then(setEnabled)
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleToggle = async (value: boolean) => {
+    try {
+      if (value) await enable()
+      else await disable()
+      setEnabled(value)
+    } catch {
+      toast.error(m.settings_launch_on_startup_error())
+    }
+  }
+
+  return (
+    <SettingRow
+      label={m.settings_launch_on_startup()}
+      description={m.settings_launch_on_startup_description()}
+    >
+      <Switch checked={enabled} onCheckedChange={handleToggle} disabled={loading} />
     </SettingRow>
   )
 }

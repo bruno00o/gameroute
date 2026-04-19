@@ -321,6 +321,8 @@
   "welcome_privacy_body": "Todos los datos de sesión se almacenan en una base de datos SQLite local en tu máquina. La única llamada externa es a ip-api.com para geolocalización de IP y resolución ASN.",
   "welcome_no_collection_title": "Lo que NO hace",
   "welcome_no_collection_body": "Sin telemetría, sin cuentas de usuario, sin sincronización en la nube, sin recopilación de datos personales. GameRoute funciona completamente sin conexión excepto para búsquedas de IP.",
+  "welcome_launch_on_startup": "Iniciar al arrancar Windows",
+  "welcome_launch_on_startup_description": "Inicia GameRoute automáticamente al iniciar sesión, minimizada en la bandeja del sistema. Se puede cambiar en Configuración.",
   "welcome_advanced_mode": "Conozco lo básico de redes",
   "welcome_advanced_mode_description": "Mostrar detalles técnicos como protocolos, hostnames y contadores de paquetes. Se puede cambiar en Configuración.",
   "welcome_launch_button": "Entendido, iniciar",
@@ -335,6 +337,9 @@
   "session_game_servers_hint": "Estos son probablemente servidores de juego, basado en tráfico UDP de más de 30 segundos. Compara las duraciones con tu tiempo de juego real para confirmar.",
   "session_likely_game_server": "Probable servidor de juego",
 
+  "settings_launch_on_startup": "Iniciar al arrancar Windows",
+  "settings_launch_on_startup_description": "Inicia GameRoute automáticamente al iniciar sesión. Se lanza minimizada en la bandeja del sistema.",
+  "settings_launch_on_startup_error": "No se pudo actualizar este ajuste.",
   "settings_minimize_to_tray": "Minimizar a la bandeja",
   "settings_minimize_to_tray_description": "Mantener la aplicación activa en la bandeja del sistema al cerrar la ventana.",
   "settings_advanced_mode": "Modo avanzado",

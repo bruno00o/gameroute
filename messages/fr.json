@@ -321,6 +321,8 @@
   "welcome_privacy_body": "Toutes les données de session sont stockées dans une base SQLite locale sur votre machine. Le seul appel externe est vers ip-api.com pour la géolocalisation et la résolution ASN.",
   "welcome_no_collection_title": "Ce que l'application ne fait PAS",
   "welcome_no_collection_body": "Pas de télémétrie, pas de comptes utilisateur, pas de synchronisation cloud, pas de collecte de données personnelles. GameRoute est entièrement hors ligne sauf pour les recherches d'IP.",
+  "welcome_launch_on_startup": "Lancer au démarrage de Windows",
+  "welcome_launch_on_startup_description": "Démarre GameRoute automatiquement à l'ouverture de session, réduit dans la zone de notification. Modifiable dans les Paramètres.",
   "welcome_advanced_mode": "Je connais les bases du réseau",
   "welcome_advanced_mode_description": "Afficher les détails techniques comme les protocoles, hostnames et compteurs de paquets. Modifiable dans les Paramètres.",
   "welcome_launch_button": "J'ai compris, lancer",
@@ -335,6 +337,9 @@
   "session_game_servers_hint": "Ces serveurs sont probablement des serveurs de jeu, basé sur du trafic UDP de plus de 30 secondes. Comparez les durées avec votre temps de jeu réel pour confirmer.",
   "session_likely_game_server": "Serveur de jeu probable",
 
+  "settings_launch_on_startup": "Lancer au démarrage de Windows",
+  "settings_launch_on_startup_description": "Démarre GameRoute automatiquement à l'ouverture de votre session. L'application se lance réduite dans la zone de notification.",
+  "settings_launch_on_startup_error": "Impossible de mettre à jour ce paramètre.",
   "settings_minimize_to_tray": "Réduire dans la zone de notification",
   "settings_minimize_to_tray_description": "Garder l'application active dans la zone de notification lorsque la fenêtre est fermée.",
   "settings_advanced_mode": "Mode avancé",

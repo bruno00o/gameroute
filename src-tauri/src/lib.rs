@@ -52,6 +52,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--hidden"]),
+        ))
         .manage(AppMonitoringState::new())
         .manage(TraySettings {
             minimize_to_tray: AtomicBool::new(true),
@@ -173,6 +177,14 @@ pub fn run() {
                 .separator()
                 .item(&quit)
                 .build()?;
+
+            let launched_hidden = std::env::args().any(|a| a == "--hidden");
+            if launched_hidden {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.hide();
+                }
+                log::info!("Launched with --hidden, window kept in tray");
+            }
 
             TrayIconBuilder::new()
                 .icon(app.default_window_icon().expect("default window icon must be set in tauri.conf.json").clone())

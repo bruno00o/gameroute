@@ -321,6 +321,8 @@
   "welcome_privacy_body": "All session data is stored in a local SQLite database on your machine. The only external call is to ip-api.com for IP geolocation and ASN resolution.",
   "welcome_no_collection_title": "What it does NOT do",
   "welcome_no_collection_body": "No telemetry, no user accounts, no cloud sync, no personal data collection. GameRoute is fully offline except for IP lookups.",
+  "welcome_launch_on_startup": "Launch at Windows startup",
+  "welcome_launch_on_startup_description": "Start GameRoute automatically when you log in, minimized to the system tray. You can change this later in Settings.",
   "welcome_advanced_mode": "I know networking basics",
   "welcome_advanced_mode_description": "Show technical details like protocols, hostnames, and packet counts. You can change this later in Settings.",
   "welcome_launch_button": "I understand, launch",
@@ -335,6 +337,9 @@
   "session_game_servers_hint": "These are likely game servers based on UDP traffic lasting over 30 seconds. Compare durations with your actual play time to confirm.",
   "session_likely_game_server": "Likely game server",
 
+  "settings_launch_on_startup": "Launch at Windows startup",
+  "settings_launch_on_startup_description": "Start GameRoute automatically when you log in. Launches minimized to the system tray.",
+  "settings_launch_on_startup_error": "Could not update the startup setting.",
   "settings_minimize_to_tray": "Minimize to tray",
   "settings_minimize_to_tray_description": "Keep the app running in the system tray when the window is closed.",
   "settings_advanced_mode": "Advanced mode",

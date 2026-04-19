@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import {
   RiShieldKeyholeLine,
@@ -5,6 +6,8 @@ import {
   RiLockLine,
   RiSpeedLine,
 } from '@remixicon/react'
+import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
+import { toast } from 'sonner'
 
 import * as m from '@/paraglide/messages'
 import logoSvg from '@/assets/logo.svg'
@@ -22,6 +25,26 @@ function WelcomePage() {
   const advancedMode = useSettingsStore(s => s.advancedMode)
   const setAdvancedMode = useSettingsStore(s => s.setAdvancedMode)
   const navigate = useNavigate()
+
+  const [launchOnStartup, setLaunchOnStartup] = useState(false)
+  const [launchOnStartupLoading, setLaunchOnStartupLoading] = useState(true)
+
+  useEffect(() => {
+    isEnabled()
+      .then(setLaunchOnStartup)
+      .catch(() => {})
+      .finally(() => setLaunchOnStartupLoading(false))
+  }, [])
+
+  const handleLaunchOnStartup = async (value: boolean) => {
+    try {
+      if (value) await enable()
+      else await disable()
+      setLaunchOnStartup(value)
+    } catch {
+      toast.error(m.settings_launch_on_startup_error())
+    }
+  }
 
   const handleLaunch = () => {
     setOnboardingCompleted(true)
@@ -79,12 +102,28 @@ function WelcomePage() {
           </Card>
         </div>
 
-        <div className="flex items-center justify-between rounded-lg border px-4 py-3">
-          <div className="space-y-0.5">
-            <p className="text-sm font-medium">{m.welcome_advanced_mode()}</p>
-            <p className="text-muted-foreground text-xs">{m.welcome_advanced_mode_description()}</p>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between rounded-lg border px-4 py-3">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">{m.welcome_launch_on_startup()}</p>
+              <p className="text-muted-foreground text-xs">
+                {m.welcome_launch_on_startup_description()}
+              </p>
+            </div>
+            <Switch
+              checked={launchOnStartup}
+              onCheckedChange={handleLaunchOnStartup}
+              disabled={launchOnStartupLoading}
+            />
           </div>
-          <Switch checked={advancedMode} onCheckedChange={setAdvancedMode} />
+
+          <div className="flex items-center justify-between rounded-lg border px-4 py-3">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">{m.welcome_advanced_mode()}</p>
+              <p className="text-muted-foreground text-xs">{m.welcome_advanced_mode_description()}</p>
+            </div>
+            <Switch checked={advancedMode} onCheckedChange={setAdvancedMode} />
+          </div>
         </div>
 
         <div className="text-center space-y-3">
