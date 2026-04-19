@@ -30,11 +30,10 @@ pub struct TracerouteProgressEvent {
 
 impl TracerouteProgressEvent {
     pub fn new(current_ip: String, current_index: u32, total_count: u32) -> Self {
-        let progress = if total_count > 0 {
-            ((current_index - 1) * 100 / total_count).min(100)
-        } else {
-            0
-        };
+        let progress = (current_index.saturating_sub(1) * 100)
+            .checked_div(total_count)
+            .unwrap_or(0)
+            .min(100);
 
         Self {
             current_ip,

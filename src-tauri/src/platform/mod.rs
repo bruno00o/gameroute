@@ -113,7 +113,7 @@ pub fn list_running_processes_filtered() -> Vec<RunningProcess> {
         })
         .collect();
 
-    filtered.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    filtered.sort_by_key(|a| a.name.to_lowercase());
 
     filtered
 }
@@ -196,7 +196,7 @@ pub fn list_running_apps_grouped() -> Vec<RunningApp> {
         })
         .collect();
 
-    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    apps.sort_by_key(|a| a.name.to_lowercase());
     apps
 }
 
