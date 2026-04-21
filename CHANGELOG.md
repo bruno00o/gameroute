@@ -1,18 +1,5 @@
 # Changelog
 
-## [0.1.14](https://github.com/bruno00o/gameroute/compare/v0.1.13...v0.1.14) (2026-04-19)
-
-
-### Features
-
-* launch at Windows startup via tauri-plugin-autostart ([00fc792](https://github.com/bruno00o/gameroute/commit/00fc792c2c8a50f634bc030990b71e43d8dc805b))
-* offline ASN and geolocation lookups via MaxMind GeoLite2 ([8840176](https://github.com/bruno00o/gameroute/commit/88401764a600129b88ed0415ecd0391ccdd45d62))
-
-
-### Bug Fixes
-
-* adopt new clippy lints from Rust 1.95 ([531e3ed](https://github.com/bruno00o/gameroute/commit/531e3ed5c29421fea4956bdf368acec3afdc7f1e))
-
 ## [0.1.13](https://github.com/bruno00o/gameroute/compare/v0.1.12...v0.1.13) (2026-03-14)
 
 

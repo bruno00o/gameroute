@@ -44,6 +44,12 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
+      - name: Download GeoLite2 databases
+        env:
+          MAXMIND_LICENSE_KEY: ${{ secrets.MAXMIND_LICENSE_KEY }}
+        run: pwsh scripts/download-geolite.ps1
+        shell: pwsh
+
       - name: Build capture service sidecar
         run: |
           # Create placeholder so tauri build.rs doesn't fail during cargo build
@@ -51,12 +57,6 @@ jobs:
           New-Item -ItemType File -Force -Path src-tauri/binaries/gameroute-capture-service-x86_64-pc-windows-msvc.exe | Out-Null
           cargo build --release --bin gameroute-capture-service --manifest-path src-tauri/Cargo.toml
           Copy-Item src-tauri/target/release/gameroute-capture-service.exe src-tauri/binaries/gameroute-capture-service-x86_64-pc-windows-msvc.exe -Force
-        shell: pwsh
-
-      - name: Download GeoLite2 databases
-        env:
-          MAXMIND_LICENSE_KEY: ${{ secrets.MAXMIND_LICENSE_KEY }}
-        run: pwsh scripts/download-geolite.ps1
         shell: pwsh
 
       - uses: tauri-apps/tauri-action@v0
