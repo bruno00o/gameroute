@@ -3,6 +3,7 @@ use crate::config::{
     TRACEROUTE_MAX_HOPS,
 };
 use crate::db::{get_hop_repository, get_traceroute_repository};
+use crate::models::flow_kind::FlowKind;
 use crate::models::session::HopData;
 use crate::models::HopResult;
 use std::collections::VecDeque;
@@ -17,6 +18,7 @@ pub struct TracerouteJob {
     pub port: u16,
     pub index: u32,
     pub traceroute_id: Option<i64>,
+    pub kind: FlowKind,
     generation: u64,
 }
 
@@ -28,8 +30,14 @@ impl TracerouteJob {
             port: 0,
             index,
             traceroute_id,
+            kind: FlowKind::Game,
             generation: 0,
         }
+    }
+
+    pub fn with_kind(mut self, kind: FlowKind) -> Self {
+        self.kind = kind;
+        self
     }
 
     pub fn with_protocol(mut self, protocol: String, port: u16) -> Self {
@@ -111,7 +119,12 @@ impl TracerouteService {
             state.total_count += 1;
             job.index = state.total_count;
             job.generation = state.generation;
-            state.pending_jobs.push_back(job);
+            let position = state
+                .pending_jobs
+                .iter()
+                .position(|pending| pending.kind.priority() > job.kind.priority())
+                .unwrap_or(state.pending_jobs.len());
+            state.pending_jobs.insert(position, job);
         }
         state.total_count
     }
@@ -461,6 +474,23 @@ mod tests {
         assert!(state.is_running);
         let indexes: Vec<u32> = state.pending_jobs.iter().map(|j| j.index).collect();
         assert_eq!(indexes, vec![1, 2, 3]);
+    }
+
+    #[tokio::test]
+    async fn game_jobs_jump_ahead_of_voice_and_other() {
+        let service = TracerouteService::new();
+        service
+            .enqueue(vec![
+                job("20.157.94.82").with_kind(FlowKind::Voice),
+                job("3.5.1.1").with_kind(FlowKind::Other),
+            ])
+            .await;
+        service.enqueue(vec![job("162.249.72.5")]).await;
+        service.enqueue(vec![job("20.47.1.1").with_kind(FlowKind::Voice)]).await;
+
+        let state = service.state.read().await;
+        let order: Vec<&str> = state.pending_jobs.iter().map(|j| j.target_ip.as_str()).collect();
+        assert_eq!(order, vec!["162.249.72.5", "20.157.94.82", "20.47.1.1", "3.5.1.1"]);
     }
 
     #[tokio::test]

@@ -1,6 +1,7 @@
 pub mod asn_resolver;
 pub mod capture_client;
 pub mod epic_scanner;
+pub mod flow_kind;
 pub mod game_detection;
 pub mod network_capture;
 pub mod riot_scanner;

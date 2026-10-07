@@ -12,6 +12,7 @@ pub struct IpPeriod {
     pub ended_at: String,
     pub packet_count: i32,
     pub is_game_server: bool,
+    pub flow_kind: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -59,6 +60,8 @@ pub struct IpPeriodSummary {
     pub last_seen_at: String,
 
     pub is_game_server: bool,
+
+    pub flow_kind: Option<String>,
 }
 
 #[derive(Debug, Clone, sqlx::FromRow)]
@@ -67,6 +70,7 @@ pub struct TraceCandidate {
     pub protocol: String,
     pub port: i32,
     pub is_game_server: bool,
+    pub is_voice: bool,
     pub total_secs: i64,
 }
 
@@ -93,6 +97,7 @@ mod tests {
             ended_at: "2026-01-25T10:30:00Z".to_string(),
             packet_count: 1500,
             is_game_server: false,
+            flow_kind: None,
         };
 
         let json = serde_json::to_string(&period).unwrap();

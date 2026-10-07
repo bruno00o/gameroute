@@ -1,5 +1,6 @@
 use crate::config::{ACTIVITY_PERIOD_THRESHOLD_SECS, GAME_SERVER_MIN_DURATION_SECS};
 use crate::db::DbError;
+use crate::models::flow_kind::FlowKind;
 use crate::models::ip_period::{
     IpActivityUpsert, IpPeriod, IpPeriodData, IpPeriodSummary, TraceCandidate,
 };
@@ -61,7 +62,7 @@ impl IpPeriodRepository {
         ip: &str,
     ) -> Result<Option<IpPeriod>, DbError> {
         sqlx::query_as::<_, IpPeriod>(
-            "SELECT id, session_id, ip, protocol, port, started_at, ended_at, packet_count, is_game_server
+            "SELECT id, session_id, ip, protocol, port, started_at, ended_at, packet_count, is_game_server, flow_kind
              FROM ip_periods
              WHERE session_id = $1 AND ip = $2
              ORDER BY ended_at DESC
@@ -98,9 +99,11 @@ impl IpPeriodRepository {
                 if elapsed < ACTIVITY_PERIOD_THRESHOLD_SECS {
                     let new_count = period.packet_count + 1;
                     let total_duration = (now - started).num_seconds();
-                    let is_game_server = period.is_game_server
-                        || (protocol == "UDP"
-                            && total_duration >= GAME_SERVER_MIN_DURATION_SECS);
+                    let is_voice = period.flow_kind.as_deref() == Some(FlowKind::Voice.as_str());
+                    let is_game_server = !is_voice
+                        && (period.is_game_server
+                            || (protocol == "UDP"
+                                && total_duration >= GAME_SERVER_MIN_DURATION_SECS));
                     self.update_period(period.id, timestamp, new_count, is_game_server)
                         .await?;
                     log::debug!(
@@ -132,7 +135,7 @@ impl IpPeriodRepository {
 
     pub async fn get_periods_for_session(&self, session_id: i64) -> Result<Vec<IpPeriod>, DbError> {
         sqlx::query_as::<_, IpPeriod>(
-            "SELECT id, session_id, ip, protocol, port, started_at, ended_at, packet_count, is_game_server
+            "SELECT id, session_id, ip, protocol, port, started_at, ended_at, packet_count, is_game_server, flow_kind
              FROM ip_periods
              WHERE session_id = $1
              ORDER BY started_at ASC",
@@ -157,7 +160,8 @@ impl IpPeriodRepository {
                 COUNT(*) as period_count,
                 MIN(started_at) as first_seen_at,
                 MAX(ended_at) as last_seen_at,
-                MAX(is_game_server) as is_game_server
+                MAX(is_game_server) as is_game_server,
+                MAX(flow_kind) as flow_kind
              FROM ip_periods
              WHERE session_id = $1
              GROUP BY ip
@@ -193,22 +197,65 @@ impl IpPeriodRepository {
         sqlx::query_as::<_, TraceCandidate>(
             "WITH ranked AS (
                 SELECT ip, protocol, port, started_at,
-                       ROW_NUMBER() OVER (PARTITION BY ip ORDER BY is_game_server DESC, ended_at DESC) AS rn,
+                       ROW_NUMBER() OVER (PARTITION BY ip ORDER BY is_game_server DESC, flow_kind = $2 DESC, ended_at DESC) AS rn,
                        MAX(is_game_server) OVER (PARTITION BY ip) AS any_game_server,
+                       MAX(COALESCE(flow_kind = $2, 0)) OVER (PARTITION BY ip) AS any_voice,
                        SUM(CAST(ROUND((julianday(ended_at) - julianday(started_at)) * 86400) AS INTEGER)) OVER (PARTITION BY ip) AS total_secs,
                        MIN(started_at) OVER (PARTITION BY ip) AS first_seen
                 FROM ip_periods
                 WHERE session_id = $1
              )
-             SELECT ip, protocol, port, any_game_server AS is_game_server, total_secs
+             SELECT ip, protocol, port, any_game_server AS is_game_server, any_voice AS is_voice, total_secs
              FROM ranked
              WHERE rn = 1
              ORDER BY first_seen ASC",
         )
         .bind(session_id)
+        .bind(FlowKind::Voice.as_str())
         .fetch_all(&self.pool)
         .await
         .map_err(Into::into)
+    }
+
+    pub async fn set_flow_kind(&self, period_id: i64, kind: FlowKind) -> Result<(), DbError> {
+        sqlx::query(
+            "UPDATE ip_periods
+             SET flow_kind = $1, is_game_server = CASE WHEN $1 = $2 THEN 0 ELSE is_game_server END
+             WHERE id = $3",
+        )
+        .bind(kind.as_str())
+        .bind(FlowKind::Voice.as_str())
+        .bind(period_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_unclassified_game_server_flows(&self) -> Result<Vec<(String, String, i32)>, DbError> {
+        sqlx::query_as(
+            "SELECT DISTINCT ip, protocol, port FROM ip_periods WHERE is_game_server = 1 AND flow_kind IS NULL",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
+    pub async fn classify_flow(&self, ip: &str, protocol: &str, port: i32, kind: FlowKind) -> Result<(), DbError> {
+        sqlx::query(
+            "UPDATE ip_periods
+             SET flow_kind = $4, is_game_server = CASE WHEN $4 = $5 THEN 0 ELSE is_game_server END
+             WHERE ip = $1 AND protocol = $2 AND port = $3 AND is_game_server = 1 AND flow_kind IS NULL",
+        )
+        .bind(ip)
+        .bind(protocol)
+        .bind(port)
+        .bind(kind.as_str())
+        .bind(FlowKind::Voice.as_str())
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
     }
 
     pub async fn get_unique_ip_count(&self, session_id: i64) -> Result<i32, DbError> {
@@ -340,6 +387,53 @@ mod tests {
             let outcome = repo.upsert_ip_activity(1, "104.18.41.183", "TCP", 443, &ts).await.unwrap();
             assert!(!outcome.became_game_server);
         }
+    }
+
+    #[tokio::test]
+    async fn test_voice_flow_is_never_flagged_as_game_server() {
+        let repo = create_test_repo().await;
+
+        let outcomes = feed_udp(&repo, "20.157.94.82", 27020, 0, 30).await;
+        let period_id = outcomes.last().unwrap().period_id;
+        assert!(outcomes.last().unwrap().became_game_server);
+
+        repo.set_flow_kind(period_id, FlowKind::Voice).await.unwrap();
+
+        let later = feed_udp(&repo, "20.157.94.82", 27020, 35, 120).await;
+        assert!(later.iter().all(|o| !o.became_game_server && o.period_id == period_id));
+
+        let period = repo.get_latest_period_for_ip(1, "20.157.94.82").await.unwrap().unwrap();
+        assert!(!period.is_game_server);
+        assert_eq!(period.flow_kind.as_deref(), Some("voice"));
+    }
+
+    #[tokio::test]
+    async fn test_classify_flow_backfills_unclassified_game_servers() {
+        let repo = create_test_repo().await;
+        feed_udp(&repo, "20.157.94.82", 27020, 0, 60).await;
+        feed_udp(&repo, "162.249.72.5", 7032, 0, 60).await;
+
+        let flows = repo.get_unclassified_game_server_flows().await.unwrap();
+        assert_eq!(flows.len(), 2);
+
+        repo.classify_flow("20.157.94.82", "UDP", 27020, FlowKind::Voice).await.unwrap();
+        repo.classify_flow("162.249.72.5", "UDP", 7032, FlowKind::Game).await.unwrap();
+
+        assert!(repo.get_unclassified_game_server_flows().await.unwrap().is_empty());
+
+        let summaries = repo.get_ip_summaries_for_session(1).await.unwrap();
+        let voice = summaries.iter().find(|s| s.ip == "20.157.94.82").unwrap();
+        assert!(!voice.is_game_server);
+        assert_eq!(voice.flow_kind.as_deref(), Some("voice"));
+        let game = summaries.iter().find(|s| s.ip == "162.249.72.5").unwrap();
+        assert!(game.is_game_server);
+        assert_eq!(game.flow_kind.as_deref(), Some("game"));
+
+        let candidates = repo.get_trace_candidates(1).await.unwrap();
+        let voice = candidates.iter().find(|c| c.ip == "20.157.94.82").unwrap();
+        assert!(voice.is_voice && !voice.is_game_server);
+        let game = candidates.iter().find(|c| c.ip == "162.249.72.5").unwrap();
+        assert!(game.is_game_server && !game.is_voice);
     }
 
     #[tokio::test]

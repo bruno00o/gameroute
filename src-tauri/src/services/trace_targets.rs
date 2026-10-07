@@ -1,4 +1,5 @@
 use crate::config::{CDN_ASNS, TRACE_FALLBACK_TARGET_LIMIT};
+use crate::models::flow_kind::FlowKind;
 use crate::models::ip_period::TraceCandidate;
 use crate::services::asn_resolver::get_resolver;
 use std::net::IpAddr;
@@ -8,14 +9,16 @@ pub struct TraceTarget {
     pub ip: String,
     pub protocol: String,
     pub port: u16,
+    pub kind: FlowKind,
 }
 
-impl From<&TraceCandidate> for TraceTarget {
-    fn from(candidate: &TraceCandidate) -> Self {
+impl TraceTarget {
+    fn from_candidate(candidate: &TraceCandidate, kind: FlowKind) -> Self {
         Self {
             ip: candidate.ip.clone(),
             protocol: candidate.protocol.clone(),
             port: u16::try_from(candidate.port).unwrap_or(0),
+            kind,
         }
     }
 }
@@ -46,19 +49,27 @@ pub fn select_targets(
         .filter(|c| !is_quic(&c.protocol, c.port) && !is_cdn(&c.ip))
         .collect();
 
-    let game_servers: Vec<&TraceCandidate> =
-        eligible.iter().copied().filter(|c| c.is_game_server).collect();
+    let game = eligible
+        .iter()
+        .filter(|c| c.is_game_server)
+        .map(|c| TraceTarget::from_candidate(c, FlowKind::Game));
+    let voice = eligible
+        .iter()
+        .filter(|c| !c.is_game_server && c.is_voice)
+        .map(|c| TraceTarget::from_candidate(c, FlowKind::Voice));
+    let targets: Vec<TraceTarget> = game.chain(voice).collect();
 
-    let chosen = if game_servers.is_empty() {
-        let mut longest = eligible;
-        longest.sort_by_key(|c| std::cmp::Reverse(c.total_secs));
-        longest.truncate(TRACE_FALLBACK_TARGET_LIMIT);
-        longest
-    } else {
-        game_servers
-    };
+    if !targets.is_empty() {
+        return targets;
+    }
 
-    chosen.into_iter().map(TraceTarget::from).collect()
+    let mut longest = eligible;
+    longest.sort_by_key(|c| std::cmp::Reverse(c.total_secs));
+    longest
+        .into_iter()
+        .take(TRACE_FALLBACK_TARGET_LIMIT)
+        .map(|c| TraceTarget::from_candidate(c, FlowKind::Other))
+        .collect()
 }
 
 pub fn select_session_targets(candidates: &[TraceCandidate]) -> Vec<TraceTarget> {
@@ -75,8 +86,13 @@ mod tests {
             protocol: protocol.to_string(),
             port,
             is_game_server,
+            is_voice: false,
             total_secs,
         }
+    }
+
+    fn voice(ip: &str, port: i32) -> TraceCandidate {
+        TraceCandidate { is_voice: true, ..candidate(ip, "UDP", port, false, 3600) }
     }
 
     fn cloudflare(ip: &str) -> bool {
@@ -95,7 +111,29 @@ mod tests {
 
         assert_eq!(
             targets,
-            vec![TraceTarget { ip: "162.249.72.5".into(), protocol: "UDP".into(), port: 7032 }]
+            vec![TraceTarget {
+                ip: "162.249.72.5".into(),
+                protocol: "UDP".into(),
+                port: 7032,
+                kind: FlowKind::Game
+            }]
+        );
+    }
+
+    #[test]
+    fn traces_voice_after_game_servers() {
+        let candidates = vec![
+            voice("20.157.94.82", 27020),
+            candidate("162.249.72.5", "UDP", 7032, true, 1500),
+            candidate("3.5.1.1", "TCP", 443, false, 4000),
+        ];
+
+        let targets = select_targets(&candidates, cloudflare);
+
+        let kinds: Vec<(&str, FlowKind)> = targets.iter().map(|t| (t.ip.as_str(), t.kind)).collect();
+        assert_eq!(
+            kinds,
+            vec![("162.249.72.5", FlowKind::Game), ("20.157.94.82", FlowKind::Voice)]
         );
     }
 
@@ -124,6 +162,7 @@ mod tests {
 
         let ips: Vec<&str> = targets.iter().map(|t| t.ip.as_str()).collect();
         assert_eq!(ips, vec!["20.0.0.7", "20.0.0.6", "20.0.0.5", "20.0.0.4", "20.0.0.3"]);
+        assert!(targets.iter().all(|t| t.kind == FlowKind::Other));
     }
 
     #[test]
@@ -133,7 +172,7 @@ mod tests {
 
     #[test]
     fn out_of_range_port_maps_to_zero() {
-        let target = TraceTarget::from(&candidate("1.2.3.4", "UDP", 70_000, true, 1));
+        let target = TraceTarget::from_candidate(&candidate("1.2.3.4", "UDP", 70_000, true, 1), FlowKind::Game);
         assert_eq!(target.port, 0);
     }
 }

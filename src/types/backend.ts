@@ -60,6 +60,8 @@ export type DbHop = {
 }
 
 // ===== IP Periods =====
+export type FlowKind = 'game' | 'voice' | 'other'
+
 export type IpPeriod = {
   id: number
   sessionId: number
@@ -70,6 +72,7 @@ export type IpPeriod = {
   endedAt: string
   packetCount: number
   isGameServer: boolean
+  flowKind: FlowKind | null
 }
 
 export type IpPeriodSummary = {
@@ -82,6 +85,7 @@ export type IpPeriodSummary = {
   firstSeenAt: string
   lastSeenAt: string
   isGameServer: boolean
+  flowKind: FlowKind | null
 }
 
 // ===== Traceroute Records =====

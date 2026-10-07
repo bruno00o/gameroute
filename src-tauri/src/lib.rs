@@ -131,6 +131,8 @@ pub fn run() {
                     db::init_repositories(&pool);
                     log::info!("All repositories initialized");
 
+                    tauri::async_runtime::spawn(crate::services::flow_kind::backfill_flow_kinds());
+
                     if let Some(repo) = get_ip_metadata_repository() {
                         let prune_result = tauri::async_runtime::block_on(async {
                             repo.prune_expired(CACHE_MAX_TTL_DAYS).await
