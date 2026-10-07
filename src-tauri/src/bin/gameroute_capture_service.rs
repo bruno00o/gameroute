@@ -288,109 +288,60 @@ mod service {
     fn run_pipe_server(stop_flag: Arc<AtomicBool>) {
         use std::os::windows::io::FromRawHandle;
         use windows_sys::Win32::Foundation::{
-            CloseHandle, GetLastError, INVALID_HANDLE_VALUE, ERROR_PIPE_CONNECTED,
+            CloseHandle, GetLastError, LocalFree, ERROR_PIPE_CONNECTED, INVALID_HANDLE_VALUE,
         };
-        use windows_sys::Win32::Security::{
-            AddAccessAllowedAce, AllocateAndInitializeSid, FreeSid, InitializeAcl,
-            InitializeSecurityDescriptor, SetSecurityDescriptorDacl,
-            SECURITY_ATTRIBUTES, SECURITY_DESCRIPTOR, SID_IDENTIFIER_AUTHORITY,
+        use windows_sys::Win32::Security::Authorization::{
+            ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
         };
+        use windows_sys::Win32::Security::{PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES};
         use windows_sys::Win32::System::Pipes::{
-            ConnectNamedPipe, CreateNamedPipeW,
-            PIPE_READMODE_BYTE, PIPE_TYPE_BYTE,
-            PIPE_UNLIMITED_INSTANCES, PIPE_WAIT,
+            ConnectNamedPipe, CreateNamedPipeW, PIPE_READMODE_BYTE, PIPE_REJECT_REMOTE_CLIENTS,
+            PIPE_TYPE_BYTE, PIPE_UNLIMITED_INSTANCES, PIPE_WAIT,
         };
 
-        // Win32 constants not always exported by windows-sys features
-        const SECURITY_DESCRIPTOR_REVISION: u32 = 1;
         const PIPE_ACCESS_DUPLEX: u32 = 0x00000003;
-        const ACL_REVISION_NUM: u32 = 2;
-        const SECURITY_NT_AUTHORITY: SID_IDENTIFIER_AUTHORITY =
-            SID_IDENTIFIER_AUTHORITY { Value: [0, 0, 0, 0, 0, 5] };
-        const SECURITY_BUILTIN_DOMAIN_RID: u32 = 0x00000020; // 32
-        const DOMAIN_ALIAS_RID_USERS: u32 = 0x00000221; // 545
-        const GENERIC_READ: u32 = 0x80000000;
-        const GENERIC_WRITE: u32 = 0x40000000;
+        const PIPE_SDDL: &str = "D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;0x12019b;;;BU)";
 
-        // Start persistent pktmon BEFORE accepting any client connections
         let mut pktmon_child = start_persistent_pktmon();
-        let pktmon_available = pktmon_child.is_some();
-        if !pktmon_available {
+        if pktmon_child.is_none() {
             eprintln!("WARNING: pktmon failed to start, captures will fail");
         }
 
         let pipe_name_wide = encode_wide(PIPE_NAME);
+        let sddl_wide = encode_wide(PIPE_SDDL);
 
-        eprintln!("Pipe server listening on {}", PIPE_NAME);
-
-        // SAFETY: AllocateAndInitializeSid creates the well-known SID for
-        // BUILTIN\Users (S-1-5-32-545). Must be freed with FreeSid.
-        let mut users_sid: *mut core::ffi::c_void = std::ptr::null_mut();
-        let sid_ok = unsafe {
-            AllocateAndInitializeSid(
-                &SECURITY_NT_AUTHORITY,
-                2, // 2 sub-authorities: BUILTIN domain + Users alias
-                SECURITY_BUILTIN_DOMAIN_RID,
-                DOMAIN_ALIAS_RID_USERS,
-                0, 0, 0, 0, 0, 0,
-                &mut users_sid,
+        let mut security_descriptor: PSECURITY_DESCRIPTOR = std::ptr::null_mut();
+        let sd_ok = unsafe {
+            ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                sddl_wide.as_ptr(),
+                SDDL_REVISION_1,
+                &mut security_descriptor,
+                std::ptr::null_mut(),
             )
         };
-        if sid_ok == 0 {
-            eprintln!(
-                "Failed to allocate BUILTIN\\Users SID: error {}",
-                unsafe { GetLastError() }
-            );
+        if sd_ok == 0 {
+            eprintln!("Failed to build pipe security descriptor: error {}", unsafe {
+                GetLastError()
+            });
             stop_persistent_pktmon(&mut pktmon_child);
             return;
         }
 
-        // SAFETY: Build an ACL with a single ACE granting read/write access
-        // to BUILTIN\Users only. Buffer is sized to fit ACL header + one ACE + SID.
-        const ACL_BUF_SIZE: u32 = 256;
-        let mut acl_buf = vec![0u8; ACL_BUF_SIZE as usize];
-        unsafe {
-            InitializeAcl(
-                acl_buf.as_mut_ptr() as *mut _,
-                ACL_BUF_SIZE,
-                ACL_REVISION_NUM,
-            );
-            AddAccessAllowedAce(
-                acl_buf.as_mut_ptr() as *mut _,
-                ACL_REVISION_NUM,
-                GENERIC_READ | GENERIC_WRITE,
-                users_sid,
-            );
-        }
+        let sa = SECURITY_ATTRIBUTES {
+            nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+            lpSecurityDescriptor: security_descriptor,
+            bInheritHandle: 0,
+        };
+
+        eprintln!("Pipe server listening on {}", PIPE_NAME);
 
         while !stop_flag.load(Ordering::SeqCst) {
-            // SAFETY: Create a security descriptor with DACL restricted to BUILTIN\Users
-            let mut sd: SECURITY_DESCRIPTOR = unsafe { std::mem::zeroed() };
-            unsafe {
-                InitializeSecurityDescriptor(
-                    &mut sd as *mut _ as *mut _,
-                    SECURITY_DESCRIPTOR_REVISION,
-                );
-                SetSecurityDescriptorDacl(
-                    &mut sd as *mut _ as *mut _,
-                    1, // bDaclPresent = TRUE
-                    acl_buf.as_ptr() as *const _ as *mut _, // Restricted ACL (BUILTIN\Users only)
-                    0, // bDaclDefaulted = FALSE
-                );
-            }
-
-            let sa = SECURITY_ATTRIBUTES {
-                nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
-                lpSecurityDescriptor: &mut sd as *mut _ as *mut _,
-                bInheritHandle: 0, // FALSE
-            };
-
             // Create a new named pipe instance
             let handle = unsafe {
                 CreateNamedPipeW(
                     pipe_name_wide.as_ptr(),
                     PIPE_ACCESS_DUPLEX,
-                    PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
+                    PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
                     PIPE_UNLIMITED_INSTANCES,
                     4096,  // output buffer
                     4096,  // input buffer
@@ -443,8 +394,7 @@ mod service {
             });
         }
 
-        // SAFETY: Free the SID allocated by AllocateAndInitializeSid
-        unsafe { FreeSid(users_sid) };
+        unsafe { LocalFree(security_descriptor) };
 
         // Stop persistent pktmon on shutdown
         stop_persistent_pktmon(&mut pktmon_child);

@@ -103,5 +103,9 @@ pub const CAPTURE_SERVICE_TOTAL_TIMEOUT_MS: u64 = 10000;
 /// Prevents blocking a thread forever if the service stops responding mid-reply.
 pub const PIPE_READ_TIMEOUT_MS: u32 = 5000;
 
+pub const PIPE_CONNECT_ATTEMPTS: u32 = 4;
+
+pub const PIPE_BUSY_WAIT_MS: u32 = 2_000;
+
 /// Timeout (milliseconds) for traceroute via capture service (longer than capture).
 pub const TRACEROUTE_SERVICE_TIMEOUT_MS: u32 = 70_000;
