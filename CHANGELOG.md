@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.15](https://github.com/bruno00o/gameroute/compare/v0.1.14...v0.1.15) (2026-10-07)
+
+
+### Features
+
+* **sessions:** label voice chat flows separately from game servers ([36ff310](https://github.com/bruno00o/gameroute/commit/36ff310a14b0c623465da7176c37c2c33990438d))
+* **traceroute:** trace game servers during matches ([ebf6799](https://github.com/bruno00o/gameroute/commit/ebf679966571019ac1195007e0bd93cfbce21d33))
+
+
+### Bug Fixes
+
+* **capture:** let the service accept concurrent pipe clients ([54f0e3a](https://github.com/bruno00o/gameroute/commit/54f0e3a7be209833c0c16c18682f4d055718c242))
+* **installer:** allow icmp replies for traceroute probes and restart the service on failure ([81f1286](https://github.com/bruno00o/gameroute/commit/81f12861bd2ce01ca50c393a4df49e1a29e800b4))
+* **map:** declare geojson types explicitly ([f072ab1](https://github.com/bruno00o/gameroute/commit/f072ab1cc8193f5e6e4e629462994bc45db80486))
+* **sessions:** close sessions left open by an unexpected exit ([9edb2fb](https://github.com/bruno00o/gameroute/commit/9edb2fbc06c18ad5807dfb40d2cb511bebf51660))
+
 ## [0.1.14](https://github.com/bruno00o/gameroute/compare/v0.1.13...v0.1.14) (2026-04-21)
 
 
