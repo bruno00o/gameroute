@@ -6,6 +6,7 @@ pub mod network_capture;
 pub mod riot_scanner;
 pub mod scanner_utils;
 pub mod steam_scanner;
+pub mod trace_targets;
 pub mod traceroute;
 pub mod tracert_parser;
 pub mod udp_capture;

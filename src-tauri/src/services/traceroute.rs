@@ -1,11 +1,14 @@
-use crate::config::{LATENCY_INCREASE_THRESHOLD, PACKET_LOSS_THRESHOLD, TRACEROUTE_MAX_HOPS};
+use crate::config::{
+    LATENCY_INCREASE_THRESHOLD, PACKET_LOSS_THRESHOLD, TRACEROUTE_MAX_CONCURRENT,
+    TRACEROUTE_MAX_HOPS,
+};
 use crate::db::{get_hop_repository, get_traceroute_repository};
 use crate::models::session::HopData;
-use crate::models::{HopResult, TracedServerIp};
+use crate::models::HopResult;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, Semaphore};
 
 #[derive(Debug, Clone)]
 pub struct TracerouteJob {
@@ -14,20 +17,10 @@ pub struct TracerouteJob {
     pub port: u16,
     pub index: u32,
     pub traceroute_id: Option<i64>,
+    generation: u64,
 }
 
-#[allow(dead_code)] // Used via Tauri commands (invisible to clippy)
 impl TracerouteJob {
-    pub fn from_server_ip(server_ip: &TracedServerIp, index: u32) -> Self {
-        Self {
-            target_ip: server_ip.server_ip.clone(),
-            protocol: "ICMP".to_string(),
-            port: 0,
-            index,
-            traceroute_id: None,
-        }
-    }
-
     pub fn new(target_ip: String, index: u32, traceroute_id: Option<i64>) -> Self {
         Self {
             target_ip,
@@ -35,6 +28,7 @@ impl TracerouteJob {
             port: 0,
             index,
             traceroute_id,
+            generation: 0,
         }
     }
 
@@ -52,7 +46,6 @@ impl TracerouteJob {
     }
 }
 
-#[allow(dead_code)] // Fields used via Tauri commands (invisible to clippy)
 #[derive(Debug, Clone)]
 pub struct TracerouteResult {
     pub target_ip: String,
@@ -60,22 +53,31 @@ pub struct TracerouteResult {
     pub traceroute_id: Option<i64>,
     pub success: bool,
     pub hops: Vec<HopResult>,
-    pub destination_reached: bool,
-    pub total_hops: u32,
     pub method: String,
+    pub probe_from_ttl: Option<u32>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BatchSummary {
+    pub total: u32,
+    pub succeeded: u32,
+    pub failed: u32,
 }
 
 #[derive(Debug, Default)]
 pub struct TracerouteState {
     pub is_running: bool,
-    pub current_job: Option<TracerouteJob>,
     pub pending_jobs: VecDeque<TracerouteJob>,
     pub completed_count: u32,
     pub total_count: u32,
+    succeeded: u32,
+    failed: u32,
+    generation: u64,
 }
 
 pub struct TracerouteService {
     pub state: Arc<RwLock<TracerouteState>>,
+    permits: Arc<Semaphore>,
 }
 
 impl Default for TracerouteService {
@@ -84,84 +86,81 @@ impl Default for TracerouteService {
     }
 }
 
-#[allow(dead_code)] // Methods used via Tauri commands (invisible to clippy)
 impl TracerouteService {
     pub fn new() -> Self {
         Self {
             state: Arc::new(RwLock::new(TracerouteState::default())),
+            permits: Arc::new(Semaphore::new(TRACEROUTE_MAX_CONCURRENT)),
         }
     }
 
-    pub async fn queue_traceroutes(&self, server_ips: &[TracedServerIp]) {
-        if server_ips.is_empty() {
-            log::debug!("No server IPs to queue for traceroute");
-            return;
-        }
+    pub fn permits(&self) -> Arc<Semaphore> {
+        self.permits.clone()
+    }
 
-        let jobs: VecDeque<TracerouteJob> = server_ips
-            .iter()
-            .enumerate()
-            .map(|(i, ip)| TracerouteJob::from_server_ip(ip, (i + 1) as u32))
-            .collect();
-
+    pub async fn enqueue(&self, jobs: Vec<TracerouteJob>) -> u32 {
         let mut state = self.state.write().await;
-        state.pending_jobs = jobs;
-        state.total_count = server_ips.len() as u32;
-        state.completed_count = 0;
-        state.is_running = true;
-
-        log::info!(
-            "Queued {} traceroute jobs for post-session analysis",
-            server_ips.len()
-        );
+        if !state.is_running {
+            state.completed_count = 0;
+            state.total_count = 0;
+            state.succeeded = 0;
+            state.failed = 0;
+            state.is_running = true;
+        }
+        for mut job in jobs {
+            state.total_count += 1;
+            job.index = state.total_count;
+            job.generation = state.generation;
+            state.pending_jobs.push_back(job);
+        }
+        state.total_count
     }
 
     pub async fn process_next_job<F, H>(
         &self,
         on_progress: F,
         on_hop: H,
-    ) -> Option<TracerouteResult>
+    ) -> Option<(TracerouteResult, Option<BatchSummary>)>
     where
         F: Fn(u32, u32, &str),
         H: Fn(&HopResult, u32, &str) + Send + Sync + 'static,
     {
-        let job = {
+        let (job, completed, total) = {
             let mut state = self.state.write().await;
-            if state.pending_jobs.is_empty() {
-                state.is_running = false;
-                state.current_job = None;
-                return None;
-            }
-            let job = state.pending_jobs.pop_front().unwrap();
-            state.current_job = Some(job.clone());
-            job
+            let job = state.pending_jobs.pop_front()?;
+            (job, state.completed_count, state.total_count)
         };
 
-        {
-            let state = self.state.read().await;
-            on_progress(state.completed_count + 1, state.total_count, &job.target_ip);
-        }
+        on_progress(completed + 1, total, &job.target_ip);
 
         let result = self.run_traceroute(&job, on_hop).await;
+        let summary = self.record_completion(&job, result.success).await;
 
-        {
-            let mut state = self.state.write().await;
-            state.completed_count += 1;
-            state.current_job = None;
-
-            if state.pending_jobs.is_empty() {
-                state.is_running = false;
-            }
-        }
-
-        Some(result)
+        Some((result, summary))
     }
 
-    /// Hybrid traceroute:
-    /// 1. tracert.exe (ICMP) — provides intermediate hops
-    /// 2. trippy via capture service (TCP/UDP) — reaches destinations that block ICMP
-    ///
-    /// Both run in parallel. Results are merged: tracert hops + destination from probe.
+    async fn record_completion(&self, job: &TracerouteJob, success: bool) -> Option<BatchSummary> {
+        let mut state = self.state.write().await;
+        if job.generation != state.generation {
+            return None;
+        }
+        state.completed_count += 1;
+        if success {
+            state.succeeded += 1;
+        } else {
+            state.failed += 1;
+        }
+        if state.pending_jobs.is_empty() && state.completed_count >= state.total_count {
+            state.is_running = false;
+            return Some(BatchSummary {
+                total: state.total_count,
+                succeeded: state.succeeded,
+                failed: state.failed,
+            });
+        }
+        None
+    }
+
     async fn run_traceroute<H>(&self, job: &TracerouteJob, on_hop: H) -> TracerouteResult
     where
         H: Fn(&HopResult, u32, &str) + Send + Sync + 'static,
@@ -181,7 +180,6 @@ impl TracerouteService {
         let on_hop = Arc::new(on_hop);
         let on_hop_tracert = on_hop.clone();
 
-        // 1. tracert.exe for intermediate hops (streams via on_hop)
         let tracert_fut = tracert_parser::run_tracert(
             &target_ip,
             TRACEROUTE_MAX_HOPS,
@@ -189,7 +187,6 @@ impl TracerouteService {
             job_index,
         );
 
-        // 2. Protocol-specific probe via capture service (TCP/UDP only)
         let should_probe = job.protocol != "ICMP" && job.port > 0;
         let probe_target = target_ip.clone();
         let probe_protocol = job.protocol.clone();
@@ -199,10 +196,6 @@ impl TracerouteService {
             if !should_probe {
                 return None;
             }
-            log::info!(
-                "Running {} probe to {}:{} via capture service",
-                probe_protocol, probe_target, probe_port
-            );
             match capture_client::request_traceroute(
                 probe_target,
                 probe_protocol,
@@ -213,7 +206,7 @@ impl TracerouteService {
             {
                 Ok(result) => Some(result),
                 Err(e) => {
-                    log::info!("Protocol probe failed (graceful): {}", e);
+                    log::warn!("Protocol probe failed: {}", e);
                     None
                 }
             }
@@ -222,61 +215,29 @@ impl TracerouteService {
         let (tracert_result, probe_result) = tokio::join!(tracert_fut, probe_fut);
         let elapsed = start_time.elapsed();
 
-        // Process tracert results
         let mut hops = tracert_result.unwrap_or_else(|e| {
             log::error!("tracert.exe failed for {}: {}", target_ip, e);
             vec![]
         });
 
-        let destination_reached_by_tracert =
-            hops.iter().any(|h| h.ip.as_deref() == Some(target_ip.as_str()));
-        let mut destination_reached = destination_reached_by_tracert;
+        let mut destination_reached = hops.iter().any(|h| h.ip.as_deref() == Some(target_ip.as_str()));
         let mut method = "ICMP (tracert)".to_string();
+        let mut probe_from_ttl = None;
 
-        // If tracert didn't reach destination, merge probe result
         if !destination_reached {
             if let Some(probe) = probe_result {
-                if probe.destination_reached {
-                    // Find the destination hop from trippy to get TTL + RTT
-                    if let Some(dest_hop) = probe
-                        .hops
-                        .iter()
-                        .rev()
-                        .find(|h| h.ip.as_deref() == Some(target_ip.as_str()))
-                    {
-                        let dest_ttl = dest_hop.hop_number as usize;
-
-                        // Truncate tracert hops to destination TTL
-                        if dest_ttl < hops.len() {
-                            hops.truncate(dest_ttl);
-                        }
-
-                        // Place destination hop at the correct position
-                        if dest_ttl > 0 && dest_ttl <= hops.len() {
-                            hops[dest_ttl - 1] = dest_hop.clone();
-                        } else {
-                            hops.push(dest_hop.clone());
-                        }
-
-                        on_hop(dest_hop, job_index, &target_ip);
-                        destination_reached = true;
-                        method = format!(
-                            "ICMP (tracert) + {} (trippy)",
-                            job.protocol
-                        );
-
-                        log::info!(
-                            "Protocol probe reached {} at TTL {} (avg RTT: {:.1}ms)",
-                            target_ip,
-                            dest_hop.hop_number,
-                            dest_hop.rtt_avg.unwrap_or(0.0)
-                        );
+                if let Some(merged) = merge_probe_hops(&hops, &probe.hops, &target_ip) {
+                    for hop in merged.hops.iter().filter(|h| h.hop_number >= merged.from_ttl) {
+                        on_hop(hop, job_index, &target_ip);
                     }
+                    hops = merged.hops;
+                    destination_reached = merged.destination_reached;
+                    probe_from_ttl = Some(merged.from_ttl);
+                    method = format!("ICMP (tracert) + {} (trippy)", job.protocol);
                 }
             }
         }
 
-        // Trim trailing timeout hops after last responding hop
         if let Some(last_responding) = hops.iter().rposition(|h| h.ip.is_some()) {
             hops.truncate(last_responding + 1);
         }
@@ -294,9 +255,8 @@ impl TracerouteService {
             traceroute_id: job.traceroute_id,
             success: total_hops > 0,
             hops,
-            destination_reached,
-            total_hops,
             method,
+            probe_from_ttl,
         }
     }
 
@@ -304,31 +264,74 @@ impl TracerouteService {
         self.state.read().await.is_running
     }
 
-    pub async fn get_progress(&self) -> (u32, u32) {
-        let state = self.state.read().await;
-        (state.completed_count, state.total_count)
-    }
-
-    pub async fn get_current_job(&self) -> Option<TracerouteJob> {
-        self.state.read().await.current_job.clone()
-    }
-
     pub async fn reset(&self) {
         let mut state = self.state.write().await;
         state.is_running = false;
-        state.current_job = None;
         state.pending_jobs.clear();
         state.completed_count = 0;
         state.total_count = 0;
-        log::debug!("Traceroute service state reset");
+        state.succeeded = 0;
+        state.failed = 0;
+        state.generation += 1;
     }
 }
 
-/// Identify the first hop that shows a significant quality degradation.
-///
-/// Returns the `hop_number` (as i32) of the first hop where either:
-/// - packet loss >= `PACKET_LOSS_THRESHOLD`, or
-/// - latency increase (vs previous hop) >= `LATENCY_INCREASE_THRESHOLD`.
+#[derive(Debug)]
+pub struct MergedHops {
+    pub hops: Vec<HopResult>,
+    pub from_ttl: u32,
+    pub destination_reached: bool,
+}
+
+fn last_responding_ttl(hops: &[HopResult]) -> u32 {
+    hops.iter()
+        .filter(|h| h.ip.is_some())
+        .map(|h| h.hop_number)
+        .max()
+        .unwrap_or(0)
+}
+
+pub fn merge_probe_hops(
+    tracert: &[HopResult],
+    probe: &[HopResult],
+    target_ip: &str,
+) -> Option<MergedHops> {
+    let tracert_last = last_responding_ttl(tracert);
+    let destination_ttl = probe
+        .iter()
+        .find(|h| h.ip.as_deref() == Some(target_ip))
+        .map(|h| h.hop_number);
+
+    let (keep_until, probe_until) = match destination_ttl {
+        Some(dest) => (tracert_last.min(dest.saturating_sub(1)), dest),
+        None => {
+            let probe_last = last_responding_ttl(probe);
+            if probe_last <= tracert_last {
+                return None;
+            }
+            (tracert_last, probe_last)
+        }
+    };
+
+    let mut hops: Vec<HopResult> = tracert
+        .iter()
+        .filter(|h| h.hop_number <= keep_until)
+        .cloned()
+        .collect();
+    hops.extend(
+        probe
+            .iter()
+            .filter(|h| h.hop_number > keep_until && h.hop_number <= probe_until)
+            .cloned(),
+    );
+
+    Some(MergedHops {
+        hops,
+        from_ttl: keep_until + 1,
+        destination_reached: destination_ttl.is_some(),
+    })
+}
+
 pub fn identify_problem_hop(hops: &[HopResult]) -> Option<i32> {
     let mut prev_latency: Option<f64> = None;
 
@@ -355,8 +358,14 @@ pub fn identify_problem_hop(hops: &[HopResult]) -> Option<i32> {
     None
 }
 
-/// Convert a `TracerouteResult` into `HopData` rows and persist them to the database,
-/// then mark the traceroute record as completed.
+fn probe_protocol(method: &str) -> Option<String> {
+    method
+        .split('+')
+        .nth(1)
+        .and_then(|s| s.split_whitespace().next())
+        .map(|s| s.to_string())
+}
+
 pub async fn persist_traceroute_result(result: &TracerouteResult) {
     let traceroute_id = match result.traceroute_id {
         Some(id) => id,
@@ -364,34 +373,24 @@ pub async fn persist_traceroute_result(result: &TracerouteResult) {
     };
 
     let problem_hop_index = identify_problem_hop(&result.hops);
+    let probe_source = probe_protocol(&result.method);
 
     if let Some(hop_repo) = get_hop_repository() {
-        // Determine if last hop came from a protocol probe (hybrid traceroute)
-        let is_hybrid = result.method.contains('+');
-        let last_hop_index = result.hops.len().saturating_sub(1);
-
         let hop_data: Vec<HopData> = result
             .hops
             .iter()
-            .enumerate()
-            .map(|(idx, hop)| {
+            .map(|hop| {
                 let packet_loss = if hop.probe_count > 0 {
                     (hop.timeout_count as f64 / hop.probe_count as f64) * 100.0
                 } else {
                     0.0
                 };
 
-                let is_problem = problem_hop_index == Some(hop.hop_number as i32);
-
-                // Last hop in hybrid mode came from protocol probe, others from ICMP
-                let source = if is_hybrid && idx == last_hop_index {
-                    // Extract protocol from method, e.g. "ICMP (tracert) + UDP (trippy)" → "UDP"
-                    result
-                        .method
-                        .split('+')
-                        .nth(1)
-                        .and_then(|s| s.split_whitespace().next())
-                        .map(|s| s.to_string())
+                let from_probe = result
+                    .probe_from_ttl
+                    .is_some_and(|ttl| hop.hop_number >= ttl);
+                let source = if from_probe {
+                    probe_source.clone()
                 } else {
                     Some("ICMP".to_string())
                 };
@@ -404,7 +403,7 @@ pub async fn persist_traceroute_result(result: &TracerouteResult) {
                     latency_avg: hop.rtt_avg,
                     latency_max: hop.rtt_max,
                     packet_loss: Some(packet_loss),
-                    is_problem_hop: is_problem,
+                    is_problem_hop: problem_hop_index == Some(hop.hop_number as i32),
                     source,
                 }
             })
@@ -416,12 +415,6 @@ pub async fn persist_traceroute_result(result: &TracerouteResult) {
                     "Failed to persist hops for traceroute {}: {}",
                     traceroute_id,
                     e
-                );
-            } else {
-                log::debug!(
-                    "Persisted {} hops for traceroute {}",
-                    hop_data.len(),
-                    traceroute_id
                 );
             }
         }
@@ -446,79 +439,141 @@ pub async fn persist_traceroute_result(result: &TracerouteResult) {
 mod tests {
     use super::*;
 
-    fn create_test_server_ips() -> Vec<TracedServerIp> {
-        vec![
-            TracedServerIp::new("1.1.1.1".to_string()),
-            TracedServerIp::new("2.2.2.2".to_string()),
-        ]
+    fn job(ip: &str) -> TracerouteJob {
+        TracerouteJob::new(ip.to_string(), 0, None)
+    }
+
+    fn hop(ttl: u32, ip: Option<&str>, rtt: f64) -> HopResult {
+        match ip {
+            Some(ip) => HopResult::new(ttl, Some(ip.to_string()), None, vec![Some(rtt)]),
+            None => HopResult::timeout(ttl, 1),
+        }
     }
 
     #[tokio::test]
-    async fn test_queue_traceroutes() {
+    async fn enqueue_assigns_indexes_and_totals() {
         let service = TracerouteService::new();
-        let server_ips = create_test_server_ips();
 
-        service.queue_traceroutes(&server_ips).await;
+        assert_eq!(service.enqueue(vec![job("1.1.1.1"), job("2.2.2.2")]).await, 2);
+        assert_eq!(service.enqueue(vec![job("3.3.3.3")]).await, 3);
 
-        let (completed, total) = service.get_progress().await;
-        assert_eq!(total, 2);
-        assert_eq!(completed, 0);
-        assert!(service.is_running().await);
+        let state = service.state.read().await;
+        assert!(state.is_running);
+        let indexes: Vec<u32> = state.pending_jobs.iter().map(|j| j.index).collect();
+        assert_eq!(indexes, vec![1, 2, 3]);
     }
 
     #[tokio::test]
-    async fn test_empty_server_ips_no_queue() {
+    async fn enqueue_from_idle_restarts_counters() {
         let service = TracerouteService::new();
-        service.queue_traceroutes(&[]).await;
+        service.enqueue(vec![job("1.1.1.1")]).await;
+        service.reset().await;
 
-        let (_, total) = service.get_progress().await;
-        assert_eq!(total, 0);
+        assert_eq!(service.enqueue(vec![job("2.2.2.2")]).await, 1);
+    }
+
+    #[tokio::test]
+    async fn batch_summary_emitted_when_last_job_completes() {
+        let service = TracerouteService::new();
+        service.enqueue(vec![job("1.1.1.1"), job("2.2.2.2")]).await;
+
+        let first = service.state.write().await.pending_jobs.pop_front().unwrap();
+        let second = service.state.write().await.pending_jobs.pop_front().unwrap();
+
+        assert_eq!(service.record_completion(&first, true).await, None);
+        assert_eq!(
+            service.record_completion(&second, false).await,
+            Some(BatchSummary { total: 2, succeeded: 1, failed: 1 })
+        );
         assert!(!service.is_running().await);
     }
 
     #[tokio::test]
-    async fn test_reset_clears_state() {
+    async fn completions_from_cancelled_batch_are_ignored() {
         let service = TracerouteService::new();
-        let server_ips = create_test_server_ips();
+        service.enqueue(vec![job("1.1.1.1")]).await;
+        let stale = service.state.write().await.pending_jobs.pop_front().unwrap();
 
-        service.queue_traceroutes(&server_ips).await;
-        assert!(service.is_running().await);
+        service.reset().await;
+        service.enqueue(vec![job("2.2.2.2")]).await;
+
+        assert_eq!(service.record_completion(&stale, true).await, None);
+        let state = service.state.read().await;
+        assert_eq!(state.completed_count, 0);
+        assert!(state.is_running);
+    }
+
+    #[tokio::test]
+    async fn reset_clears_state() {
+        let service = TracerouteService::new();
+        service.enqueue(vec![job("1.1.1.1"), job("2.2.2.2")]).await;
 
         service.reset().await;
 
-        assert!(!service.is_running().await);
-        let (completed, total) = service.get_progress().await;
-        assert_eq!(completed, 0);
-        assert_eq!(total, 0);
+        let state = service.state.read().await;
+        assert!(!state.is_running);
+        assert!(state.pending_jobs.is_empty());
+        assert_eq!(state.total_count, 0);
     }
 
-    #[tokio::test]
-    async fn test_traceroute_job_from_server_ip() {
-        let server_ip = TracedServerIp::new("8.8.8.8".to_string());
-        let job = TracerouteJob::from_server_ip(&server_ip, 3);
+    #[test]
+    fn job_with_protocol_normalizes() {
+        let job = TracerouteJob::new("1.1.1.1".to_string(), 1, None).with_protocol("udp".to_string(), 7032);
+        assert_eq!(job.protocol, "UDP");
+        assert_eq!(job.port, 7032);
 
-        assert_eq!(job.target_ip, "8.8.8.8");
-        assert_eq!(job.index, 3);
+        let job = TracerouteJob::new("1.1.1.1".to_string(), 1, None).with_protocol("SCTP".to_string(), 1);
         assert_eq!(job.protocol, "ICMP");
-        assert_eq!(job.port, 0);
-        assert!(job.traceroute_id.is_none());
     }
 
-    #[tokio::test]
-    async fn test_traceroute_job_new() {
-        let job = TracerouteJob::new("1.1.1.1".to_string(), 1, Some(42));
+    #[test]
+    fn merge_appends_probe_hops_beyond_last_icmp_hop() {
+        let tracert = vec![
+            hop(1, Some("192.168.1.254"), 0.5),
+            hop(2, Some("10.0.0.1"), 3.0),
+            hop(3, None, 0.0),
+        ];
+        let probe = vec![
+            hop(1, Some("192.168.1.254"), 0.6),
+            hop(2, Some("10.0.0.1"), 3.1),
+            hop(3, Some("87.245.1.1"), 5.0),
+            hop(4, Some("104.160.1.1"), 9.0),
+            hop(5, None, 0.0),
+        ];
 
-        assert_eq!(job.target_ip, "1.1.1.1");
-        assert_eq!(job.index, 1);
-        assert_eq!(job.traceroute_id, Some(42));
+        let merged = merge_probe_hops(&tracert, &probe, "162.249.72.5").unwrap();
+
+        assert_eq!(merged.from_ttl, 3);
+        assert!(!merged.destination_reached);
+        let ttls: Vec<u32> = merged.hops.iter().map(|h| h.hop_number).collect();
+        assert_eq!(ttls, vec![1, 2, 3, 4]);
+        assert_eq!(merged.hops[3].ip.as_deref(), Some("104.160.1.1"));
     }
 
-    #[tokio::test]
-    async fn test_traceroute_job_with_protocol() {
-        let job = TracerouteJob::new("1.1.1.1".to_string(), 1, None)
-            .with_protocol("TCP".to_string(), 27015);
+    #[test]
+    fn merge_uses_probe_destination() {
+        let tracert = vec![hop(1, Some("192.168.1.254"), 0.5), hop(2, Some("10.0.0.1"), 3.0)];
+        let probe = vec![hop(1, None, 0.0), hop(2, None, 0.0), hop(3, Some("162.249.72.5"), 12.0)];
 
-        assert_eq!(job.protocol, "TCP");
-        assert_eq!(job.port, 27015);
+        let merged = merge_probe_hops(&tracert, &probe, "162.249.72.5").unwrap();
+
+        assert!(merged.destination_reached);
+        assert_eq!(merged.from_ttl, 3);
+        let ips: Vec<Option<&str>> = merged.hops.iter().map(|h| h.ip.as_deref()).collect();
+        assert_eq!(ips, vec![Some("192.168.1.254"), Some("10.0.0.1"), Some("162.249.72.5")]);
+    }
+
+    #[test]
+    fn merge_ignores_probe_that_goes_no_further() {
+        let tracert = vec![hop(1, Some("192.168.1.254"), 0.5), hop(2, Some("10.0.0.1"), 3.0)];
+        let probe = vec![hop(1, Some("192.168.1.254"), 0.6), hop(2, None, 0.0)];
+
+        assert!(merge_probe_hops(&tracert, &probe, "162.249.72.5").is_none());
+    }
+
+    #[test]
+    fn probe_protocol_parses_hybrid_method() {
+        assert_eq!(probe_protocol("ICMP (tracert) + UDP (trippy)"), Some("UDP".to_string()));
+        assert_eq!(probe_protocol("ICMP (tracert)"), None);
     }
 }

@@ -182,6 +182,16 @@ impl TracerouteRepository {
             .collect())
     }
 
+    pub async fn get_traced_ips(&self, session_id: i64) -> Result<Vec<String>, DbError> {
+        let rows: Vec<(String,)> =
+            sqlx::query_as("SELECT target_ip FROM traceroutes WHERE session_id = $1")
+                .bind(session_id)
+                .fetch_all(&self.pool)
+                .await?;
+
+        Ok(rows.into_iter().map(|r| r.0).collect())
+    }
+
     pub async fn get_traceroute_count(&self, session_id: i64) -> Result<i32, DbError> {
         let row: (i32,) = sqlx::query_as("SELECT COUNT(*) FROM traceroutes WHERE session_id = $1")
             .bind(session_id)
@@ -312,6 +322,19 @@ mod tests {
         assert_eq!(traceroutes.len(), 2);
         assert_eq!(traceroutes[0].target_ip, "8.8.8.8");
         assert_eq!(traceroutes[1].target_ip, "1.1.1.1");
+    }
+
+    #[tokio::test]
+    async fn test_get_traced_ips() {
+        let repo = create_test_repo().await;
+
+        assert!(repo.get_traced_ips(1).await.unwrap().is_empty());
+
+        repo.insert_traceroute(&TracerouteData::new(1, "162.249.72.5".to_string(), "2026-01-25T10:00:00Z".to_string()))
+            .await
+            .unwrap();
+
+        assert_eq!(repo.get_traced_ips(1).await.unwrap(), vec!["162.249.72.5".to_string()]);
     }
 
     #[tokio::test]

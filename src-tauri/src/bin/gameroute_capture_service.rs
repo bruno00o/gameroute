@@ -650,7 +650,7 @@ mod service {
         let mut builder = Builder::new(target_ip)
             .privilege_mode(PrivilegeMode::Privileged)
             .max_ttl(max_hops)
-            .max_rounds(Some(1));
+            .max_rounds(Some(3));
 
         match protocol {
             "TCP" => {
@@ -756,10 +756,16 @@ mod service {
             hops.truncate(trim_after + 1);
         }
 
-        // Wait for the trace thread to finish (it may already be done)
-        let _ = trace_thread.join();
+        let run_error = match trace_thread.join() {
+            Ok(Ok(_)) => None,
+            Ok(Err(e)) => Some(format!("trippy run failed: {e}")),
+            Err(_) => Some("trippy thread panicked".to_string()),
+        };
 
-        Ok((hops, destination_reached))
+        match run_error {
+            Some(e) if hops.is_empty() => Err(e),
+            _ => Ok((hops, destination_reached)),
+        }
     }
 
     /// Shared state passed to the ETW callback via the `UserContext` pointer.

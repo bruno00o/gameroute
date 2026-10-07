@@ -17,7 +17,6 @@ use tokio::time::{timeout, Duration};
 /// Result of a traceroute performed by the capture service.
 pub struct TracerouteServiceResult {
     pub hops: Vec<HopResult>,
-    pub destination_reached: bool,
 }
 
 /// Request UDP capture from the capture service.
@@ -49,7 +48,7 @@ pub async fn request_udp_capture(local_ports: Vec<u16>) -> Result<Vec<CapturedEn
     let result = timeout(
         Duration::from_millis(CAPTURE_SERVICE_TOTAL_TIMEOUT_MS),
         tokio::task::spawn_blocking(move || {
-            connect_and_communicate(&request_len, &request_json)
+            connect_and_communicate(&request_len, &request_json, PIPE_READ_TIMEOUT_MS)
         }),
     )
     .await;
@@ -134,9 +133,9 @@ pub async fn request_traceroute(
     let request_len = (request_json.len() as u32).to_le_bytes();
 
     let result = timeout(
-        Duration::from_millis(TRACEROUTE_SERVICE_TIMEOUT_MS),
+        Duration::from_millis(u64::from(TRACEROUTE_SERVICE_TIMEOUT_MS) + 5_000),
         tokio::task::spawn_blocking(move || {
-            connect_and_communicate(&request_len, &request_json)
+            connect_and_communicate(&request_len, &request_json, TRACEROUTE_SERVICE_TIMEOUT_MS)
         }),
     )
     .await;
@@ -152,19 +151,13 @@ pub async fn request_traceroute(
                     match trace_resp.status {
                         TracerouteStatus::Success => {
                             let hops = convert_service_hops(&trace_resp.hops);
-                            Ok(TracerouteServiceResult {
-                                hops,
-                                destination_reached: trace_resp.destination_reached,
-                            })
+                            Ok(TracerouteServiceResult { hops })
                         }
                         TracerouteStatus::Timeout => {
                             // Partial results may still be useful
                             let hops = convert_service_hops(&trace_resp.hops);
                             if !hops.is_empty() {
-                                Ok(TracerouteServiceResult {
-                                    hops,
-                                    destination_reached: trace_resp.destination_reached,
-                                })
+                                Ok(TracerouteServiceResult { hops })
                             } else {
                                 Err(trace_resp.error_message.unwrap_or_else(|| "Timeout".to_string()))
                             }
@@ -200,6 +193,7 @@ fn convert_service_hops(service_hops: &[ServiceHop]) -> Vec<HopResult> {
 fn connect_and_communicate(
     request_len: &[u8; 4],
     request_json: &[u8],
+    response_timeout_ms: u32,
 ) -> Result<ServiceResponse, String> {
     use std::io::Write;
     use std::os::windows::io::{FromRawHandle, IntoRawHandle};
@@ -334,7 +328,7 @@ fn connect_and_communicate(
 
     // Read the response length (4 bytes) with timeout
     let mut len_buf = [0u8; 4];
-    let read_result = read_with_timeout(raw_handle, &mut len_buf, PIPE_READ_TIMEOUT_MS);
+    let read_result = read_with_timeout(raw_handle, &mut len_buf, response_timeout_ms);
 
     if let Err(e) = read_result {
         unsafe { CloseHandle(raw_handle); }

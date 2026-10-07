@@ -1,7 +1,8 @@
-use crate::commands::monitoring::{execute_traceroute_queue, AppMonitoringState};
+use crate::commands::monitoring::{trace_session_targets, AppMonitoringState};
 use crate::commands::{validate_pagination, CommandError};
 use crate::db::{get_ip_period_repository, get_session_repository, get_traceroute_repository};
 use crate::models::session::{SessionDetail, SessionListItem};
+use crate::services::trace_targets::select_session_targets;
 use tauri::{AppHandle, State};
 
 #[tauri::command]
@@ -156,29 +157,24 @@ pub async fn retry_traceroutes(
         return Err(CommandError::validation("Invalid session ID"));
     }
 
-    {
-        let traceroute_state = state.traceroute_service.state.read().await;
-        if traceroute_state.is_running {
-            return Err(CommandError {
-                code: "TRACEROUTE_RUNNING".to_string(),
-                message: "A traceroute is already running".to_string(),
-            });
-        }
+    if state.traceroute_service.is_running().await {
+        return Err(CommandError {
+            code: "TRACEROUTE_RUNNING".to_string(),
+            message: "A traceroute is already running".to_string(),
+        });
     }
 
     let ip_period_repo = get_ip_period_repository()
         .ok_or_else(|| CommandError::repo_not_initialized("IpPeriod"))?;
 
-    let protocol_infos = ip_period_repo
-        .get_unique_ips_with_protocol_for_session(session_id)
+    let candidates = ip_period_repo
+        .get_trace_candidates(session_id)
         .await
         .map_err(|e| CommandError::internal(e.to_string()))?;
 
-    if protocol_infos.is_empty() {
+    if select_session_targets(&candidates).is_empty() {
         return Err(CommandError::validation("No IPs found for this session"));
     }
-
-    let unique_ips: Vec<String> = protocol_infos.iter().map(|i| i.ip.clone()).collect();
 
     let traceroute_repo = get_traceroute_repository()
         .ok_or_else(|| CommandError::repo_not_initialized("Traceroute"))?;
@@ -190,7 +186,7 @@ pub async fn retry_traceroutes(
 
     let traceroute_service = state.traceroute_service.clone();
     tokio::spawn(async move {
-        execute_traceroute_queue(app, traceroute_service, session_id, unique_ips, Some(protocol_infos)).await;
+        trace_session_targets(app, traceroute_service, session_id).await;
     });
 
     Ok(())
