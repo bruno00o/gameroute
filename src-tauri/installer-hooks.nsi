@@ -18,6 +18,13 @@
   ; Set service description
   nsExec::ExecToLog 'sc description GameRouteCaptureService "Captures UDP network traffic for game connection analysis in GameRoute."'
 
+  nsExec::ExecToLog 'sc failure GameRouteCaptureService reset= 86400 actions= restart/5000/restart/5000/restart/60000'
+
+  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="GameRoute traceroute ICMP"'
+  nsExec::ExecToLog 'netsh advfirewall firewall add rule name="GameRoute traceroute ICMP" dir=in action=allow protocol=icmpv4:11,any'
+  nsExec::ExecToLog 'netsh advfirewall firewall add rule name="GameRoute traceroute ICMP" dir=in action=allow protocol=icmpv4:3,any'
+  nsExec::ExecToLog 'netsh advfirewall firewall add rule name="GameRoute traceroute ICMP" dir=in action=allow protocol=icmpv4:0,any'
+
   ; Start the service
   nsExec::ExecToLog 'sc start GameRouteCaptureService'
 
@@ -36,6 +43,8 @@
 
   ; Delete the service
   nsExec::ExecToLog 'sc delete GameRouteCaptureService'
+
+  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="GameRoute traceroute ICMP"'
 
   DetailPrint "GameRoute Capture Service removal complete."
 !macroend
