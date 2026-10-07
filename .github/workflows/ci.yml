@@ -94,26 +94,9 @@ jobs:
           New-Item -ItemType File -Path src-tauri/resources/GeoLite2-City.mmdb -Force
           New-Item -ItemType File -Path src-tauri/resources/GeoLite2-ASN.mmdb -Force
 
-      - name: Build capture service
+      - name: Clippy
         working-directory: src-tauri
-        run: cargo build --release --bin gameroute-capture-service
-
-      - name: Copy service binary for Tauri bundling
-        shell: pwsh
-        run: |
-          Copy-Item src-tauri/target/release/gameroute-capture-service.exe src-tauri/binaries/gameroute-capture-service-x86_64-pc-windows-msvc.exe -Force
-
-      - name: Cargo check
-        working-directory: src-tauri
-        run: cargo check
-
-      - name: Clippy (lib)
-        working-directory: src-tauri
-        run: cargo clippy --lib -- -D warnings
-
-      - name: Clippy (capture service)
-        working-directory: src-tauri
-        run: cargo clippy --bin gameroute-capture-service -- -D warnings
+        run: cargo clippy --all-targets -- -D warnings
 
       - name: Tests
         working-directory: src-tauri
