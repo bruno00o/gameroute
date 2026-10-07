@@ -20,15 +20,15 @@ name = "gameroute-capture-service"
 path = "src/bin/gameroute_capture_service.rs"
 
 [build-dependencies]
-tauri-build = { version = "2.5.3", features = [] }
+tauri-build = { version = "2.7.1", features = [] }
 
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-tauri = { version = "2.9.5", features = ["tray-icon"] }
-tauri-plugin-log = "2"
-tauri-plugin-opener = "2"
+tauri = { version = "2.12.1", features = ["tray-icon"] }
+tauri-plugin-log = "2.10.0"
+tauri-plugin-opener = "2.7.0"
 tokio = { version = "1", features = ["sync", "time", "macros", "rt-multi-thread", "process", "io-util"] }
 chrono = "0.4"
 netstat2 = "0.11.2"
@@ -38,7 +38,7 @@ sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "migrate"] }
 maxminddb = "0.24"
 sysinfo = "0.38.0"
 steamlocate = "2"
-tauri-plugin-dialog = "2"
+tauri-plugin-dialog = "2.8.1"
 trippy-core = "^0.13.0"
 windows-service = "0.7"
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Pipes", "Win32_System_Diagnostics_Etw", "Win32_System_Time", "Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Threading"] }
@@ -46,10 +46,10 @@ interprocess = "2"
 etherparse = "0.18"
 uuid = { version = "1", features = ["v4"] }
 ctrlc = "3.4"
-tauri-plugin-notification = "2.3.3"
-tauri-plugin-updater = "2"
-tauri-plugin-process = "2"
-tauri-plugin-autostart = "2"
+tauri-plugin-notification = "2.5.1"
+tauri-plugin-updater = "2.13.1"
+tauri-plugin-process = "2.4.0"
+tauri-plugin-autostart = "2.7.0"
 
 [profile.release]
 strip = true
