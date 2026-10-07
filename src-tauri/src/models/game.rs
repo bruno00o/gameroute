@@ -146,9 +146,11 @@ mod tests {
 
     #[test]
     fn test_session_duration_calculation() {
-        let mut state = MonitoringState::default();
-        state.session_started_at = Some("2026-01-22T10:00:00Z".to_string());
-        state.session_ended_at = Some("2026-01-22T11:30:00Z".to_string());
+        let state = MonitoringState {
+            session_started_at: Some("2026-01-22T10:00:00Z".to_string()),
+            session_ended_at: Some("2026-01-22T11:30:00Z".to_string()),
+            ..Default::default()
+        };
 
         let duration = state.session_duration_seconds();
         assert_eq!(duration, Some(5400));
@@ -156,8 +158,10 @@ mod tests {
 
     #[test]
     fn test_session_duration_without_end() {
-        let mut state = MonitoringState::default();
-        state.session_started_at = Some("2026-01-22T10:00:00Z".to_string());
+        let state = MonitoringState {
+            session_started_at: Some("2026-01-22T10:00:00Z".to_string()),
+            ..Default::default()
+        };
 
         let duration = state.session_duration_seconds();
         assert_eq!(duration, None);
@@ -165,9 +169,10 @@ mod tests {
 
     #[test]
     fn test_session_duration_without_start() {
-        let mut state = MonitoringState::default();
-
-        state.session_ended_at = Some("2026-01-22T11:30:00Z".to_string());
+        let state = MonitoringState {
+            session_ended_at: Some("2026-01-22T11:30:00Z".to_string()),
+            ..Default::default()
+        };
 
         let duration = state.session_duration_seconds();
         assert_eq!(duration, None);
@@ -218,9 +223,11 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        let mut state = MonitoringState::default();
-        state.current_game = Some(DetectedGame::new("Test".to_string(), 1234, None));
-        state.current_session_id = Some(42);
+        let mut state = MonitoringState {
+            current_game: Some(DetectedGame::new("Test".to_string(), 1234, None)),
+            current_session_id: Some(42),
+            ..Default::default()
+        };
         state
             .traced_server_ips
             .push(TracedServerIp::new("1.1.1.1".to_string()));
