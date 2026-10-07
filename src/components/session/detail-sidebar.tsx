@@ -7,6 +7,7 @@ import {
   RiGamepadLine,
   RiGlobalLine,
   RiInformationLine,
+  RiMicLine,
   RiSortAsc,
   RiSortDesc,
 } from '@remixicon/react'
@@ -87,6 +88,14 @@ export function DetailSidebar({
         return [...periods].sort((a, b) => dir * (a.packetCount - b.packetCount))
     }
   }, [detail.ipPeriods, gsSortMode, gsSortAsc])
+
+  const voicePeriods = useMemo(
+    () =>
+      detail.ipPeriods
+        .filter(p => p.flowKind === 'voice')
+        .sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()),
+    [detail.ipPeriods],
+  )
 
   const sortedPeriods = useMemo(() => {
     const dir = sortAsc ? 1 : -1
@@ -171,6 +180,34 @@ export function DetailSidebar({
             </>
           )}
 
+          {voicePeriods.length > 0 && (
+            <>
+              <SidebarGroupLabel className="mt-2 gap-1.5">
+                <RiMicLine className="size-3.5 text-sky-500" />
+                {m.session_voice()}
+                <Tooltip>
+                  <TooltipTrigger
+                    render={<RiInformationLine className="text-muted-foreground ml-auto size-3.5 shrink-0 cursor-help" />}
+                  />
+                  <TooltipContent side="right" className="max-w-52">
+                    {m.session_voice_hint()}
+                  </TooltipContent>
+                </Tooltip>
+              </SidebarGroupLabel>
+              <SidebarMenu className="mt-1 gap-0.5">
+                {voicePeriods.map(period => (
+                  <PeriodItem
+                    key={`voice-${period.id}`}
+                    period={period}
+                    isActive={selectedPeriodId === period.id}
+                    onSelect={onSelectPeriod}
+                    highlight={false}
+                  />
+                ))}
+              </SidebarMenu>
+            </>
+          )}
+
           <SidebarGroupLabel className="mt-2">{m.session_timeline()}</SidebarGroupLabel>
           <SortToggle
             value={sortMode}
@@ -247,6 +284,11 @@ function PeriodItem({
               render={<RiGamepadLine className="shrink-0 text-amber-500" />}
             />
             <TooltipContent side="right">{m.session_likely_game_server()}</TooltipContent>
+          </Tooltip>
+        ) : period.flowKind === 'voice' ? (
+          <Tooltip>
+            <TooltipTrigger render={<RiMicLine className="shrink-0 text-sky-500" />} />
+            <TooltipContent side="right">{m.session_likely_voice()}</TooltipContent>
           </Tooltip>
         ) : (
           <RiGlobalLine className="shrink-0" />

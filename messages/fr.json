@@ -336,6 +336,9 @@
   "session_game_servers": "Serveurs de jeu",
   "session_game_servers_hint": "Ces serveurs sont probablement des serveurs de jeu, basé sur du trafic UDP de plus de 30 secondes. Comparez les durées avec votre temps de jeu réel pour confirmer.",
   "session_likely_game_server": "Serveur de jeu probable",
+  "session_voice": "Vocal",
+  "session_voice_hint": "Connexions de chat vocal, par exemple le vocal d’équipe de VALORANT. Elles sont mesurées après les serveurs de jeu.",
+  "session_likely_voice": "Chat vocal probable",
 
   "settings_launch_on_startup": "Lancer au démarrage de Windows",
   "settings_launch_on_startup_description": "Démarre GameRoute automatiquement à l'ouverture de votre session. L'application se lance réduite dans la zone de notification.",

@@ -2,6 +2,7 @@ pub mod asn;
 pub mod capture_protocol;
 pub mod connection;
 pub mod dashboard;
+pub mod flow_kind;
 pub mod game;
 pub mod game_library;
 pub mod hop;

@@ -10,6 +10,7 @@ use crate::models::{
     TracerouteStartedEvent,
 };
 use crate::platform;
+use crate::services::flow_kind::classify_ip;
 use crate::services::trace_targets::{is_traceable_game_server, select_session_targets, TraceTarget};
 use crate::services::traceroute::{persist_traceroute_result, TracerouteJob};
 use crate::services::{GameDetector, TracerouteService};
@@ -115,16 +116,26 @@ fn make_on_ip_captured(
                                 }
                             }
 
-                            if outcome.became_game_server
-                                && is_traceable_game_server(&ip_clone, &protocol, port)
-                            {
-                                log::info!("Game server {} detected, tracing during the match", ip_clone);
-                                let target = TraceTarget {
-                                    ip: ip_clone.clone(),
-                                    protocol: protocol.clone(),
-                                    port: u16::try_from(port).unwrap_or(0),
-                                };
-                                enqueue_traceroutes(app_for_trace, service, session_id, vec![target]).await;
+                            if outcome.became_game_server {
+                                let port = u16::try_from(port).unwrap_or(0);
+                                let kind = classify_ip(&ip_clone, &protocol, port);
+                                if let Err(e) = ip_period_repo.set_flow_kind(outcome.period_id, kind).await {
+                                    log::error!("Failed to classify flow {}: {}", ip_clone, e);
+                                }
+                                if is_traceable_game_server(&ip_clone, &protocol, i32::from(port)) {
+                                    log::info!(
+                                        "{} flow {} detected, tracing during the match",
+                                        kind.as_str(),
+                                        ip_clone
+                                    );
+                                    let target = TraceTarget {
+                                        ip: ip_clone.clone(),
+                                        protocol: protocol.clone(),
+                                        port,
+                                        kind,
+                                    };
+                                    enqueue_traceroutes(app_for_trace, service, session_id, vec![target]).await;
+                                }
                             }
                         }
                         Err(e) => {
@@ -188,7 +199,8 @@ pub async fn enqueue_traceroutes(
         match traceroute_repo.insert_traceroute(&data).await {
             Ok(traceroute_id) => jobs.push(
                 TracerouteJob::new(target.ip, 0, Some(traceroute_id))
-                    .with_protocol(target.protocol, target.port),
+                    .with_protocol(target.protocol, target.port)
+                    .with_kind(target.kind),
             ),
             Err(e) => log::warn!("Skipping traceroute to {}: {}", target.ip, e),
         }
