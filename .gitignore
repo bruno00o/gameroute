@@ -51,3 +51,6 @@ src-tauri/resources/*.mmdb
 *.md
 !README.md
 !CHANGELOG.md
+
+# Agent skills lock
+skills-lock.json
