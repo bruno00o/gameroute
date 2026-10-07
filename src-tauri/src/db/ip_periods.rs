@@ -1,6 +1,8 @@
 use crate::config::{ACTIVITY_PERIOD_THRESHOLD_SECS, GAME_SERVER_MIN_DURATION_SECS};
 use crate::db::DbError;
-use crate::models::ip_period::{IpPeriod, IpPeriodData, IpPeriodSummary};
+use crate::models::ip_period::{
+    IpActivityUpsert, IpPeriod, IpPeriodData, IpPeriodSummary, TraceCandidate,
+};
 use sqlx::sqlite::SqlitePool;
 use std::net::IpAddr;
 use std::sync::{Arc, OnceLock};
@@ -79,7 +81,7 @@ impl IpPeriodRepository {
         protocol: &str,
         port: i32,
         timestamp: &str,
-    ) -> Result<(i64, bool), DbError> {
+    ) -> Result<IpActivityUpsert, DbError> {
         if ip.parse::<IpAddr>().is_err() {
             return Err(DbError::Validation(format!("Invalid IP address: {}", ip)));
         }
@@ -109,7 +111,11 @@ impl IpPeriodRepository {
                         new_count,
                         is_game_server
                     );
-                    return Ok((period.id, false));
+                    return Ok(IpActivityUpsert {
+                        period_id: period.id,
+                        is_new: false,
+                        became_game_server: is_game_server && !period.is_game_server,
+                    });
                 }
             }
         }
@@ -117,7 +123,11 @@ impl IpPeriodRepository {
         let data = IpPeriodData::new(session_id, ip.to_string(), protocol.to_string(), port, timestamp.to_string());
         let period_id = self.insert_period(&data).await?;
         log::debug!("Created new IP period {} for {}", period_id, ip);
-        Ok((period_id, true))
+        Ok(IpActivityUpsert {
+            period_id,
+            is_new: true,
+            became_game_server: false,
+        })
     }
 
     pub async fn get_periods_for_session(&self, session_id: i64) -> Result<Vec<IpPeriod>, DbError> {
@@ -176,16 +186,24 @@ impl IpPeriodRepository {
         Ok(rows.into_iter().map(|r| r.0).collect())
     }
 
-    pub async fn get_unique_ips_with_protocol_for_session(
+    pub async fn get_trace_candidates(
         &self,
         session_id: i64,
-    ) -> Result<Vec<crate::models::ip_period::IpProtocolInfo>, DbError> {
-        sqlx::query_as::<_, crate::models::ip_period::IpProtocolInfo>(
-            "SELECT ip, protocol, port
-             FROM ip_periods
-             WHERE session_id = $1
-             GROUP BY ip
-             ORDER BY MIN(started_at) ASC",
+    ) -> Result<Vec<TraceCandidate>, DbError> {
+        sqlx::query_as::<_, TraceCandidate>(
+            "WITH ranked AS (
+                SELECT ip, protocol, port, started_at,
+                       ROW_NUMBER() OVER (PARTITION BY ip ORDER BY is_game_server DESC, ended_at DESC) AS rn,
+                       MAX(is_game_server) OVER (PARTITION BY ip) AS any_game_server,
+                       SUM(CAST(ROUND((julianday(ended_at) - julianday(started_at)) * 86400) AS INTEGER)) OVER (PARTITION BY ip) AS total_secs,
+                       MIN(started_at) OVER (PARTITION BY ip) AS first_seen
+                FROM ip_periods
+                WHERE session_id = $1
+             )
+             SELECT ip, protocol, port, any_game_server AS is_game_server, total_secs
+             FROM ranked
+             WHERE rn = 1
+             ORDER BY first_seen ASC",
         )
         .bind(session_id)
         .fetch_all(&self.pool)
@@ -248,18 +266,18 @@ mod tests {
     async fn test_upsert_extends_recent_period() {
         let repo = create_test_repo().await;
 
-        let (id1, is_new1) = repo
+        let first = repo
             .upsert_ip_activity(1, "8.8.8.8", "UDP", 27015, "2026-01-25T10:00:00Z")
             .await
             .unwrap();
-        assert!(is_new1);
+        assert!(first.is_new);
 
-        let (id2, is_new2) = repo
+        let second = repo
             .upsert_ip_activity(1, "8.8.8.8", "UDP", 27015, "2026-01-25T10:00:03Z")
             .await
             .unwrap();
-        assert!(!is_new2);
-        assert_eq!(id1, id2);
+        assert!(!second.is_new);
+        assert_eq!(first.period_id, second.period_id);
 
         let period = repo
             .get_latest_period_for_ip(1, "8.8.8.8")
@@ -273,18 +291,83 @@ mod tests {
     async fn test_upsert_creates_new_period_after_gap() {
         let repo = create_test_repo().await;
 
-        let (id1, is_new1) = repo
+        let first = repo
             .upsert_ip_activity(1, "8.8.8.8", "TCP", 443, "2026-01-25T10:00:00Z")
             .await
             .unwrap();
-        assert!(is_new1);
+        assert!(first.is_new);
 
-        let (id2, is_new2) = repo
+        let second = repo
             .upsert_ip_activity(1, "8.8.8.8", "TCP", 443, "2026-01-25T10:00:10Z")
             .await
             .unwrap();
-        assert!(is_new2);
-        assert_ne!(id1, id2);
+        assert!(second.is_new);
+        assert_ne!(first.period_id, second.period_id);
+    }
+
+    async fn feed_udp(repo: &IpPeriodRepository, ip: &str, port: i32, from_sec: u32, to_sec: u32) -> Vec<IpActivityUpsert> {
+        let mut outcomes = Vec::new();
+        let mut sec = from_sec;
+        while sec <= to_sec {
+            let ts = format!("2026-01-25T10:{:02}:{:02}Z", sec / 60, sec % 60);
+            outcomes.push(repo.upsert_ip_activity(1, ip, "UDP", port, &ts).await.unwrap());
+            sec += 5;
+        }
+        outcomes
+    }
+
+    #[tokio::test]
+    async fn test_upsert_reports_game_server_transition_once() {
+        let repo = create_test_repo().await;
+
+        let outcomes = feed_udp(&repo, "162.249.72.5", 7032, 0, 60).await;
+        let transitions: Vec<usize> = outcomes
+            .iter()
+            .enumerate()
+            .filter(|(_, o)| o.became_game_server)
+            .map(|(i, _)| i)
+            .collect();
+
+        assert_eq!(transitions, vec![6]);
+    }
+
+    #[tokio::test]
+    async fn test_upsert_tcp_never_becomes_game_server() {
+        let repo = create_test_repo().await;
+
+        for sec in (0..=60).step_by(5) {
+            let ts = format!("2026-01-25T10:{:02}:{:02}Z", sec / 60, sec % 60);
+            let outcome = repo.upsert_ip_activity(1, "104.18.41.183", "TCP", 443, &ts).await.unwrap();
+            assert!(!outcome.became_game_server);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_trace_candidates_prefer_game_server_period() {
+        let repo = create_test_repo().await;
+
+        repo.upsert_ip_activity(1, "162.249.72.5", "UDP", 8181, "2026-01-25T10:00:00Z")
+            .await
+            .unwrap();
+        feed_udp(&repo, "162.249.72.5", 7032, 30, 90).await;
+        repo.upsert_ip_activity(1, "162.249.72.5", "UDP", 8181, "2026-01-25T10:05:00Z")
+            .await
+            .unwrap();
+        repo.upsert_ip_activity(1, "104.18.41.183", "TCP", 443, "2026-01-25T10:00:01Z")
+            .await
+            .unwrap();
+
+        let candidates = repo.get_trace_candidates(1).await.unwrap();
+        assert_eq!(candidates.len(), 2);
+
+        let riot = candidates.iter().find(|c| c.ip == "162.249.72.5").unwrap();
+        assert!(riot.is_game_server);
+        assert_eq!(riot.protocol, "UDP");
+        assert_eq!(riot.port, 7032);
+        assert_eq!(riot.total_secs, 60);
+
+        let cdn = candidates.iter().find(|c| c.ip == "104.18.41.183").unwrap();
+        assert!(!cdn.is_game_server);
     }
 
     #[tokio::test]

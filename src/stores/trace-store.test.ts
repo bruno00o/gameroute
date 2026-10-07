@@ -47,7 +47,7 @@ describe('setStarted', () => {
     expect(state.summary).toBeNull()
   })
 
-  it('clears previous state on new start', () => {
+  it('clears previous state on a new start after completion', () => {
     getState().setStarted({
       serverIpCount: 1,
       serverIps: ['1.1.1.1'],
@@ -62,6 +62,12 @@ describe('setStarted', () => {
       rttMs: 1.5,
       timeout: false,
     })
+    getState().setAllComplete({
+      totalCount: 1,
+      successful: 1,
+      failed: 0,
+      completedAt: '2026-01-31T10:01:00Z',
+    })
 
     getState().setStarted({
       serverIpCount: 1,
@@ -71,6 +77,36 @@ describe('setStarted', () => {
 
     expect(getState().serverIps).toEqual(['2.2.2.2'])
     expect(getState().liveHops.size).toBe(0)
+    expect(getState().summary).toBeNull()
+  })
+
+  it('merges targets added while running', () => {
+    getState().setStarted({
+      serverIpCount: 1,
+      serverIps: ['162.249.72.5'],
+      startedAt: '2026-01-31T10:00:00Z',
+    })
+    getState().addHop({
+      serverIpIndex: 1,
+      targetIp: '162.249.72.5',
+      hopNumber: 1,
+      ip: '192.168.1.1',
+      hostname: null,
+      rttMs: 0.5,
+      timeout: false,
+    })
+
+    getState().setStarted({
+      serverIpCount: 2,
+      serverIps: ['185.40.64.1', '162.249.72.5'],
+      startedAt: '2026-01-31T10:20:00Z',
+    })
+
+    const state = getState()
+    expect(state.isRunning).toBe(true)
+    expect(state.serverIps).toEqual(['162.249.72.5', '185.40.64.1'])
+    expect(state.startedAt).toBe('2026-01-31T10:00:00Z')
+    expect(state.liveHops.get('162.249.72.5')).toHaveLength(1)
   })
 })
 

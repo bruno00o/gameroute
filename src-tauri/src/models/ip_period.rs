@@ -62,10 +62,19 @@ pub struct IpPeriodSummary {
 }
 
 #[derive(Debug, Clone, sqlx::FromRow)]
-pub struct IpProtocolInfo {
+pub struct TraceCandidate {
     pub ip: String,
     pub protocol: String,
     pub port: i32,
+    pub is_game_server: bool,
+    pub total_secs: i64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IpActivityUpsert {
+    pub period_id: i64,
+    pub is_new: bool,
+    pub became_game_server: bool,
 }
 
 #[cfg(test)]

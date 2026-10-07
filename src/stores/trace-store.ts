@@ -42,15 +42,19 @@ export const useTraceStore = create<TraceStore>(set => ({
       return { liveHops: next }
     }),
   setStarted: event =>
-    set({
-      isRunning: true,
-      serverIps: event.serverIps,
-      startedAt: event.startedAt,
-      progress: null,
-      liveHops: new Map(),
-      completedIps: new Map(),
-      summary: null,
-    }),
+    set(state =>
+      state.isRunning
+        ? { serverIps: [...new Set([...state.serverIps, ...event.serverIps])] }
+        : {
+            isRunning: true,
+            serverIps: event.serverIps,
+            startedAt: event.startedAt,
+            progress: null,
+            liveHops: new Map(),
+            completedIps: new Map(),
+            summary: null,
+          },
+    ),
   setIpComplete: event =>
     set(state => {
       const next = new Map(state.completedIps)

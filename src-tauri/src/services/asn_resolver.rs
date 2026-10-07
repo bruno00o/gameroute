@@ -63,6 +63,13 @@ impl AsnResolver {
         Ok(results)
     }
 
+    pub fn asn_number(&self, ip: IpAddr) -> Option<u32> {
+        self.asn_reader
+            .lookup::<geoip2::Asn>(ip)
+            .ok()
+            .and_then(|asn| asn.autonomous_system_number)
+    }
+
     fn lookup(&self, ip: IpAddr, ip_str: &str) -> ResolvedIpData {
         let asn_info = match self.asn_reader.lookup::<geoip2::Asn>(ip) {
             Ok(asn) => AsnInfo {

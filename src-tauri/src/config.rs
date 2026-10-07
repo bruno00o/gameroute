@@ -40,6 +40,12 @@ pub const TRACEROUTE_MAX_CONCURRENT: usize = 4;
 /// Stop tracert.exe early after this many consecutive timeout hops.
 pub const TRACERT_MAX_CONSECUTIVE_TIMEOUTS: u32 = 7;
 
+pub const TRACE_FALLBACK_TARGET_LIMIT: usize = 5;
+
+pub const CDN_ASNS: &[u32] = &[
+    13335, 209242, 20940, 16625, 33905, 21342, 32787, 35994, 54113, 22822, 15133, 60068, 200325,
+];
+
 // ── Network Analysis ────────────────────────────────────────────────────────
 
 /// Minimum latency increase (ms) between consecutive hops to flag as a problem hop.
@@ -98,4 +104,4 @@ pub const CAPTURE_SERVICE_TOTAL_TIMEOUT_MS: u64 = 10000;
 pub const PIPE_READ_TIMEOUT_MS: u32 = 5000;
 
 /// Timeout (milliseconds) for traceroute via capture service (longer than capture).
-pub const TRACEROUTE_SERVICE_TIMEOUT_MS: u64 = 45000;
+pub const TRACEROUTE_SERVICE_TIMEOUT_MS: u32 = 70_000;
