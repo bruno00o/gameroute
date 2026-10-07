@@ -45,6 +45,20 @@ impl SessionRepository {
         Ok(())
     }
 
+    pub async fn close_orphan_sessions(&self) -> Result<usize, DbError> {
+        let result = sqlx::query(
+            "UPDATE sessions SET ended_at = COALESCE(
+                (SELECT MAX(ended_at) FROM ip_periods WHERE session_id = sessions.id),
+                started_at
+             )
+             WHERE ended_at IS NULL",
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(result.rows_affected() as usize)
+    }
+
     pub async fn get_session(&self, id: i64) -> Result<Option<Session>, DbError> {
         sqlx::query_as::<_, Session>(
             "SELECT id, game_name, started_at, ended_at FROM sessions WHERE id = $1",
@@ -306,6 +320,50 @@ mod tests {
 
         let session = repo.get_session(id).await.unwrap().unwrap();
         assert_eq!(session.ended_at, Some("2026-01-25T16:30:00Z".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_close_orphan_sessions() {
+        let repo = create_test_repo().await;
+
+        let with_traffic = repo
+            .insert_session("Valorant", "2026-01-25T10:00:00Z")
+            .await
+            .unwrap();
+        let without_traffic = repo
+            .insert_session("Valorant", "2026-01-25T12:00:00Z")
+            .await
+            .unwrap();
+        let ended = repo
+            .insert_session("Valorant", "2026-01-25T14:00:00Z")
+            .await
+            .unwrap();
+        repo.update_session_ended(ended, "2026-01-25T15:00:00Z")
+            .await
+            .unwrap();
+
+        for (started, finished) in [("10:00:05", "10:20:00"), ("10:30:00", "10:45:00")] {
+            sqlx::query(
+                "INSERT INTO ip_periods (session_id, ip, started_at, ended_at) VALUES ($1, '1.2.3.4', $2, $3)",
+            )
+            .bind(with_traffic)
+            .bind(format!("2026-01-25T{started}Z"))
+            .bind(format!("2026-01-25T{finished}Z"))
+            .execute(&repo.pool)
+            .await
+            .unwrap();
+        }
+
+        assert_eq!(repo.close_orphan_sessions().await.unwrap(), 2);
+
+        for (id, expected) in [
+            (with_traffic, "2026-01-25T10:45:00Z"),
+            (without_traffic, "2026-01-25T12:00:00Z"),
+            (ended, "2026-01-25T15:00:00Z"),
+        ] {
+            let session = repo.get_session(id).await.unwrap().unwrap();
+            assert_eq!(session.ended_at.as_deref(), Some(expected));
+        }
     }
 
     #[tokio::test]

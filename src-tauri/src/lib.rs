@@ -149,10 +149,17 @@ pub fn run() {
 
                     if let Some(repo) = get_session_repository() {
                         let result = tauri::async_runtime::block_on(async {
+                            let closed = repo.close_orphan_sessions().await?;
+                            if closed > 0 {
+                                log::info!(
+                                    "Closed {} sessions left open by a previous run",
+                                    closed
+                                );
+                            }
                             repo.delete_old_sessions(SESSION_RETENTION_DAYS).await
                         });
                         if let Err(e) = result {
-                            log::error!("Failed to prune old sessions on startup: {}", e);
+                            log::error!("Failed to clean up sessions on startup: {}", e);
                         }
                     }
 
