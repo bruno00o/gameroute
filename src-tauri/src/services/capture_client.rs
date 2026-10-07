@@ -4,8 +4,9 @@
 //! traceroute execution from the privileged Windows service via named pipes.
 
 use crate::config::{
-    CAPTURE_SERVICE_PIPE_NAME, CAPTURE_SERVICE_TOTAL_TIMEOUT_MS, PIPE_READ_TIMEOUT_MS,
-    TRACEROUTE_SERVICE_TIMEOUT_MS, UDP_CAPTURE_DURATION_SECS,
+    CAPTURE_SERVICE_PIPE_NAME, CAPTURE_SERVICE_TOTAL_TIMEOUT_MS, PIPE_BUSY_WAIT_MS,
+    PIPE_CONNECT_ATTEMPTS, PIPE_READ_TIMEOUT_MS, TRACEROUTE_SERVICE_TIMEOUT_MS,
+    UDP_CAPTURE_DURATION_SECS,
 };
 use crate::models::capture_protocol::{
     CaptureRequest, CaptureStatus, CapturedEndpoint, ServiceHop, ServiceRequest, ServiceResponse,
@@ -199,12 +200,13 @@ fn connect_and_communicate(
     use std::os::windows::io::{FromRawHandle, IntoRawHandle};
 
     use windows_sys::Win32::Foundation::{
-        CloseHandle, GetLastError, GENERIC_READ, GENERIC_WRITE, HANDLE, INVALID_HANDLE_VALUE,
-        WAIT_OBJECT_0, WAIT_TIMEOUT,
+        CloseHandle, GetLastError, ERROR_FILE_NOT_FOUND, ERROR_PIPE_BUSY, GENERIC_READ, HANDLE,
+        INVALID_HANDLE_VALUE, WAIT_OBJECT_0, WAIT_TIMEOUT,
     };
     use windows_sys::Win32::Storage::FileSystem::{
-        CreateFileW, FILE_FLAG_OVERLAPPED, OPEN_EXISTING, ReadFile,
+        CreateFileW, FILE_FLAG_OVERLAPPED, FILE_WRITE_DATA, OPEN_EXISTING, ReadFile,
     };
+    use windows_sys::Win32::System::Pipes::WaitNamedPipeW;
     use windows_sys::Win32::System::IO::{CancelIoEx, GetOverlappedResult, OVERLAPPED};
     use windows_sys::Win32::System::Threading::{CreateEventW, WaitForSingleObject};
 
@@ -215,22 +217,34 @@ fn connect_and_communicate(
         .collect();
 
     // Open the named pipe with FILE_FLAG_OVERLAPPED so reads can be timed out
-    let handle: HANDLE = unsafe {
-        CreateFileW(
-            pipe_name_wide.as_ptr(),
-            GENERIC_READ | GENERIC_WRITE,
-            0,
-            std::ptr::null(),
-            OPEN_EXISTING,
-            FILE_FLAG_OVERLAPPED,
-            std::ptr::null_mut(),
-        )
-    };
-
-    if handle == INVALID_HANDLE_VALUE {
+    let mut attempt = 0;
+    let handle: HANDLE = loop {
+        let handle = unsafe {
+            CreateFileW(
+                pipe_name_wide.as_ptr(),
+                GENERIC_READ | FILE_WRITE_DATA,
+                0,
+                std::ptr::null(),
+                OPEN_EXISTING,
+                FILE_FLAG_OVERLAPPED,
+                std::ptr::null_mut(),
+            )
+        };
+        if handle != INVALID_HANDLE_VALUE {
+            break handle;
+        }
         let err = unsafe { GetLastError() };
-        return Err(format!("Service not available (error {})", err));
-    }
+        attempt += 1;
+        match err {
+            ERROR_PIPE_BUSY if attempt < PIPE_CONNECT_ATTEMPTS => unsafe {
+                WaitNamedPipeW(pipe_name_wide.as_ptr(), PIPE_BUSY_WAIT_MS);
+            },
+            ERROR_FILE_NOT_FOUND if attempt < PIPE_CONNECT_ATTEMPTS => {
+                std::thread::sleep(std::time::Duration::from_millis(200));
+            }
+            _ => return Err(format!("Service not available (error {})", err)),
+        }
+    };
 
     // Wrap the handle in a File so writes (synchronous-style via overlapped handle)
     // and cleanup (Drop) are handled automatically. We only need overlapped reads.
