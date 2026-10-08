@@ -27,15 +27,18 @@ use commands::network::{
     get_network_map_data, get_network_overview_stats, get_recurring_problem_hops,
     get_severity_thresholds,
 };
-use commands::service::{
-    check_capture_service_status, open_log_dir, restart_capture_service, set_minimize_to_tray,
-};
+use commands::service::{check_capture_service_status, open_log_dir, restart_capture_service};
 use commands::sessions::{
     delete_session, get_previous_session_id, get_session_detail, get_session_list,
     get_session_matches, retry_traceroutes,
 };
-use config::{CACHE_MAX_TTL_DAYS, SESSION_RETENTION_DAYS};
+use commands::settings::{
+    delete_all_data, get_app_settings, get_storage_stats, set_minimize_to_tray,
+    set_session_retention,
+};
+use config::{CACHE_MAX_TTL_DAYS, SETTINGS_FILE_NAME};
 use db::{get_ip_metadata_repository, get_session_repository};
+use services::app_settings::SettingsStore;
 use services::{asn_resolver, flow_kind};
 use tauri::path::BaseDirectory;
 use tauri::Manager;
@@ -110,6 +113,13 @@ pub fn run() {
                 .app_data_dir()
                 .map_err(|e| format!("Failed to get app data directory: {}", e))?;
 
+            let settings_store = SettingsStore::load(app_data_dir.join(SETTINGS_FILE_NAME));
+            let settings = settings_store.get();
+            app.state::<TraySettings>()
+                .minimize_to_tray
+                .store(settings.minimize_to_tray, Ordering::Relaxed);
+            app.manage(settings_store);
+
             match (
                 app.path()
                     .resolve("resources/GeoLite2-City.mmdb", BaseDirectory::Resource),
@@ -149,18 +159,15 @@ pub fn run() {
                     }
 
                     if let Some(repo) = get_session_repository() {
-                        let result = tauri::async_runtime::block_on(async {
-                            let closed = repo.close_orphan_sessions().await?;
-                            if closed > 0 {
-                                log::info!(
-                                    "Closed {} sessions left open by a previous run",
-                                    closed
-                                );
+                        let result = tauri::async_runtime::block_on(
+                            repo.clean_up_on_startup(settings.session_retention_days),
+                        );
+                        match result {
+                            Ok((closed, _)) if closed > 0 => {
+                                log::info!("Closed {} sessions left open by a previous run", closed)
                             }
-                            repo.delete_old_sessions(SESSION_RETENTION_DAYS).await
-                        });
-                        if let Err(e) = result {
-                            log::error!("Failed to clean up sessions on startup: {}", e);
+                            Ok(_) => {}
+                            Err(e) => log::error!("Failed to clean up sessions on startup: {}", e),
                         }
                     }
 
@@ -289,7 +296,11 @@ pub fn run() {
             check_capture_service_status,
             restart_capture_service,
             open_log_dir,
+            get_app_settings,
             set_minimize_to_tray,
+            set_session_retention,
+            get_storage_stats,
+            delete_all_data,
             write_export_file,
         ])
         .run(tauri::generate_context!())

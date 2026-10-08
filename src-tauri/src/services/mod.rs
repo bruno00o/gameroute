@@ -1,3 +1,4 @@
+pub mod app_settings;
 pub mod asn_resolver;
 pub mod capture_client;
 pub mod epic_scanner;

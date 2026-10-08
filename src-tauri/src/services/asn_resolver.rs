@@ -37,6 +37,15 @@ impl AsnResolver {
         })
     }
 
+    pub fn built_at(&self) -> Option<String> {
+        let epoch = self
+            .city_reader
+            .metadata
+            .build_epoch
+            .min(self.asn_reader.metadata.build_epoch);
+        chrono::DateTime::from_timestamp(i64::try_from(epoch).ok()?, 0).map(|at| at.to_rfc3339())
+    }
+
     pub async fn resolve_batch(&self, ips: Vec<String>) -> Result<Vec<ResolvedIpData>, AsnError> {
         let mut results = Vec::with_capacity(ips.len());
 
