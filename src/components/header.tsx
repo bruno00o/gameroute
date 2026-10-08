@@ -38,7 +38,11 @@ export function Header() {
                           {isLast || !segment.onClick ? (
                             <BreadcrumbPage>{segment.label}</BreadcrumbPage>
                           ) : (
-                            <BreadcrumbLink className="cursor-pointer" onClick={segment.onClick}>
+                            <BreadcrumbLink
+                              render={<button type="button" />}
+                              className="cursor-pointer"
+                              onClick={segment.onClick}
+                            >
                               {segment.label}
                             </BreadcrumbLink>
                           )}
