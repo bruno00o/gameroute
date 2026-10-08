@@ -101,7 +101,7 @@ const servers: ServerSummaryItem[] = [
     gameName: 'League of Legends',
     city: 'Amsterdam',
     matchCount: 3,
-    basis: basis(true),
+    basis: { ...basis(true), source: 'game' },
     recent: { medianMs: 31.4, lossPct: 0, sampleCount: 3 },
     usual: { medianMs: null, sampleCount: 2 },
     status: 'ok',
@@ -149,6 +149,7 @@ function session(overrides: Partial<SessionListItem>): SessionListItem {
     matchCount: 4,
     medianPingMs: 38.2,
     medianPingAtLeast: true,
+    medianPingByGame: false,
     status: 'watch',
     ...overrides,
   }
@@ -245,6 +246,7 @@ describe('Home', () => {
 
     const answering = cells(/League of Legends.*Riot Games/)
     expect(answering[2].textContent).toBe(`31${NB}ms`)
+    expect(answering[2].firstElementChild).toHaveAttribute('title', 'measured by the game')
     expect(answering[3]).toHaveTextContent('no usual yet (2/5)')
     expect(screen.queryByText(/Paris|Amsterdam/)).not.toBeInTheDocument()
     expect(row(/OVH.*Roubaix/)).toBeInTheDocument()
