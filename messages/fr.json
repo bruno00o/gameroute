@@ -45,8 +45,6 @@
   "sessions_empty_description": "Une session commence quand un jeu surveillé se connecte à son serveur.",
   "sessions_status_active": "En cours",
   "sessions_status_completed": "Terminée",
-  "sessions_ips": "{count} IPs",
-  "sessions_traceroutes": "{count} traceroutes",
   "table_page_info": "{start}–{end} sur {total}",
   "table_prev": "Précédent",
   "table_next": "Suivant",

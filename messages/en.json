@@ -45,8 +45,6 @@
   "sessions_empty_description": "A session starts when a monitored game connects to its server.",
   "sessions_status_active": "Active",
   "sessions_status_completed": "Completed",
-  "sessions_ips": "{count} IPs",
-  "sessions_traceroutes": "{count} traceroutes",
   "table_page_info": "{start}–{end} of {total}",
   "table_prev": "Previous",
   "table_next": "Next",
