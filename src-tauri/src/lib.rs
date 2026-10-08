@@ -10,7 +10,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use commands::asn::{
     clear_ip_metadata_cache, get_ip_metadata_stats, prune_ip_metadata_cache, resolve_asn,
 };
-use commands::dashboard::get_dashboard_data;
 use commands::export::write_export_file;
 use commands::games::{
     add_manual_game, get_game_count, get_games, get_monitored_game_count, remove_game,
@@ -21,7 +20,7 @@ use commands::insights::{
     get_hourly_quality, get_network_quality_over_time, get_server_stability, get_server_summary,
 };
 use commands::monitoring::{
-    cancel_traceroute, get_monitoring_status, list_running_apps, list_running_processes,
+    cancel_traceroute, get_monitoring_status, list_running_apps,
     start_manual_monitoring, start_monitoring, stop_monitoring, AppMonitoringState,
 };
 use commands::network::{
@@ -261,7 +260,6 @@ pub fn run() {
             stop_monitoring,
             cancel_traceroute,
             get_monitoring_status,
-            list_running_processes,
             list_running_apps,
             start_manual_monitoring,
             resolve_asn,
@@ -286,7 +284,6 @@ pub fn run() {
             toggle_game_monitored,
             search_games,
             search_game_count,
-            get_dashboard_data,
             get_network_map_data,
             get_recurring_problem_hops,
             get_network_overview_stats,

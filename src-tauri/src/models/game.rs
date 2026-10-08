@@ -14,14 +14,6 @@ pub struct DetectedGame {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RunningProcess {
-    pub pid: u32,
-    pub name: String,
-    pub path: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct RunningApp {
     pub name: String,
     pub pid: u32,

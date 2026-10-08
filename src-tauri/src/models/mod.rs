@@ -1,7 +1,6 @@
 pub mod asn;
 pub mod capture_protocol;
 pub mod connection;
-pub mod dashboard;
 pub mod flow_kind;
 pub mod game;
 pub mod game_library;
@@ -21,7 +20,6 @@ pub use asn::ResolvedIpData;
 pub use connection::{CapturedConnection, ServerIpCapturedEvent};
 pub use game::{
     DetectedGame, GameEndedEvent, IpCapacityReachedEvent, MonitoringState, RunningApp,
-    RunningProcess,
 };
 pub use game_library::MonitoredGameEntry;
 pub use hop::HopResult;
