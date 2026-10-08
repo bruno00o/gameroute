@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use commands::asn::{
     clear_ip_metadata_cache, get_ip_metadata_stats, prune_ip_metadata_cache, resolve_asn,
 };
-use commands::export::write_export_file;
+use commands::export::{write_export_file, write_export_pdf};
 use commands::games::{
     add_manual_game, get_game_count, get_games, get_monitored_game_count, remove_game,
     scan_all_games, scan_epic_games, scan_riot_games, scan_steam_games, search_game_count,
@@ -314,6 +314,7 @@ pub fn run() {
             get_live_probe_state,
             get_live_probe_config,
             set_live_probe_config,
+            write_export_pdf,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
