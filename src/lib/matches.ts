@@ -139,6 +139,59 @@ export function traceTimingText(timing: TraceTiming): string {
   }
 }
 
+export function traceSource(timing: TraceTiming): string {
+  switch (timing.kind) {
+    case 'during':
+      return m.match_source_during({ offset: formatElapsed(timing.offsetSecs) })
+    case 'match':
+      return m.match_source_match({ number: String(timing.number) })
+    case 'after':
+      return m.match_source_after()
+    case 'at':
+      return m.match_source_time({ time: formatClock(timing.time) })
+  }
+}
+
+export function matchOfPeriod(matches: SessionMatch[], periodId: number): SessionMatch | undefined {
+  return (
+    matches.find(match => match.periodId === periodId) ??
+    matches.find(match => match.voice?.periodId === periodId)
+  )
+}
+
+const LEVELS = ['watch', 'degraded', 'critical'] as const
+
+type ThresholdLevel = (typeof LEVELS)[number]
+
+export function thresholdRules(
+  thresholds: SeverityThresholds
+): { level: ThresholdLevel; rule: string }[] {
+  return LEVELS.map(level => ({
+    level,
+    rule: m.match_why_rule({
+      loss: formatLoss(thresholds[level].lossPct),
+      ping: formatRouteMs(thresholds[level].rttMs),
+    }),
+  }))
+}
+
+export function statusReason(flow: MeasuredFlow, thresholds?: SeverityThresholds | null): string {
+  const trace = flow.trace
+  if (flow.status === 'unmeasured' || trace?.pingMs == null) return m.match_why_unmeasured()
+  const ping = formatFlowPing(trace)
+  const loss = formatLoss(trace.lossPct ?? 0)
+  if (flow.status === 'ok') return m.match_why_ok({ ping, loss })
+  const threshold = thresholds?.[flow.status]
+  if (!threshold) return severityLabel(flow.status)
+  if ((trace.lossPct ?? 0) >= threshold.lossPct) {
+    return m.match_why_loss({ loss, threshold: formatLoss(threshold.lossPct) })
+  }
+  if (trace.pingMs >= threshold.rttMs) {
+    return m.match_why_ping({ ping, threshold: formatRouteMs(threshold.rttMs) })
+  }
+  return severityLabel(flow.status)
+}
+
 export function flowProvenance(
   flow: MeasuredFlow,
   matches: SessionMatch[],

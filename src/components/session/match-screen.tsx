@@ -1,0 +1,403 @@
+import { useEffect, useMemo, useState } from 'react'
+import { RiArrowLeftSLine, RiArrowRightSLine } from '@remixicon/react'
+
+import * as m from '@/paraglide/messages'
+import type {
+  MeasuredFlow,
+  SessionDetail,
+  SessionMatch,
+  SeverityThresholds,
+  TracerouteWithHops,
+} from '@/types/backend'
+import { formatClock, formatElapsed, formatMs, formatNumber } from '@/lib/format'
+import {
+  flowServerLabel,
+  flowServerName,
+  formatFlowPing,
+  formatLoss,
+  measuredUpTo,
+  statusReason,
+  thresholdRules,
+  traceOf,
+  traceSource,
+  traceTiming,
+  type TraceTiming,
+} from '@/lib/matches'
+import { formatRouteMs, hopCount, routeMapPoints } from '@/lib/route'
+import { cn } from '@/lib/utils'
+import { useAsnResolution } from '@/hooks/use-asn-resolution'
+import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/empty-state'
+import { Fact, FactRow } from '@/components/fact-row'
+import { Panel } from '@/components/panel'
+import { HopList } from '@/components/route/hop-list'
+import { RouteMap } from '@/components/route/route-map'
+import { RouteStrip } from '@/components/route/route-strip'
+import { SessionHeader } from '@/components/session/session-screen'
+import { StatusPill } from '@/components/status/status-pill'
+
+type MatchScreenProps = {
+  detail: SessionDetail
+  matches: SessionMatch[]
+  match: SessionMatch
+  thresholds?: SeverityThresholds | null
+  detailed?: boolean
+  onSelectMatch?: (match: SessionMatch) => void
+}
+
+const IGNORED_TARGETS =
+  'input, textarea, select, [contenteditable], [role=menu], [role=listbox], [role=dialog], [data-slot=route-map]'
+
+function useArrowKeys(
+  previous: SessionMatch | undefined,
+  next: SessionMatch | undefined,
+  onSelect: ((match: SessionMatch) => void) | undefined
+) {
+  useEffect(() => {
+    if (!onSelect) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      const modified = event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
+      const ignored = event.target instanceof Element && event.target.closest(IGNORED_TARGETS)
+      if (event.defaultPrevented || modified || ignored) return
+      const target =
+        event.key === 'ArrowLeft' ? previous : event.key === 'ArrowRight' ? next : undefined
+      if (!target) return
+      event.preventDefault()
+      onSelect(target)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [previous, next, onSelect])
+}
+
+function voiceSource(voice: MeasuredFlow, timing: TraceTiming | null): string | null {
+  if (!timing || !voice.trace) return null
+  return traceSource(
+    timing.kind === 'during' ? { kind: 'at', time: voice.trace.startedAt } : timing
+  )
+}
+
+function MatchFacts({
+  match,
+  traceroute,
+  timing,
+  detailed,
+  pending,
+}: {
+  match: SessionMatch
+  traceroute: TracerouteWithHops | undefined
+  timing: TraceTiming | null
+  detailed: boolean
+  pending: boolean
+}) {
+  const trace = match.trace
+  const number = String(match.number)
+
+  if (trace?.pingMs == null) {
+    return (
+      <Panel label={m.match_measures()}>
+        <EmptyState
+          compact
+          title={
+            pending
+              ? m.verdict_title_pending_one({ number })
+              : m.verdict_title_unmeasured_one({ number })
+          }
+        >
+          {pending ? m.verdict_pending_body() : m.verdict_unmeasured_body()}
+        </EmptyState>
+      </Panel>
+    )
+  }
+
+  const worst = traceroute?.hops.find(hop => hop.hopNumber === trace.measuredHop)?.latencyMax
+
+  return (
+    <Panel
+      label={m.match_measures()}
+      title={timing && traceSource(timing)}
+      footer={detailed ? m.matches_note() : m.matches_note_simple()}
+    >
+      <FactRow>
+        <Fact label={m.matches_col_ping()} detail={measuredUpTo(trace, traceroute?.route)}>
+          {formatFlowPing(trace)}
+        </Fact>
+        <Fact label={m.matches_col_loss()}>{formatLoss(trace.lossPct)}</Fact>
+        {detailed && <Fact label={m.matches_col_jitter()}>{formatMs(trace.jitterMs)}</Fact>}
+        {detailed && (
+          <Fact label={m.match_worst()}>
+            {worst != null && formatRouteMs(worst, !trace.atDestination)}
+          </Fact>
+        )}
+      </FactRow>
+    </Panel>
+  )
+}
+
+function MatchRoute({
+  match,
+  traceroute,
+  timing,
+  detailed,
+  className,
+}: {
+  match: SessionMatch
+  traceroute: TracerouteWithHops | undefined
+  timing: TraceTiming | null
+  detailed: boolean
+  className?: string
+}) {
+  const [showMap, setShowMap] = useState(false)
+  const ips = useMemo(
+    () =>
+      traceroute
+        ? [...new Set([traceroute.targetIp, ...traceroute.hops.flatMap(hop => hop.ip ?? [])])]
+        : [],
+    [traceroute]
+  )
+  const { data: asnData } = useAsnResolution(ips)
+  const points = useMemo(
+    () => (traceroute ? routeMapPoints(traceroute.hops, traceroute.targetIp, asnData) : []),
+    [traceroute, asnData]
+  )
+
+  if (!traceroute) {
+    return (
+      <Panel label={m.session_route()} className={className}>
+        <EmptyState compact title={m.match_no_trace()} />
+      </Panel>
+    )
+  }
+
+  const name = flowServerName(match)
+  const title = [timing && traceSource(timing), hopCount(traceroute.hops.length)]
+    .filter(Boolean)
+    .join(' · ')
+
+  return (
+    <Panel
+      label={m.session_route()}
+      title={title}
+      className={className}
+      action={
+        points.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-expanded={showMap}
+            onClick={() => setShowMap(open => !open)}
+          >
+            {showMap ? m.route_hide_map() : m.route_show_map()}
+          </Button>
+        )
+      }
+    >
+      {traceroute.route && (
+        <RouteStrip
+          className="mb-4"
+          route={traceroute.route}
+          destination={{ name, detail: traceroute.targetIp }}
+          persistentLoss={match.trace?.lossPct}
+        />
+      )}
+      <HopList
+        hops={traceroute.hops}
+        targetIp={traceroute.targetIp}
+        route={traceroute.route}
+        mode={detailed ? 'detail' : 'simple'}
+        destinationName={name}
+      />
+      {showMap && points.length > 0 && <RouteMap className="mt-4" points={points} />}
+    </Panel>
+  )
+}
+
+function StatusReason({
+  match,
+  thresholds,
+}: {
+  match: SessionMatch
+  thresholds?: SeverityThresholds | null
+}) {
+  const measured = match.trace?.pingMs != null
+
+  return (
+    <Panel tone="sunken" label={m.match_why_label()} title={statusReason(match, thresholds)}>
+      <p className="text-ui text-muted-foreground max-w-[60ch]">
+        {measured ? m.match_why_body() : m.match_why_unmeasured_body()}
+      </p>
+      {thresholds && (
+        <dl
+          aria-label={m.match_why_thresholds()}
+          className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2"
+        >
+          {thresholdRules(thresholds).map(({ level, rule }) => {
+            const current = match.status === level
+            return (
+              <div key={level} data-current={current || undefined} className="contents">
+                <dt className="flex">
+                  <StatusPill status={level} size="sm" />
+                </dt>
+                <dd
+                  className={cn(
+                    'text-data-sm font-mono tabular-nums',
+                    current ? 'text-foreground font-semibold' : 'text-muted-foreground'
+                  )}
+                >
+                  {rule}
+                </dd>
+              </div>
+            )
+          })}
+        </dl>
+      )}
+    </Panel>
+  )
+}
+
+function VoicePanel({
+  voice,
+  matches,
+  traceroutes,
+  sessionEndedAt,
+}: {
+  voice: MeasuredFlow
+  matches: SessionMatch[]
+  traceroutes: TracerouteWithHops[]
+  sessionEndedAt: string | null
+}) {
+  const trace = voice.trace
+  const source = voiceSource(voice, traceTiming(voice, matches, sessionEndedAt))
+
+  return (
+    <Panel
+      label={m.chronology_voice_lane()}
+      title={flowServerLabel(voice)}
+      action={<StatusPill status={voice.status} size="sm" />}
+      footer={trace?.pingMs != null ? source : null}
+    >
+      <FactRow>
+        <Fact
+          label={m.matches_col_ping()}
+          detail={
+            trace ? measuredUpTo(trace, traceOf(voice, traceroutes)?.route) : m.matches_no_trace()
+          }
+        >
+          {trace?.pingMs != null && formatFlowPing(trace)}
+        </Fact>
+        <Fact label={m.matches_col_start()}>{formatClock(voice.startedAt)}</Fact>
+        <Fact label={m.matches_col_duration()}>{formatElapsed(voice.durationSecs)}</Fact>
+      </FactRow>
+    </Panel>
+  )
+}
+
+function ServerPanel({ match, detailed }: { match: SessionMatch; detailed: boolean }) {
+  const rate = match.durationSecs > 0 ? match.packetCount / match.durationSecs : null
+
+  return (
+    <Panel
+      label={m.match_server_label()}
+      title={detailed ? match.ip : undefined}
+      footer={m.match_server_note()}
+    >
+      <FactRow>
+        <Fact label={m.match_packets()}>{formatNumber(match.packetCount)}</Fact>
+        <Fact label={m.match_packet_rate()}>
+          {rate != null &&
+            m.match_packet_rate_value({ rate: formatNumber(rate, rate < 10 ? 1 : 0) })}
+        </Fact>
+      </FactRow>
+    </Panel>
+  )
+}
+
+function MatchScreen({
+  detail,
+  matches,
+  match,
+  thresholds,
+  detailed = false,
+  onSelectMatch,
+}: MatchScreenProps) {
+  const index = matches.findIndex(item => item.periodId === match.periodId)
+  const previous = index > 0 ? matches[index - 1] : undefined
+  const next = index >= 0 ? matches[index + 1] : undefined
+  useArrowKeys(previous, next, onSelectMatch)
+
+  const traceroute = traceOf(match, detail.traceroutes)
+  const timing = traceTiming(match, matches, detail.endedAt)
+  const title = `${m.match_title({ number: String(match.number) })} · ${formatClock(match.startedAt)} → ${formatClock(match.endedAt)}`
+
+  return (
+    <div data-slot="match-screen" className="flex min-h-full flex-col">
+      <SessionHeader
+        title={title}
+        facts={[formatElapsed(match.durationSecs), flowServerLabel(match)]}
+        actions={
+          <>
+            <StatusPill status={match.status} />
+            {onSelectMatch && (
+              <>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={!previous}
+                  focusableWhenDisabled
+                  aria-keyshortcuts="ArrowLeft"
+                  onClick={() => previous && onSelectMatch(previous)}
+                >
+                  <RiArrowLeftSLine data-icon="inline-start" />
+                  {m.match_previous()}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={!next}
+                  focusableWhenDisabled
+                  aria-keyshortcuts="ArrowRight"
+                  onClick={() => next && onSelectMatch(next)}
+                >
+                  {m.match_next()}
+                  <RiArrowRightSLine data-icon="inline-end" />
+                </Button>
+              </>
+            )}
+          </>
+        }
+      />
+      <div className="flex flex-col gap-4 px-4 pt-5 pb-6 sm:px-6">
+        <MatchFacts
+          match={match}
+          traceroute={traceroute}
+          timing={timing}
+          detailed={detailed}
+          pending={detail.endedAt === null && !match.trace}
+        />
+        <div className="flex flex-wrap items-start gap-4">
+          <MatchRoute
+            className="flex-[999_1_520px]"
+            match={match}
+            traceroute={traceroute}
+            timing={timing}
+            detailed={detailed}
+          />
+          <div className="flex min-w-0 flex-[1_1_320px] flex-col gap-4">
+            <StatusReason match={match} thresholds={thresholds} />
+            {match.voice && (
+              <VoicePanel
+                voice={match.voice}
+                matches={matches}
+                traceroutes={detail.traceroutes}
+                sessionEndedAt={detail.endedAt}
+              />
+            )}
+            <ServerPanel match={match} detailed={detailed} />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export { MatchScreen, type MatchScreenProps }
