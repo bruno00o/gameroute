@@ -163,16 +163,29 @@ const LEVELS = ['watch', 'degraded', 'critical'] as const
 
 type ThresholdLevel = (typeof LEVELS)[number]
 
+export function usualPing(trace: TraceMeasure | null | undefined): number | null {
+  return trace?.usual?.medianMs ?? null
+}
+
+export function formatUsualPing(trace: TraceMeasure): string | null {
+  const usual = usualPing(trace)
+  return usual == null ? null : formatRouteMs(usual, !trace.atDestination)
+}
+
 export function thresholdRules(
-  thresholds: SeverityThresholds
+  thresholds: SeverityThresholds,
+  usual: number | null = null
 ): { level: ThresholdLevel; rule: string }[] {
-  return LEVELS.map(level => ({
-    level,
-    rule: m.match_why_rule({
-      loss: formatLoss(thresholds[level].lossPct),
-      ping: formatRouteMs(thresholds[level].rttMs),
-    }),
-  }))
+  return LEVELS.map(level => {
+    const loss = formatLoss(thresholds[level].lossPct)
+    return {
+      level,
+      rule:
+        usual == null
+          ? m.match_why_rule({ loss, ping: formatRouteMs(thresholds[level].rttMs) })
+          : m.match_why_rule_usual({ loss, over: formatRouteMs(thresholds[level].overBaselineMs) }),
+    }
+  })
 }
 
 export function statusReason(flow: MeasuredFlow, thresholds?: SeverityThresholds | null): string {
@@ -186,10 +199,31 @@ export function statusReason(flow: MeasuredFlow, thresholds?: SeverityThresholds
   if ((trace.lossPct ?? 0) >= threshold.lossPct) {
     return m.match_why_loss({ loss, threshold: formatLoss(threshold.lossPct) })
   }
-  if (trace.pingMs >= threshold.rttMs) {
+  const usual = usualPing(trace)
+  if (usual != null && trace.pingMs - usual >= threshold.overBaselineMs) {
+    return m.match_why_ping_usual({
+      ping,
+      usual: formatUsualPing(trace)!,
+      threshold: formatRouteMs(threshold.overBaselineMs),
+    })
+  }
+  if (usual == null && trace.pingMs >= threshold.rttMs) {
     return m.match_why_ping({ ping, threshold: formatRouteMs(threshold.rttMs) })
   }
   return severityLabel(flow.status)
+}
+
+function latencyLevel(trace: TraceMeasure, thresholds: SeverityThresholds): number {
+  const usual = usualPing(trace)
+  return usual != null && trace.pingMs != null
+    ? thresholdLevel(
+        trace.pingMs - usual,
+        LEVELS.map(level => thresholds[level].overBaselineMs)
+      )
+    : thresholdLevel(
+        trace.pingMs,
+        LEVELS.map(level => thresholds[level].rttMs)
+      )
 }
 
 export function flowProvenance(
@@ -417,12 +451,7 @@ export function sessionVerdict(
         thresholds.watch.lossPct,
         thresholds.degraded.lossPct,
         thresholds.critical.lossPct,
-      ]) >=
-        thresholdLevel(trace.pingMs, [
-          thresholds.watch.rttMs,
-          thresholds.degraded.rttMs,
-          thresholds.critical.rttMs,
-        ])
+      ]) >= latencyLevel(trace, thresholds)
     : lossPct > 0
   const status = reference.status
   const when = during(affected)

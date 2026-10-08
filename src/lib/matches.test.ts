@@ -8,6 +8,7 @@ import {
   sessionDetail,
   sessionMatches,
   teamVoice,
+  thresholds,
   trace,
   RIOT,
 } from '@/test/session-fixtures'
@@ -89,6 +90,23 @@ describe('sessionVerdict', () => {
     expect(verdict.title).toBe(`≥${NB}112${NB}ms ping during match 1`)
     expect(verdict.sentences[0]).toBe(`RETN adds the most: +14${NB}ms.`)
     expect(verdict.zone).toBeNull()
+  })
+
+  it('blames the ping when it is far above the usual value', () => {
+    const matches: SessionMatch[] = sessionMatches().map(match =>
+      match.number === 1
+        ? {
+            ...match,
+            status: 'watch',
+            trace: measure({ pingMs: 44, lossPct: 0.3, usual: { medianMs: 4.3, sampleCount: 20 } }),
+          }
+        : match
+    )
+
+    const verdict = sessionVerdict(matches, sessionDetail().traceroutes, thresholds())!
+
+    expect(verdict.status).toBe('watch')
+    expect(verdict.title).toBe(`≥${NB}44${NB}ms ping during match 1`)
   })
 
   it('hides the rest of the route behind a router that loses packets', () => {
