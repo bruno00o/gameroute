@@ -21,3 +21,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_game_ping_samples_unique ON game_ping_samp
     COALESCE(peer_port, 0),
     COALESCE(region, '')
 );
+
+CREATE TABLE IF NOT EXISTS game_log_scans (
+    session_id INTEGER PRIMARY KEY,
+    scanned_at TEXT NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
