@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::hop::ProbedHop;
 use super::insights::UsualPing;
+use super::live_probe::{AccessMeasure, RegionEstimate};
 use super::ip_period::{IpPeriod, IpPeriodSummary};
 use super::severity::Severity;
 use super::traceroute_record::TracerouteWithHops;
@@ -144,6 +145,8 @@ pub struct MeasuredFlow {
     pub trace: Option<TraceMeasure>,
     pub game: Option<GameMeasure>,
     pub region_pings: Option<RegionPings>,
+    pub access: Option<AccessMeasure>,
+    pub region_estimate: Option<RegionEstimate>,
     pub status: Severity,
 }
 
@@ -400,6 +403,8 @@ mod tests {
                     ping_ms: 4.0,
                 }],
             }),
+            access: None,
+            region_estimate: None,
             status: Severity::Ok,
         };
         let item = SessionMatch {

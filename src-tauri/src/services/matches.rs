@@ -135,11 +135,11 @@ fn build_matches(
         .collect()
 }
 
-fn asn_number(flow: &FlowPeriod) -> Option<u32> {
+pub fn asn_number(flow: &FlowPeriod) -> Option<u32> {
     flow.asn.as_deref()?.strip_prefix("AS")?.parse().ok()
 }
 
-fn is_match(flow: &FlowPeriod) -> bool {
+pub fn is_match(flow: &FlowPeriod) -> bool {
     let period = &flow.period;
     period.is_game_server
         && period
@@ -261,6 +261,8 @@ fn measure(
         trace: trace_measure,
         game,
         region_pings,
+        access: None,
+        region_estimate: None,
         status,
         ip: period.ip,
         protocol: period.protocol,

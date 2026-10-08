@@ -705,6 +705,36 @@ mod tests {
     }
 
     #[test]
+    fn live_floor_and_region_estimates_never_feed_other_usual_values() {
+        use crate::db::live_probes::fixtures::floor_slice;
+        use crate::services::live_probe::attach::floor_basis;
+
+        let floor = floor_basis(&floor_slice(1, &at(0), 4.6, 10), false, Some(15557));
+        assert_eq!(
+            floor,
+            PingBasis {
+                source: PingSource::Floor,
+                ..lower_bound(5)
+            }
+        );
+        let region = PingBasis {
+            source: PingSource::Region,
+            ..game()
+        };
+        let mut samples: Vec<PingSample> = (1..=10)
+            .map(|n| sample(day(1, n), lower_bound(5), 5.0))
+            .collect();
+        samples.extend((1..=10).map(|n| sample(day(2, n), floor.clone(), 40.0)));
+        samples.extend((1..=10).map(|n| sample(day(3, n), region.clone(), 9.0)));
+        samples.extend((1..=10).map(|n| sample(day(4, n), game(), 13.0)));
+
+        assert_eq!(usual_ping(&samples, &lower_bound(5), since()).median_ms, Some(5.0));
+        assert_eq!(usual_ping(&samples, &game(), since()).median_ms, Some(13.0));
+        assert_eq!(usual_ping(&samples, &floor, since()).median_ms, Some(40.0));
+        assert_eq!(usual_ping(&samples, &region, since()).median_ms, Some(9.0));
+    }
+
+    #[test]
     fn assess_compares_with_the_usual_or_falls_back_to_fixed_thresholds() {
         assert_eq!(assess(18.0, Some(17.0), 0.0), (Severity::Ok, None));
         assert_eq!(

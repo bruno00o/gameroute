@@ -20,6 +20,7 @@ use commands::insights::{
     get_hourly_quality, get_network_quality_over_time, get_route_changes, get_server_stability,
     get_server_summary, get_usual_route,
 };
+use commands::live_probe::{get_live_probe_config, get_live_probe_state, set_live_probe_config};
 use commands::monitoring::{
     cancel_traceroute, get_monitoring_status, list_running_apps,
     start_manual_monitoring, start_monitoring, stop_monitoring, AppMonitoringState,
@@ -37,7 +38,7 @@ use commands::settings::{
     delete_all_data, get_app_settings, get_storage_stats, set_minimize_to_tray,
     set_session_retention,
 };
-use config::{CACHE_MAX_TTL_DAYS, SETTINGS_FILE_NAME};
+use config::{CACHE_MAX_TTL_DAYS, LIVE_PROBE_CONFIG_FILE_NAME, SETTINGS_FILE_NAME};
 use db::{get_ip_metadata_repository, get_session_repository};
 use services::app_settings::SettingsStore;
 use services::{asn_resolver, flow_kind, game_logs};
@@ -120,6 +121,11 @@ pub fn run() {
                 .minimize_to_tray
                 .store(settings.minimize_to_tray, Ordering::Relaxed);
             app.manage(settings_store);
+            app.manage(std::sync::Arc::new(
+                services::live_probe::store::LiveProbeService::load(
+                    app_data_dir.join(LIVE_PROBE_CONFIG_FILE_NAME),
+                ),
+            ));
 
             match (
                 app.path()
@@ -306,6 +312,9 @@ pub fn run() {
             get_storage_stats,
             delete_all_data,
             write_export_file,
+            get_live_probe_state,
+            get_live_probe_config,
+            set_live_probe_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

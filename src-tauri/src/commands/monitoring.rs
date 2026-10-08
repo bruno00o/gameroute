@@ -16,6 +16,8 @@ use crate::platform;
 use crate::services::asn_resolver::resolve_ip;
 use crate::services::flow_kind::{classify, is_known_game_server};
 use crate::services::game_logs::watch::follow_game_logs;
+use crate::services::live_probe::follow_live_probes;
+use crate::services::live_probe::store::LiveProbeService;
 use crate::services::severity;
 use crate::services::udp_capture;
 use crate::services::trace_targets::{is_traceable_game_server, select_session_targets, TraceTarget};
@@ -23,7 +25,7 @@ use crate::services::traceroute::{persist_traceroute_result, TracerouteJob};
 use crate::services::{GameDetector, TracerouteService};
 use std::collections::HashSet;
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::RwLock;
 
 pub struct AppMonitoringState {
@@ -97,6 +99,28 @@ fn follow_game_pings(
         move |sample| {
             if let Err(e) = app.emit("game-ping-sample", sample) {
                 log::warn!("Failed to emit game-ping-sample: {}", e);
+            }
+        },
+    );
+}
+
+fn follow_live_samples(
+    app: AppHandle,
+    monitoring_state: Arc<RwLock<MonitoringState>>,
+    session_id: i64,
+    game: &DetectedGame,
+) {
+    let Some(service) = app.try_state::<Arc<LiveProbeService>>() else {
+        return;
+    };
+    follow_live_probes(
+        service.inner().clone(),
+        monitoring_state,
+        session_id,
+        &game.game_name,
+        move |sample| {
+            if let Err(e) = app.emit("live-probe-sample", sample) {
+                log::warn!("Failed to emit live-probe-sample: {}", e);
             }
         },
     );
@@ -448,6 +472,12 @@ pub async fn start_monitoring(
                                     detected.game_name
                                 );
                                 state_clone.write().await.current_session_id = Some(session_id);
+                                follow_live_samples(
+                                    app_for_pings.clone(),
+                                    state_clone.clone(),
+                                    session_id,
+                                    &detected,
+                                );
                                 follow_game_pings(app_for_pings, state_clone, session_id, &detected);
                             }
                             Err(e) => log::error!("Failed to create session in DB: {}", e),
@@ -713,6 +743,7 @@ pub async fn start_manual_monitoring(
                     display_name
                 );
                 state.monitoring_state.write().await.current_session_id = Some(session_id);
+                follow_live_samples(app.clone(), state.monitoring_state.clone(), session_id, &game);
                 follow_game_pings(app.clone(), state.monitoring_state.clone(), session_id, &game);
             }
             Err(e) => log::error!("Failed to create session in DB: {}", e),
