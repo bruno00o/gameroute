@@ -145,6 +145,7 @@ export type TraceMeasure = {
   pingMs: number | null
   lossPct: number | null
   jitterMs: number | null
+  usual: UsualPing | null
 }
 
 export type MeasuredFlow = {
@@ -460,6 +461,7 @@ export type PingBasis = {
   atDestination: boolean
   measuredHop: number | null
   measuredAsn: number | null
+  serverIp: string | null
 }
 
 export type RecentPing = {
@@ -484,7 +486,7 @@ export type ServerIncident = {
   cause: IncidentCause
   basis: PingBasis
   pingMs: number
-  usualMs: number | null
+  usual: UsualPing
   lossPct: number
 }
 

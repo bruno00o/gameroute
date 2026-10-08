@@ -4,93 +4,20 @@ use crate::db::ip_metadata::IpMetadataRepository;
 use crate::db::ip_periods::IpPeriodRepository;
 use crate::db::traceroutes::TracerouteRepository;
 use crate::db::DbError;
-use crate::models::hop::ProbedHop;
 use crate::models::insights::{
-    IncidentCause, PingBasis, PingSource, RecentPing, ServerIncident, ServerSummary,
-    ServerSummaryItem, UsualPing,
+    PingBasis, RecentPing, ServerIncident, ServerSummary, ServerSummaryItem, UsualPing,
 };
-use crate::models::ip_metadata::IpMetadataData;
-use crate::models::session::{SessionMatch, TraceMeasure};
 use crate::models::severity::Severity;
-use crate::models::traceroute_record::TracerouteWithHops;
-use crate::services::asn_resolver::lookup_metadata;
-use crate::services::matches::{matched_sessions, median};
-use crate::services::severity::{loss_status, severity, Measurement};
+use crate::services::matches::median;
+use crate::services::usual::{
+    assess, assessments, match_history, parse, pools, usual_ping, Assessment, PingSample,
+    ServerMatch,
+};
 use chrono::{DateTime, FixedOffset, SecondsFormat, Utc};
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, HashMap};
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct PingSample {
-    pub measured_at: DateTime<FixedOffset>,
-    pub basis: PingBasis,
-    pub ping_ms: f64,
-    pub loss_pct: f64,
-    pub session_id: i64,
-    pub match_number: u32,
-    pub match_started_at: String,
-}
-
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct Server {
-    pub ip: String,
-    pub asn: Option<u32>,
-    pub operator: Option<String>,
-    pub city: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ServerMatch {
-    pub game_name: String,
-    pub server: Server,
-    pub started_at: String,
-    pub sample: Option<PingSample>,
-}
-
-type ServerKey = (String, Option<u32>, Option<String>, Option<String>);
-
-fn parse(timestamp: &str) -> Option<DateTime<FixedOffset>> {
-    DateTime::parse_from_rfc3339(timestamp).ok()
-}
-
-pub fn usual_ping(
-    samples: &[PingSample],
-    basis: &PingBasis,
-    before: DateTime<FixedOffset>,
-) -> UsualPing {
-    let mut previous: Vec<&PingSample> = samples
-        .iter()
-        .filter(|sample| &sample.basis == basis && sample.measured_at < before)
-        .collect();
-    previous.sort_by_key(|sample| sample.measured_at);
-    let window = &previous[previous.len().saturating_sub(USUAL_PING_SAMPLES)..];
-
-    UsualPing {
-        median_ms: (window.len() >= USUAL_PING_MIN_SAMPLES)
-            .then(|| median(window.iter().map(|sample| sample.ping_ms).collect()))
-            .flatten(),
-        sample_count: window.len() as u32,
-    }
-}
-
-pub fn assess(
-    ping_ms: f64,
-    usual_ms: Option<f64>,
-    loss_pct: f64,
-) -> (Severity, Option<IncidentCause>) {
-    let status = severity(&Measurement {
-        rtt_ms: Some(ping_ms),
-        baseline_ms: usual_ms,
-        loss_pct: Some(loss_pct),
-        jitter_ms: None,
-    });
-    let cause = match status {
-        Severity::Ok | Severity::Unmeasured => None,
-        _ if loss_status(loss_pct) == Some(status) => Some(IncidentCause::Loss),
-        _ => Some(IncidentCause::Latency),
-    };
-    (status, cause)
-}
+type ServerKey<'a> = (&'a str, Option<u32>, Option<&'a str>, Option<&'a str>);
 
 fn dominant_basis(samples: &[&PingSample]) -> Option<PingBasis> {
     let mut counts: HashMap<&PingBasis, usize> = HashMap::new();
@@ -107,43 +34,52 @@ fn dominant_basis(samples: &[&PingSample]) -> Option<PingBasis> {
         .map(|sample| sample.basis.clone())
 }
 
-fn last_incident(samples: &[PingSample]) -> Option<ServerIncident> {
+fn last_incident(
+    samples: &[&PingSample],
+    assessed: &HashMap<i64, Assessment>,
+) -> Option<ServerIncident> {
     samples.iter().rev().find_map(|sample| {
-        let usual = usual_ping(samples, &sample.basis, sample.measured_at);
-        let (status, cause) = assess(sample.ping_ms, usual.median_ms, sample.loss_pct);
-        let cause = cause?;
+        let assessment = assessed.get(&sample.traceroute_id)?;
         Some(ServerIncident {
             session_id: sample.session_id,
             match_number: sample.match_number,
             started_at: sample.match_started_at.clone(),
             measured_at: sample.measured_at.to_rfc3339(),
-            status,
-            cause,
+            status: assessment.status,
+            cause: assessment.cause?,
             basis: sample.basis.clone(),
             ping_ms: sample.ping_ms,
-            usual_ms: usual.median_ms,
+            usual: assessment.usual.clone(),
             loss_pct: sample.loss_pct,
         })
     })
 }
 
 fn summarize_server(
-    matches: &[ServerMatch],
+    matches: &[&ServerMatch],
+    pool: &[&PingSample],
+    assessed: &HashMap<i64, Assessment>,
     since: DateTime<FixedOffset>,
 ) -> Option<ServerSummaryItem> {
     let latest = matches.iter().max_by_key(|game| parse(&game.started_at))?;
-    let mut samples: Vec<PingSample> = matches
+    let mut samples: Vec<&PingSample> = matches
         .iter()
-        .filter_map(|game| game.sample.clone())
+        .filter_map(|game| game.sample.as_ref())
         .collect();
     samples.sort_by_key(|sample| sample.measured_at);
 
     let recent: Vec<&PingSample> = samples
         .iter()
+        .copied()
         .filter(|sample| sample.measured_at >= since)
         .collect();
     let basis = if recent.is_empty() {
-        let last: Vec<&PingSample> = samples.iter().rev().take(USUAL_PING_SAMPLES).collect();
+        let last: Vec<&PingSample> = samples
+            .iter()
+            .rev()
+            .take(USUAL_PING_SAMPLES)
+            .copied()
+            .collect();
         dominant_basis(&last)
     } else {
         dominant_basis(&recent)
@@ -162,7 +98,7 @@ fn summarize_server(
             }
         });
     let usual = basis.as_ref().map_or_else(UsualPing::default, |basis| {
-        usual_ping(&samples, basis, since)
+        usual_ping(pool.iter().copied(), basis, since)
     });
 
     let match_count = matches
@@ -191,181 +127,40 @@ fn summarize_server(
         recent,
         usual,
         status,
-        last_incident: last_incident(&samples),
+        last_incident: last_incident(&samples, assessed),
     })
 }
 
 pub fn summarize_servers(
-    matches: Vec<ServerMatch>,
+    matches: &[ServerMatch],
     since: DateTime<FixedOffset>,
 ) -> Vec<ServerSummaryItem> {
-    let mut groups: BTreeMap<ServerKey, Vec<ServerMatch>> = BTreeMap::new();
+    let assessed = assessments(matches);
+    let pools = pools(matches);
+    let mut groups: BTreeMap<ServerKey, Vec<&ServerMatch>> = BTreeMap::new();
     for game in matches {
-        let server = &game.server;
+        let (asn, ip) = game.server.operator_key();
         let key = (
-            game.game_name.clone(),
-            server.asn,
-            server.asn.is_none().then(|| server.ip.clone()),
-            server.city.clone(),
+            game.game_name.as_str(),
+            asn,
+            ip,
+            game.server.city.as_deref(),
         );
         groups.entry(key).or_default().push(game);
     }
 
     let mut servers: Vec<ServerSummaryItem> = groups
-        .values()
-        .filter_map(|group| summarize_server(group, since))
+        .iter()
+        .filter_map(|(&(game, asn, ip, _), group)| {
+            let pool = pools
+                .get(&(game, asn, ip))
+                .map(Vec::as_slice)
+                .unwrap_or_default();
+            summarize_server(group, pool, &assessed, since)
+        })
         .collect();
     servers.sort_by_key(|server| Reverse(parse(&server.last_played_at)));
     servers
-}
-
-fn asn_number(data: &IpMetadataData) -> Option<u32> {
-    data.asn.as_deref()?.strip_prefix("AS")?.parse().ok()
-}
-
-fn last_router(trace: &TracerouteWithHops) -> Option<&str> {
-    trace
-        .hops
-        .iter()
-        .rev()
-        .filter(|hop| hop.responded())
-        .filter_map(|hop| hop.ip())
-        .find(|ip| *ip != trace.target_ip)
-}
-
-fn ping_basis(
-    measure: &TraceMeasure,
-    trace: Option<&TracerouteWithHops>,
-    places: &HashMap<String, IpMetadataData>,
-) -> PingBasis {
-    if measure.at_destination {
-        return PingBasis {
-            source: PingSource::Trace,
-            at_destination: true,
-            measured_hop: None,
-            measured_asn: None,
-        };
-    }
-    let hop_ip = trace
-        .and_then(|trace| {
-            trace
-                .hops
-                .iter()
-                .find(|hop| Some(hop.hop_number) == measure.measured_hop)
-        })
-        .and_then(|hop| hop.ip());
-    PingBasis {
-        source: PingSource::Trace,
-        at_destination: false,
-        measured_hop: measure.measured_hop,
-        measured_asn: hop_ip.and_then(|ip| places.get(ip)).and_then(asn_number),
-    }
-}
-
-pub async fn server_matches(
-    analytics: &AnalyticsRepository,
-    periods: &IpPeriodRepository,
-    traceroutes: &TracerouteRepository,
-    metadata: Option<&IpMetadataRepository>,
-) -> Result<Vec<ServerMatch>, DbError> {
-    let sessions = analytics.get_game_sessions().await?;
-    let ids: Vec<i64> = sessions.iter().map(|(id, _)| *id).collect();
-    let matched = matched_sessions(periods, traceroutes, &ids).await?;
-    let played: Vec<(i64, &str, &[SessionMatch])> = sessions
-        .iter()
-        .filter_map(|(id, game)| Some((*id, game.as_str(), matched.get(id)?.matches.as_slice())))
-        .collect();
-    let traces: HashMap<i64, &TracerouteWithHops> = matched
-        .values()
-        .flat_map(|session| &session.traces)
-        .map(|trace| (trace.id, trace))
-        .collect();
-
-    let mut ips: Vec<String> = played
-        .iter()
-        .flat_map(|(_, _, matches)| matches.iter().map(|game| game.flow.ip.clone()))
-        .chain(
-            traces
-                .values()
-                .flat_map(|trace| trace.hops.iter().filter_map(|hop| hop.ip.clone())),
-        )
-        .collect();
-    ips.sort();
-    ips.dedup();
-    let places = lookup_metadata(&ips, metadata).await;
-
-    let mut cities: HashMap<&str, (DateTime<FixedOffset>, &str)> = HashMap::new();
-    for trace in traces.values() {
-        let city = last_router(trace)
-            .and_then(|ip| places.get(ip))
-            .and_then(|place| place.city.as_deref());
-        if let Some((city, at)) = city.zip(parse(&trace.started_at)) {
-            let latest = cities.entry(trace.target_ip.as_str()).or_insert((at, city));
-            if at > latest.0 {
-                *latest = (at, city);
-            }
-        }
-    }
-
-    let mut owners: HashMap<i64, (i64, u32, i64)> = HashMap::new();
-    for (session_id, _, matches) in &played {
-        for game in matches.iter() {
-            let Some(measure) = &game.flow.trace else {
-                continue;
-            };
-            let distance = measure.offset_secs.abs();
-            if owners
-                .get(&measure.traceroute_id)
-                .is_none_or(|&(_, _, best)| distance < best)
-            {
-                owners.insert(measure.traceroute_id, (*session_id, game.number, distance));
-            }
-        }
-    }
-
-    let sample = |session_id: i64, game: &SessionMatch| -> Option<PingSample> {
-        let measure = game.flow.trace.as_ref()?;
-        let &(owner, number, _) = owners.get(&measure.traceroute_id)?;
-        if (owner, number) != (session_id, game.number) {
-            return None;
-        }
-        Some(PingSample {
-            measured_at: parse(&measure.started_at)?,
-            basis: ping_basis(
-                measure,
-                traces.get(&measure.traceroute_id).copied(),
-                &places,
-            ),
-            ping_ms: measure.ping_ms?,
-            loss_pct: measure.loss_pct.unwrap_or(0.0),
-            session_id,
-            match_number: game.number,
-            match_started_at: game.flow.started_at.clone(),
-        })
-    };
-
-    Ok(played
-        .iter()
-        .flat_map(|(session_id, game_name, matches)| {
-            matches.iter().map(|game| {
-                let place = places.get(&game.flow.ip);
-                ServerMatch {
-                    game_name: game_name.to_string(),
-                    server: Server {
-                        ip: game.flow.ip.clone(),
-                        asn: place.and_then(asn_number),
-                        operator: place
-                            .and_then(|place| place.org.clone().or_else(|| place.isp.clone())),
-                        city: cities
-                            .get(game.flow.ip.as_str())
-                            .map(|(_, city)| city.to_string()),
-                    },
-                    started_at: game.flow.started_at.clone(),
-                    sample: sample(*session_id, game),
-                }
-            })
-        })
-        .collect())
 }
 
 pub async fn server_summary(
@@ -375,12 +170,12 @@ pub async fn server_summary(
     metadata: Option<&IpMetadataRepository>,
     since: DateTime<Utc>,
 ) -> Result<ServerSummary, DbError> {
-    let matches = server_matches(analytics, periods, traceroutes, metadata).await?;
+    let history = match_history(analytics, periods, traceroutes, metadata).await?;
     Ok(ServerSummary {
         since: since.to_rfc3339_opts(SecondsFormat::Secs, true),
         usual_max_samples: USUAL_PING_SAMPLES as u32,
         usual_min_samples: USUAL_PING_MIN_SAMPLES as u32,
-        servers: summarize_servers(matches, since.fixed_offset()),
+        servers: summarize_servers(&history.matches, since.fixed_offset()),
     })
 }
 
@@ -388,196 +183,15 @@ pub async fn server_summary(
 mod tests {
     use super::*;
     use crate::db::create_test_pool;
-    use crate::db::hops::HopRepository;
-    use crate::models::flow_kind::FlowKind;
-    use crate::models::ip_period::IpPeriodData;
-    use crate::models::session::HopData;
-    use crate::models::TracerouteData;
-    use chrono::{Duration, TimeZone};
-    use sqlx::SqlitePool;
-
-    const RIOT: &str = "162.249.72.5";
-    const RIOT_PARIS: &str = "185.40.64.1";
-
-    fn day(day: u32, hour: u32) -> DateTime<FixedOffset> {
-        Utc.with_ymd_and_hms(2026, 9, day, hour, 0, 0)
-            .unwrap()
-            .fixed_offset()
-    }
-
-    fn since() -> DateTime<FixedOffset> {
-        day(20, 0)
-    }
-
-    fn lower_bound(hop: i32) -> PingBasis {
-        PingBasis {
-            source: PingSource::Trace,
-            at_destination: false,
-            measured_hop: Some(hop),
-            measured_asn: Some(15557),
-        }
-    }
-
-    fn exact() -> PingBasis {
-        PingBasis {
-            source: PingSource::Trace,
-            at_destination: true,
-            measured_hop: None,
-            measured_asn: None,
-        }
-    }
-
-    fn sample(at: DateTime<FixedOffset>, basis: PingBasis, ping_ms: f64) -> PingSample {
-        PingSample {
-            measured_at: at,
-            basis,
-            ping_ms,
-            loss_pct: 0.0,
-            session_id: at.timestamp() / 3600,
-            match_number: 1,
-            match_started_at: at.to_rfc3339(),
-        }
-    }
-
-    fn riot(ip: &str, city: Option<&str>) -> Server {
-        Server {
-            ip: ip.to_string(),
-            asn: Some(6507),
-            operator: Some("Riot Games, Inc".to_string()),
-            city: city.map(str::to_string),
-        }
-    }
-
-    fn played(game: &str, server: Server, at: DateTime<FixedOffset>) -> ServerMatch {
-        ServerMatch {
-            game_name: game.to_string(),
-            server,
-            started_at: at.to_rfc3339(),
-            sample: None,
-        }
-    }
-
-    fn measured_sample(sample: PingSample) -> ServerMatch {
-        ServerMatch {
-            sample: Some(sample.clone()),
-            ..played("VALORANT", riot(RIOT_PARIS, None), sample.measured_at)
-        }
-    }
-
-    fn measured(at: DateTime<FixedOffset>, basis: PingBasis, ping_ms: f64) -> ServerMatch {
-        measured_sample(sample(at, basis, ping_ms))
-    }
-
-    fn history(count: u32, basis: PingBasis, ping_ms: f64) -> Vec<ServerMatch> {
-        (1..=count)
-            .map(|n| measured(day(10, n), basis.clone(), ping_ms))
-            .collect()
-    }
+    use crate::models::insights::{IncidentCause, PingSource};
+    use crate::services::usual::fixtures::*;
+    use crate::services::usual::Server;
+    use chrono::TimeZone;
 
     fn only(matches: Vec<ServerMatch>) -> ServerSummaryItem {
-        let mut servers = summarize_servers(matches, since());
+        let mut servers = summarize_servers(&matches, since());
         assert_eq!(servers.len(), 1);
         servers.remove(0)
-    }
-
-    #[test]
-    fn usual_is_the_median_of_the_twenty_previous_comparable_samples() {
-        let samples: Vec<PingSample> = (1..=25)
-            .map(|n| sample(day(1, 0) + Duration::hours(n), lower_bound(5), n as f64))
-            .collect();
-
-        assert_eq!(
-            usual_ping(&samples, &lower_bound(5), since()),
-            UsualPing {
-                median_ms: Some(15.5),
-                sample_count: 20,
-            }
-        );
-        assert_eq!(
-            usual_ping(&samples, &lower_bound(5), day(1, 21)).median_ms,
-            Some(10.5)
-        );
-    }
-
-    #[test]
-    fn usual_needs_five_comparable_samples() {
-        let samples: Vec<PingSample> = (1..=5)
-            .map(|n| sample(day(1, n), lower_bound(5), 5.0 + n as f64))
-            .collect();
-
-        assert_eq!(
-            usual_ping(&samples[..4], &lower_bound(5), since()),
-            UsualPing {
-                median_ms: None,
-                sample_count: 4,
-            }
-        );
-        assert_eq!(
-            usual_ping(&samples, &lower_bound(5), since()),
-            UsualPing {
-                median_ms: Some(8.0),
-                sample_count: 5,
-            }
-        );
-        assert_eq!(
-            usual_ping(&[], &lower_bound(5), since()),
-            UsualPing::default()
-        );
-    }
-
-    #[test]
-    fn lower_bounds_and_exact_pings_never_mix() {
-        let mut samples: Vec<PingSample> = (1..=10)
-            .map(|n| sample(day(1, n), lower_bound(5), 5.0))
-            .collect();
-        samples.extend((1..=10).map(|n| sample(day(2, n), lower_bound(8), 17.0)));
-        samples.extend((1..=3).map(|n| sample(day(3, n), exact(), 31.0)));
-        let other_operator = PingBasis {
-            measured_asn: Some(9002),
-            ..lower_bound(5)
-        };
-
-        assert_eq!(
-            usual_ping(&samples, &lower_bound(5), since()).median_ms,
-            Some(5.0)
-        );
-        assert_eq!(
-            usual_ping(&samples, &lower_bound(8), since()).median_ms,
-            Some(17.0)
-        );
-        assert_eq!(
-            usual_ping(&samples, &exact(), since()),
-            UsualPing {
-                median_ms: None,
-                sample_count: 3,
-            }
-        );
-        assert_eq!(
-            usual_ping(&samples, &other_operator, since()).sample_count,
-            0
-        );
-    }
-
-    #[test]
-    fn assess_compares_with_the_usual_or_falls_back_to_fixed_thresholds() {
-        assert_eq!(assess(18.0, Some(17.0), 0.0), (Severity::Ok, None));
-        assert_eq!(
-            assess(40.0, Some(17.0), 0.0),
-            (Severity::Watch, Some(IncidentCause::Latency))
-        );
-        assert_eq!(assess(40.0, None, 0.0), (Severity::Ok, None));
-        assert_eq!(
-            assess(75.0, None, 0.0),
-            (Severity::Watch, Some(IncidentCause::Latency))
-        );
-        assert_eq!(
-            assess(18.0, Some(17.0), 33.3),
-            (Severity::Critical, Some(IncidentCause::Loss))
-        );
-        assert_eq!(
-            assess(140.0, Some(17.0), 1.0),
-            (Severity::Critical, Some(IncidentCause::Latency))
-        );
     }
 
     #[test]
@@ -609,7 +223,13 @@ mod tests {
         assert_eq!(slow.status, Some(Severity::Watch));
         let incident = slow.last_incident.unwrap();
         assert_eq!(incident.ping_ms, 75.0);
-        assert_eq!(incident.usual_ms, None);
+        assert_eq!(
+            incident.usual,
+            UsualPing {
+                median_ms: None,
+                sample_count: 1,
+            }
+        );
         assert_eq!(incident.cause, IncidentCause::Latency);
     }
 
@@ -697,7 +317,10 @@ mod tests {
                 cause: IncidentCause::Latency,
                 basis: lower_bound(5),
                 ping_ms: 31.0,
-                usual_ms: Some(5.0),
+                usual: UsualPing {
+                    median_ms: Some(5.0),
+                    sample_count: 7,
+                },
                 loss_pct: 0.0,
             }
         );
@@ -708,6 +331,23 @@ mod tests {
         assert_eq!(incident.status, Severity::Critical);
         assert_eq!(incident.cause, IncidentCause::Loss);
         assert_eq!(incident.loss_pct, 33.3);
+    }
+
+    #[test]
+    fn incidents_carry_the_status_of_their_match() {
+        let mut matches = history(6, lower_bound(5), 5.0);
+        matches.extend([
+            measured(day(14, 20), lower_bound(5), 44.0),
+            measured(day(21, 20), lower_bound(5), 5.0),
+        ]);
+
+        let assessed = assessments(&matches);
+        let incident = only(matches).last_incident.unwrap();
+        let assessment = &assessed[&day(14, 20).timestamp()];
+
+        assert_eq!(incident.status, assessment.status);
+        assert_eq!(incident.usual, assessment.usual);
+        assert_eq!(incident.status, Severity::Watch);
     }
 
     #[test]
@@ -735,7 +375,7 @@ mod tests {
             ..Server::default()
         };
         let servers = summarize_servers(
-            vec![
+            &[
                 played("VALORANT", riot(RIOT_PARIS, Some("Paris")), day(21, 20)),
                 played("VALORANT", riot("162.249.72.1", Some("Paris")), day(22, 20)),
                 played(
@@ -819,83 +459,6 @@ mod tests {
         assert!(servers
             .iter()
             .all(|s| s.basis.is_none() && s.recent.is_none()));
-    }
-
-    fn at(sec: i64) -> String {
-        (Utc.with_ymd_and_hms(2026, 9, 21, 20, 0, 0).unwrap() + Duration::seconds(sec))
-            .to_rfc3339_opts(SecondsFormat::Secs, true)
-    }
-
-    fn hop(n: i32, ip: &str, rtt: f64) -> HopData {
-        HopData {
-            hop_number: n,
-            ip: Some(ip.to_string()),
-            hostname: None,
-            latency_min: Some(rtt - 0.5),
-            latency_avg: Some(rtt),
-            latency_max: Some(rtt + 0.5),
-            packet_loss: Some(0.0),
-            is_problem_hop: false,
-            source: Some("ICMP".to_string()),
-        }
-    }
-
-    fn silent(n: i32) -> HopData {
-        HopData {
-            ip: None,
-            latency_min: None,
-            latency_avg: None,
-            latency_max: None,
-            packet_loss: Some(100.0),
-            ..hop(n, "", 0.0)
-        }
-    }
-
-    async fn session(pool: &SqlitePool, id: i64, game: &str, started: i64) {
-        sqlx::query("INSERT INTO sessions (id, game_name, started_at) VALUES ($1, $2, $3)")
-            .bind(id)
-            .bind(game)
-            .bind(at(started))
-            .execute(pool)
-            .await
-            .unwrap();
-    }
-
-    async fn period(pool: &SqlitePool, session: i64, ip: &str, port: i32, (from, to): (i64, i64)) {
-        let periods = IpPeriodRepository::new(pool.clone());
-        let mut data =
-            IpPeriodData::new(session, ip.to_string(), "UDP".into(), port, at(from), 100);
-        data.ended_at = at(to);
-        let id = periods.insert_period(&data).await.unwrap();
-        periods.set_flow_kind(id, FlowKind::Game).await.unwrap();
-    }
-
-    async fn trace(pool: &SqlitePool, session: i64, ip: &str, started: i64, hops: &[HopData]) {
-        let id = TracerouteRepository::new(pool.clone())
-            .insert_traceroute(&TracerouteData::new(session, ip.to_string(), at(started)))
-            .await
-            .unwrap();
-        HopRepository::new(pool.clone())
-            .insert_hops_batch(id, hops)
-            .await
-            .unwrap();
-    }
-
-    async fn operator(pool: &SqlitePool, ip: &str, asn: &str, name: &str, city: Option<&str>) {
-        IpMetadataRepository::new(pool.clone())
-            .upsert_metadata(&IpMetadataData {
-                ip: ip.to_string(),
-                asn: Some(asn.to_string()),
-                isp: Some(name.to_string()),
-                org: Some(name.to_string()),
-                country: Some("France".to_string()),
-                city: city.map(str::to_string),
-                lat: None,
-                lon: None,
-                resolved_at: at(0),
-            })
-            .await
-            .unwrap();
     }
 
     #[tokio::test]
@@ -991,6 +554,7 @@ mod tests {
                 at_destination: false,
                 measured_hop: Some(3),
                 measured_asn: Some(9002),
+                server_ip: None,
             })
         );
         assert_eq!(
@@ -1008,7 +572,7 @@ mod tests {
         assert_eq!(incident.started_at, at(0));
         assert_eq!(parse(&incident.measured_at), parse(&at(40)));
         assert_eq!(incident.basis, server.basis.clone().unwrap());
-        assert_eq!(incident.usual_ms, None);
+        assert_eq!(incident.usual, UsualPing::default());
         assert_eq!(incident.cause, IncidentCause::Latency);
     }
 

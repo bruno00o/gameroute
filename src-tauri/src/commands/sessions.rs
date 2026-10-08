@@ -1,16 +1,16 @@
 use crate::commands::monitoring::{trace_session_targets, AppMonitoringState};
 use crate::commands::{validate_pagination, CommandError};
 use crate::db::ip_metadata::IpMetadataRepository;
-use crate::db::ip_periods::IpPeriodRepository;
 use crate::db::sessions::SessionRepository;
 use crate::db::traceroutes::TracerouteRepository;
 use crate::db::{
-    get_ip_metadata_repository, get_ip_period_repository, get_session_repository,
-    get_traceroute_repository, DbError,
+    get_analytics_repository, get_ip_metadata_repository, get_ip_period_repository,
+    get_session_repository, get_traceroute_repository, DbError,
 };
 use crate::models::session::{SessionDetail, SessionListFilter, SessionListPage, SessionMatch};
 use crate::models::traceroute_record::TracerouteWithHops;
 use crate::services::trace_targets::select_session_targets;
+use crate::services::usual::{match_history, MatchHistory};
 use crate::services::{matches, route_model, severity};
 use tauri::{AppHandle, State};
 
@@ -29,27 +29,22 @@ async fn session_traceroutes(
 
 async fn session_list_page(
     sessions: &SessionRepository,
-    periods: &IpPeriodRepository,
-    traceroutes: &TracerouteRepository,
+    history: &MatchHistory,
     filter: &SessionListFilter,
     limit: usize,
     offset: usize,
 ) -> Result<SessionListPage, DbError> {
-    let mut items = sessions.list_sessions(filter).await?;
-    let summarized: Vec<i64> = if filter.to_review {
-        items.iter().map(|item| item.id).collect()
-    } else {
-        items
-            .iter()
-            .skip(offset)
-            .take(limit)
-            .map(|item| item.id)
-            .collect()
+    let summary = |id: i64| {
+        history
+            .sessions
+            .get(&id)
+            .map(|session| matches::summarize(&session.matches))
+            .unwrap_or_default()
     };
-    let mut summaries = matches::session_summaries(periods, traceroutes, &summarized).await?;
+    let mut items = sessions.list_sessions(filter).await?;
 
     if filter.to_review {
-        items.retain(|item| summaries.get(&item.id).is_some_and(|s| s.needs_review()));
+        items.retain(|item| summary(item.id).needs_review());
     }
     let total = items.len() as i64;
     let items = items
@@ -57,7 +52,7 @@ async fn session_list_page(
         .skip(offset)
         .take(limit)
         .map(|mut item| {
-            item.matches = summaries.remove(&item.id).unwrap_or_default();
+            item.matches = summary(item.id);
             item
         })
         .collect();
@@ -71,6 +66,20 @@ async fn session_list_page(
     })
 }
 
+async fn rated_history() -> Result<MatchHistory, CommandError> {
+    let analytics = get_analytics_repository()
+        .ok_or_else(|| CommandError::repo_not_initialized("Analytics"))?;
+    let periods =
+        get_ip_period_repository().ok_or_else(|| CommandError::repo_not_initialized("IpPeriod"))?;
+    let traceroutes = get_traceroute_repository()
+        .ok_or_else(|| CommandError::repo_not_initialized("Traceroute"))?;
+    let metadata = get_ip_metadata_repository();
+
+    match_history(&analytics, &periods, &traceroutes, metadata.as_deref())
+        .await
+        .map_err(|e| CommandError::internal(e.to_string()))
+}
+
 #[tauri::command]
 pub async fn get_session_list(
     filter: SessionListFilter,
@@ -81,15 +90,11 @@ pub async fn get_session_list(
 
     let sessions =
         get_session_repository().ok_or_else(|| CommandError::repo_not_initialized("Session"))?;
-    let periods =
-        get_ip_period_repository().ok_or_else(|| CommandError::repo_not_initialized("IpPeriod"))?;
-    let traceroutes = get_traceroute_repository()
-        .ok_or_else(|| CommandError::repo_not_initialized("Traceroute"))?;
+    let history = rated_history().await?;
 
     session_list_page(
         &sessions,
-        &periods,
-        &traceroutes,
+        &history,
         &filter,
         limit as usize,
         offset as usize,
@@ -177,14 +182,12 @@ pub async fn get_session_matches(id: i64) -> Result<Vec<SessionMatch>, CommandEr
         return Err(CommandError::validation("Invalid session ID"));
     }
 
-    let periods = get_ip_period_repository()
-        .ok_or_else(|| CommandError::repo_not_initialized("IpPeriod"))?;
-    let traceroutes = get_traceroute_repository()
-        .ok_or_else(|| CommandError::repo_not_initialized("Traceroute"))?;
-
-    matches::session_matches(&periods, &traceroutes, id)
-        .await
-        .map_err(|e| CommandError::internal(e.to_string()))
+    Ok(rated_history()
+        .await?
+        .sessions
+        .remove(&id)
+        .map(|session| session.matches)
+        .unwrap_or_default())
 }
 
 #[tauri::command]
@@ -261,8 +264,10 @@ pub async fn retry_traceroutes(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::analytics::AnalyticsRepository;
     use crate::db::create_test_pool;
     use crate::db::hops::HopRepository;
+    use crate::db::ip_periods::IpPeriodRepository;
     use crate::models::flow_kind::FlowKind;
     use crate::models::ip_metadata::IpMetadataData;
     use crate::models::ip_period::IpPeriodData;
@@ -270,6 +275,9 @@ mod tests {
     use crate::models::severity::Severity;
     use crate::models::traceroute::RouteZone;
     use crate::models::TracerouteData;
+    use crate::services::server_summary::server_summary;
+    use crate::services::usual::fixtures::behind_isp;
+    use chrono::{TimeZone, Utc};
 
     const SFR: &str = "Societe Francaise Du Radiotelephone - SFR SA";
 
@@ -437,22 +445,27 @@ mod tests {
             id
         }
 
+        async fn history(&self) -> MatchHistory {
+            match_history(
+                &AnalyticsRepository::new(self.pool.clone()),
+                &self.periods,
+                &self.traceroutes,
+                None,
+            )
+            .await
+            .unwrap()
+        }
+
         async fn page(
             &self,
             filter: SessionListFilter,
             limit: usize,
             offset: usize,
         ) -> SessionListPage {
-            session_list_page(
-                &self.sessions,
-                &self.periods,
-                &self.traceroutes,
-                &filter,
-                limit,
-                offset,
-            )
-            .await
-            .unwrap()
+            let history = self.history().await;
+            session_list_page(&self.sessions, &history, &filter, limit, offset)
+                .await
+                .unwrap()
         }
     }
 
@@ -554,5 +567,50 @@ mod tests {
         assert!(page.items.is_empty());
         assert_eq!(page.total, 0);
         assert_eq!(page.recorded, 4);
+    }
+
+    #[tokio::test]
+    async fn list_matches_and_server_summary_agree_against_the_usual() {
+        let list = Listing::new().await;
+        for id in 1..=6 {
+            behind_isp(&list.pool, id, id - 7, 5.0).await;
+        }
+        behind_isp(&list.pool, 7, 0, 44.0).await;
+
+        let history = list.history().await;
+        let page = list.page(SessionListFilter::default(), 20, 0).await;
+        let summary = server_summary(
+            &AnalyticsRepository::new(list.pool.clone()),
+            &list.periods,
+            &list.traceroutes,
+            None,
+            Utc.with_ymd_and_hms(2026, 9, 21, 0, 0, 0).unwrap(),
+        )
+        .await
+        .unwrap();
+
+        let spike = &history.sessions[&7].matches[0];
+        let incident = summary.servers[0].last_incident.as_ref().unwrap();
+        assert_eq!(spike.flow.status, Severity::Watch);
+        assert_eq!(
+            (incident.session_id, incident.match_number),
+            (7, spike.number)
+        );
+        assert_eq!(incident.status, spike.flow.status);
+        assert_eq!(
+            Some(&incident.usual),
+            spike.flow.trace.as_ref().unwrap().usual.as_ref()
+        );
+        assert_eq!(summary.servers[0].status, Some(Severity::Watch));
+        for item in &page.items {
+            let matched = &history.sessions[&item.id].matches[0];
+            assert_eq!(
+                item.matches.status,
+                Some(matched.flow.status),
+                "session {}",
+                item.id
+            );
+        }
+        assert_eq!(rows(&page)[0], (7, 1, Some(44.0), Some(Severity::Watch)));
     }
 }
