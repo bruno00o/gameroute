@@ -98,7 +98,6 @@
   "session_hop_latency": "Latence",
   "session_hop_latency_tooltip": "min {min} / avg {avg} / max {max}",
   "session_hop_loss": "Perte",
-  "session_hop_timeout": "Timeout",
   "session_hop_problem": "Problème",
   "session_hop_unknown_hops": "Sauts inconnus",
   "session_hop_unreachable": "ICMP bloqué",
@@ -169,7 +168,6 @@
   "trace_hop_hostname": "Hostname",
   "trace_hop_latency": "Latence",
   "trace_hop_status": "Statut",
-  "trace_hop_timeout": "Timeout",
   "games_col_name": "Nom",
   "games_col_source": "Source",
   "games_col_monitored": "Surveillé",
@@ -223,9 +221,6 @@
   "network_map_empty": "Aucune localisation de serveur disponible. Jouez quelques parties pour commencer à cartographier votre réseau.",
   "network_map_legend_game_server": "Serveur de jeu",
   "network_map_legend_other": "Autre serveur",
-  "network_map_legend_stable": "Stable",
-  "network_map_legend_some_issues": "Quelques problèmes",
-  "network_map_legend_problematic": "Problématique",
   "network_map_sessions": "{count} sessions",
   "network_map_latency": "Latence",
   "network_problem_hops_title": "Sauts problématiques récurrents",
@@ -364,22 +359,11 @@
   "session_packets_short": "{count} paq",
 
   "dashboard_network_title": "Santé réseau",
-  "dashboard_network_good": "Bonne",
-  "dashboard_network_fair": "Moyenne",
-  "dashboard_network_poor": "Mauvaise",
-  "dashboard_network_no_data": "Aucune donnée",
-  "dashboard_network_good_desc": "Vos connexions récentes sont saines.",
-  "dashboard_network_fair_desc": "Quelques problèmes détectés sur vos routes.",
-  "dashboard_network_poor_desc": "Problèmes significatifs détectés sur vos routes.",
   "dashboard_avg_latency": "Latence moy.",
   "dashboard_avg_latency_tooltip": "Latence moyenne vers le serveur de jeu (dernier saut de chaque traceroute, routes de jeu uniquement).",
   "dashboard_problem_hops": "Sauts problém.",
   "dashboard_problem_hops_tooltip": "Nombre de routeurs uniques sur les routes de jeu où une perte de paquets (>10%) ou une latence instable (écart >50ms) persiste jusqu'à la destination.",
   "dashboard_network_details": "Cliquer pour les détails",
-
-  "trace_verdict_good": "Bonne connexion",
-  "trace_verdict_fair": "Quelques problèmes détectés",
-  "trace_verdict_poor": "Problèmes de connexion détectés",
 
   "welcome_performance_title": "Léger en arrière-plan",
   "welcome_performance_body": "GameRoute utilise un minimum de CPU et de bande passante. Le monitoring n'interfère pas avec vos jeux ni vos streams.",
@@ -440,5 +424,7 @@
   "status_watch": "À surveiller",
   "status_degraded": "Dégradé",
   "status_critical": "Critique",
-  "status_unmeasured": "Non mesurable"
+  "status_unmeasured": "Non mesurable",
+  "hop_silent": "Ne répond pas aux pings",
+  "hop_rate_limited": "Ignore une partie des pings · normal"
 }

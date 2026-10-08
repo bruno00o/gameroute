@@ -1,7 +1,6 @@
 import * as m from '@/paraglide/messages'
 import type { TracerouteHopEvent } from '@/types/backend'
-import { latencyColor, formatMs } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { formatMs } from '@/lib/format'
 import {
   Table,
   TableBody,
@@ -10,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
+import { SilentHop } from '@/components/status/silent-hop'
 
 export function LiveHopTable({
   hops,
@@ -46,16 +45,14 @@ export function LiveHopTable({
                 {hop.hostname ?? <span className="text-muted-foreground">-</span>}
               </TableCell>
             )}
-            <TableCell className="text-right tabular-nums">
+            <TableCell className="text-right font-mono tabular-nums">
               {hop.rttMs != null ? (
-                <span className={cn(latencyColor(hop.rttMs))}>{formatMs(hop.rttMs)}</span>
+                formatMs(hop.rttMs)
               ) : (
                 <span className="text-muted-foreground">-</span>
               )}
             </TableCell>
-            <TableCell className="text-right">
-              {hop.timeout ? <Badge variant="destructive">{m.trace_hop_timeout()}</Badge> : null}
-            </TableCell>
+            <TableCell className="text-right">{hop.timeout ? <SilentHop /> : null}</TableCell>
           </TableRow>
         ))}
       </TableBody>

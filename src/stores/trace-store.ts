@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type {
+  Severity,
   TracerouteAllCompleteEvent,
   TracerouteHopEvent,
   TracerouteProgressEvent,
@@ -14,6 +15,7 @@ type TraceStore = {
   serverIps: string[]
   startedAt: string | null
   completedIps: Map<string, boolean>
+  statuses: Map<string, Severity>
   summary: TracerouteAllCompleteEvent | null
   setRunning: (running: boolean) => void
   setProgress: (progress: TracerouteProgressEvent | null) => void
@@ -31,6 +33,7 @@ export const useTraceStore = create<TraceStore>(set => ({
   serverIps: [],
   startedAt: null,
   completedIps: new Map(),
+  statuses: new Map(),
   summary: null,
   setRunning: running => set({ isRunning: running }),
   setProgress: progress => set({ progress }),
@@ -52,6 +55,7 @@ export const useTraceStore = create<TraceStore>(set => ({
             progress: null,
             liveHops: new Map(),
             completedIps: new Map(),
+            statuses: new Map(),
             summary: null,
           },
     ),
@@ -59,7 +63,9 @@ export const useTraceStore = create<TraceStore>(set => ({
     set(state => {
       const next = new Map(state.completedIps)
       next.set(event.targetIp, event.success)
-      return { completedIps: next }
+      const statuses = new Map(state.statuses)
+      statuses.set(event.targetIp, event.status)
+      return { completedIps: next, statuses }
     }),
   setAllComplete: event =>
     set(state => {
@@ -75,6 +81,7 @@ export const useTraceStore = create<TraceStore>(set => ({
       serverIps: [],
       startedAt: null,
       completedIps: new Map(),
+      statuses: new Map(),
       summary: null,
     }),
 }))

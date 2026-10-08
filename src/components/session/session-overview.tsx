@@ -23,13 +23,11 @@ import {
   formatMs,
   formatNumber,
   formatPercent,
-  latencyColor,
   computeDurationSecs,
 } from '@/lib/format'
 import { generateSessionExport } from '@/lib/export-llm'
 import { exportSessionDetail } from '@/lib/export-csv'
 import { getPreviousSessionId, getSessionDetail } from '@/lib/tauri'
-import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/settings-store'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -82,19 +80,16 @@ function computeSessionStats(detail: SessionDetail): SessionStats {
   return { stability, problemHopCount, avgLatency }
 }
 
-function DeltaBadge({ current, previous, unit, invert = false }: {
+function DeltaBadge({ current, previous, unit }: {
   current: number | null
   previous: number | null
   unit?: 'ms' | '%'
-  invert?: boolean
 }) {
   if (current == null || previous == null) return null
   const diff = current - previous
   if (diff === 0) return null
 
   const isPositive = diff > 0
-  // For latency/problem hops, positive = bad. For stability, positive = good.
-  const isGood = invert ? isPositive : !isPositive
   const digits = Number.isInteger(diff) ? 0 : 1
   const magnitude =
     unit === 'ms'
@@ -105,10 +100,7 @@ function DeltaBadge({ current, previous, unit, invert = false }: {
   const formatted = `${isPositive ? '+' : '−'}${magnitude}`
 
   return (
-    <span className={cn(
-      'inline-flex items-center gap-0.5 text-[10px] font-medium',
-      isGood ? 'text-ok' : 'text-destructive',
-    )}>
+    <span className="text-muted-foreground inline-flex items-center gap-0.5 font-mono text-[10px] font-medium tabular-nums">
       {isPositive
         ? <RiArrowUpSLine className="size-3" />
         : <RiArrowDownSLine className="size-3" />}
@@ -242,10 +234,10 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
           <CardContent>
             {stats.stability != null ? (
               <div className="flex items-baseline gap-2">
-                <p className={`text-lg font-medium ${stats.stability >= 90 ? 'text-ok' : stats.stability >= 70 ? 'text-watch' : 'text-destructive'}`}>
+                <p className="font-mono text-lg font-medium tabular-nums">
                   {formatPercent(stats.stability)}
                 </p>
-                <DeltaBadge current={stats.stability} previous={prevStats?.stability ?? null} unit="%" invert />
+                <DeltaBadge current={stats.stability} previous={prevStats?.stability ?? null} unit="%" />
               </div>
             ) : (
               <p className="text-muted-foreground text-lg font-medium">-</p>
@@ -265,7 +257,7 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2">
-              <p className={`text-lg font-medium ${latencyColor(stats.avgLatency)}`}>
+              <p className="font-mono text-lg font-medium tabular-nums">
                 {formatMs(stats.avgLatency)}
               </p>
               <DeltaBadge current={stats.avgLatency} previous={prevStats?.avgLatency ?? null} unit="ms" />
@@ -286,9 +278,9 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
           <CardContent>
             <div className="flex items-baseline gap-2">
               {stats.problemHopCount > 0 ? (
-                <p className="text-destructive text-lg font-medium">{stats.problemHopCount}</p>
+                <p className="font-mono text-lg font-medium tabular-nums">{stats.problemHopCount}</p>
               ) : (
-                <p className="text-ok text-sm font-medium">{m.session_no_problems()}</p>
+                <p className="text-sm font-medium">{m.session_no_problems()}</p>
               )}
               <DeltaBadge current={stats.problemHopCount} previous={prevStats?.problemHopCount ?? null} />
             </div>

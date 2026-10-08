@@ -98,7 +98,6 @@
   "session_hop_latency": "Latency",
   "session_hop_latency_tooltip": "min {min} / avg {avg} / max {max}",
   "session_hop_loss": "Loss",
-  "session_hop_timeout": "Timeout",
   "session_hop_problem": "Problem",
   "session_hop_unknown_hops": "Unknown hops",
   "session_hop_unreachable": "ICMP blocked",
@@ -169,7 +168,6 @@
   "trace_hop_hostname": "Hostname",
   "trace_hop_latency": "Latency",
   "trace_hop_status": "Status",
-  "trace_hop_timeout": "Timeout",
   "games_col_name": "Name",
   "games_col_source": "Source",
   "games_col_monitored": "Monitored",
@@ -223,9 +221,6 @@
   "network_map_empty": "No server locations available yet. Play a few games to start mapping your network.",
   "network_map_legend_game_server": "Game server",
   "network_map_legend_other": "Other server",
-  "network_map_legend_stable": "Stable",
-  "network_map_legend_some_issues": "Some issues",
-  "network_map_legend_problematic": "Problematic",
   "network_map_sessions": "{count} sessions",
   "network_map_latency": "Latency",
   "network_problem_hops_title": "Recurring Problem Hops",
@@ -364,22 +359,11 @@
   "session_packets_short": "{count} pkt",
 
   "dashboard_network_title": "Network Health",
-  "dashboard_network_good": "Good",
-  "dashboard_network_fair": "Fair",
-  "dashboard_network_poor": "Poor",
-  "dashboard_network_no_data": "No data",
-  "dashboard_network_good_desc": "Your recent connections look healthy.",
-  "dashboard_network_fair_desc": "Some issues detected on your routes.",
-  "dashboard_network_poor_desc": "Significant problems detected on your routes.",
   "dashboard_avg_latency": "Avg Latency",
   "dashboard_avg_latency_tooltip": "Average latency to the game server (last hop of each traceroute, game server routes only).",
   "dashboard_problem_hops": "Problem Hops",
   "dashboard_problem_hops_tooltip": "Number of unique routers on game server routes where packet loss (>10%) or unstable latency (spread >50ms) persists to the destination.",
   "dashboard_network_details": "Click for details",
-
-  "trace_verdict_good": "Good connection",
-  "trace_verdict_fair": "Some issues detected",
-  "trace_verdict_poor": "Connection problems detected",
 
   "welcome_performance_title": "Lightweight in background",
   "welcome_performance_body": "GameRoute uses minimal CPU and bandwidth. Monitoring does not interfere with your games or streams.",
@@ -440,5 +424,7 @@
   "status_watch": "Watch",
   "status_degraded": "Degraded",
   "status_critical": "Critical",
-  "status_unmeasured": "Not measurable"
+  "status_unmeasured": "Not measurable",
+  "hop_silent": "Doesn't answer pings",
+  "hop_rate_limited": "Ignores some pings · normal"
 }

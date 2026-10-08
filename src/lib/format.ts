@@ -32,13 +32,6 @@ export function computeDurationSecs(startedAt: string, endedAt: string | null): 
   return Math.floor((end - start) / 1000)
 }
 
-export function latencyColor(ms: number | null): string {
-  if (ms == null) return ''
-  if (ms < 30) return 'text-ok'
-  if (ms < 80) return 'text-watch'
-  return 'text-destructive'
-}
-
 const numberFormats = new Map<string, Intl.NumberFormat>()
 
 export function formatNumber(

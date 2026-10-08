@@ -11,7 +11,7 @@ import {
 import * as m from '@/paraglide/messages'
 import { useSettingsStore } from '@/stores/settings-store'
 import { getDashboardData, getNetworkOverviewStats } from '@/lib/tauri'
-import { formatDuration, formatDate, formatMs, latencyColor, computeDurationSecs } from '@/lib/format'
+import { formatDuration, formatDate, formatMs, computeDurationSecs } from '@/lib/format'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -24,49 +24,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { StatusPill } from '@/components/status/status-pill'
 
 export const Route = createFileRoute('/')({
   component: DashboardPage,
 })
-
-function getNetworkVerdict(
-  avgLatency: number | null,
-  uniqueProblemHops: number,
-  totalTraceroutes: number,
-) {
-  if (totalTraceroutes === 0) return 'no-data'
-  // uniqueProblemHops = count of distinct router IPs flagged as problems
-  if ((avgLatency != null && avgLatency >= 80) || uniqueProblemHops >= 5) return 'poor'
-  if ((avgLatency != null && avgLatency >= 50) || uniqueProblemHops >= 2) return 'fair'
-  return 'good'
-}
-
-const verdictConfig = {
-  good: {
-    label: () => m.dashboard_network_good(),
-    desc: () => m.dashboard_network_good_desc(),
-    color: 'text-ok',
-    bg: 'border-border bg-card',
-  },
-  fair: {
-    label: () => m.dashboard_network_fair(),
-    desc: () => m.dashboard_network_fair_desc(),
-    color: 'text-watch',
-    bg: 'bg-watch-soft border-watch/30',
-  },
-  poor: {
-    label: () => m.dashboard_network_poor(),
-    desc: () => m.dashboard_network_poor_desc(),
-    color: 'text-destructive',
-    bg: 'bg-critical-soft border-destructive/30',
-  },
-  'no-data': {
-    label: () => m.dashboard_network_no_data(),
-    desc: () => '',
-    color: 'text-muted-foreground',
-    bg: 'border-border bg-card',
-  },
-} as const
 
 function DashboardPage() {
   const advancedMode = useSettingsStore(s => s.advancedMode)
@@ -82,11 +44,6 @@ function DashboardPage() {
     queryFn: getNetworkOverviewStats,
   })
 
-  const verdict = networkStats
-    ? getNetworkVerdict(networkStats.avgLatency, networkStats.totalProblemHops, networkStats.totalTraceroutes)
-    : 'no-data'
-  const vc = verdictConfig[verdict]
-
   return (
     <div className="h-full overflow-y-auto p-4">
       <h1 className="text-2xl font-bold">{m.page_dashboard_title()}</h1>
@@ -94,7 +51,7 @@ function DashboardPage() {
 
       {/* Network health verdict — click for details */}
       <div
-        className={`mt-6 flex cursor-pointer items-center gap-4 rounded-lg border p-4 transition-opacity hover:opacity-80 ${vc.bg}`}
+        className="bg-card mt-6 flex cursor-pointer items-center gap-4 rounded-lg border p-4 transition-opacity hover:opacity-80"
         role="link"
         aria-label={m.dashboard_network_title()}
         tabIndex={0}
@@ -110,24 +67,19 @@ function DashboardPage() {
           <Skeleton className="h-10 w-full" />
         ) : (
           <>
-            <RiPulseLine className={`size-8 shrink-0 ${vc.color}`} />
+            <RiPulseLine className="text-muted-foreground size-8 shrink-0" />
             <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className={`text-lg font-bold ${vc.color}`}>{vc.label()}</span>
-                <span className="text-muted-foreground text-sm">
-                  {m.dashboard_network_title()}
-                </span>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="text-heading">{m.dashboard_network_title()}</span>
+                <StatusPill status={networkStats?.status ?? 'unmeasured'} />
               </div>
-              {verdict !== 'no-data' && (
-                <p className="text-muted-foreground text-sm">{vc.desc()}</p>
-              )}
               <p className="text-muted-foreground/60 text-xs">{m.dashboard_network_details()}</p>
             </div>
-            {verdict !== 'no-data' && networkStats && (
+            {networkStats && networkStats.totalTraceroutes > 0 && (
               <div className="flex shrink-0 gap-6 text-sm">
                 <Tooltip>
                   <TooltipTrigger render={<div className="text-center cursor-help" />}>
-                      <div className={`text-lg font-bold ${latencyColor(networkStats.avgLatency)}`}>
+                      <div className="font-mono text-lg font-medium tabular-nums">
                         {formatMs(networkStats.avgLatency)}
                       </div>
                       <div className="text-muted-foreground text-xs underline decoration-dotted">
@@ -140,7 +92,7 @@ function DashboardPage() {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger render={<div className="text-center cursor-help" />}>
-                      <div className={`text-lg font-bold ${networkStats.totalProblemHops > 0 ? 'text-watch' : 'text-ok'}`}>
+                      <div className="font-mono text-lg font-medium tabular-nums">
                         {networkStats.totalProblemHops}
                       </div>
                       <div className="text-muted-foreground text-xs underline decoration-dotted">
