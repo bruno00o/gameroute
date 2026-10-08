@@ -43,6 +43,8 @@ pub enum PingSource {
     Trace,
     Game,
     GameRegion,
+    Floor,
+    Region,
 }
 
 impl PingSource {
@@ -51,6 +53,8 @@ impl PingSource {
             Self::Trace => "trace",
             Self::Game => "game",
             Self::GameRegion => "game_region",
+            Self::Floor => "floor",
+            Self::Region => "region",
         }
     }
 }
@@ -63,12 +67,14 @@ impl TryFrom<String> for PingSource {
             "trace" => Ok(Self::Trace),
             "game" => Ok(Self::Game),
             "game_region" => Ok(Self::GameRegion),
+            "floor" => Ok(Self::Floor),
+            "region" => Ok(Self::Region),
             _ => Err(format!("unknown ping source {value}")),
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PingBasis {
     pub source: PingSource,

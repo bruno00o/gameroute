@@ -7,6 +7,7 @@ pub mod game_library;
 pub mod game_ping;
 pub mod hop;
 pub mod insights;
+pub mod live_probe;
 pub mod ip_metadata;
 pub mod ip_period;
 pub mod network;

@@ -6,6 +6,7 @@ pub mod flow_kind;
 pub mod game_detection;
 pub mod game_logs;
 pub mod game_profiles;
+pub mod live_probe;
 pub mod matches;
 pub mod network_capture;
 pub mod riot_scanner;

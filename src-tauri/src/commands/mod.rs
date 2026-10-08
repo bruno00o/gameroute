@@ -2,6 +2,7 @@ pub mod asn;
 pub mod export;
 pub mod games;
 pub mod insights;
+pub mod live_probe;
 pub mod monitoring;
 pub mod network;
 pub mod service;

@@ -85,6 +85,32 @@ pub const GAME_LOG_SLACK_SECS: i64 = 60;
 
 pub const GAME_PING_MATCH_GRACE_SECS: i64 = 120;
 
+// ── Live probe ─────────────────────────────────────────────────────────────
+
+pub const LIVE_PROBE_CONFIG_FILE_NAME: &str = "live_probe.json";
+
+pub const LIVE_PROBE_INTERVAL_MS: u64 = 1000;
+
+pub const LIVE_PROBE_TIMEOUT_MS: u32 = 900;
+
+pub const LIVE_PROBE_PLAN_REFRESH_SECS: i64 = 5;
+
+pub const LIVE_PROBE_MATCH_IDLE_SECS: i64 = 20;
+
+pub const LIVE_PROBE_SLICE_SECS: i64 = 10;
+
+pub const LIVE_PROBE_STATS_SAMPLES: usize = 10;
+
+pub const LIVE_PROBE_WINDOW_SAMPLES: usize = 60;
+
+pub const LIVE_PROBE_MAX_PACKETS_PER_TICK: usize = 2;
+
+pub const LIVE_PROBE_MAX_PACKETS_PER_SESSION: u64 = 43_200;
+
+pub const LIVE_PROBE_PAYLOAD: &[u8] = b"gameroute";
+
+pub const LIVE_PROBE_PROTECTED_ASNS: &[u32] = &[6507];
+
 // ── Database ──────────────────────────────────────────────────────────────
 
 /// Timeout for acquiring a connection from the SQLite pool.

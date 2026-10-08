@@ -5,8 +5,10 @@ use crate::db::sessions::SessionRepository;
 use crate::db::traceroutes::TracerouteRepository;
 use crate::db::{
     get_analytics_repository, get_game_ping_repository, get_ip_metadata_repository,
-    get_ip_period_repository, get_session_repository, get_traceroute_repository, DbError,
+    get_ip_period_repository, get_live_probe_repository, get_session_repository,
+    get_traceroute_repository, DbError,
 };
+use crate::services::live_probe::{self, attach::attach_live_measures};
 use crate::models::session::{SessionDetail, SessionListFilter, SessionListPage, SessionMatch};
 use crate::models::traceroute_record::TracerouteWithHops;
 use crate::services::trace_targets::select_session_targets;
@@ -189,12 +191,19 @@ pub async fn get_session_matches(id: i64) -> Result<Vec<SessionMatch>, CommandEr
         return Err(CommandError::validation("Invalid session ID"));
     }
 
-    Ok(rated_history()
+    let mut matches = rated_history()
         .await?
         .sessions
         .remove(&id)
         .map(|session| session.matches)
-        .unwrap_or_default())
+        .unwrap_or_default();
+    if let Some(repo) = get_live_probe_repository() {
+        match repo.get_slices_for_session(id).await {
+            Ok(slices) => attach_live_measures(&mut matches, &slices, live_probe::asn_of),
+            Err(e) => log::error!("Failed to load live probes for session {}: {}", id, e),
+        }
+    }
+    Ok(matches)
 }
 
 #[tauri::command]
