@@ -4,6 +4,7 @@ use crate::config::{
 };
 use crate::db::{get_hop_repository, get_traceroute_repository};
 use crate::models::flow_kind::FlowKind;
+use crate::models::hop::ProbedHop;
 use crate::models::session::HopData;
 use crate::models::HopResult;
 use crate::services::asn_resolver::record_operators;
@@ -346,31 +347,30 @@ pub fn merge_probe_hops(
     })
 }
 
-fn is_lossy(hop: &HopResult) -> bool {
-    hop.packet_loss() >= PACKET_LOSS_THRESHOLD
+fn is_lossy<H: ProbedHop>(hop: &H) -> bool {
+    hop.loss_pct() >= PACKET_LOSS_THRESHOLD
 }
 
-fn is_jittery(hop: &HopResult) -> bool {
-    hop.rtt_min
-        .zip(hop.rtt_max)
+fn is_jittery<H: ProbedHop>(hop: &H) -> bool {
+    hop.rtt_range()
         .is_some_and(|(min, max)| max - min >= LATENCY_SPIKE_THRESHOLD)
 }
 
-fn persistent_onset(
-    hops: &[HopResult],
+fn persistent_onset<H: ProbedHop>(
+    hops: &[H],
     target_ip: &str,
-    affected: fn(&HopResult) -> bool,
-) -> Option<u32> {
-    let responding: Vec<&HopResult> = hops.iter().filter(|h| h.responded).collect();
-    let tail = responding.iter().rev().take_while(|h| affected(h)).count();
+    affected: fn(&H) -> bool,
+) -> Option<usize> {
+    let responding: Vec<usize> = (0..hops.len()).filter(|&i| hops[i].responded()).collect();
+    let tail = responding.iter().rev().take_while(|&&i| affected(&hops[i])).count();
     let reached = responding
         .last()
-        .is_some_and(|h| h.ip.as_deref() == Some(target_ip));
+        .is_some_and(|&i| hops[i].ip() == Some(target_ip));
 
     match tail {
         0 => None,
         1 if !reached => None,
-        n => Some(responding[responding.len() - n].hop_number),
+        n => Some(responding[responding.len() - n]),
     }
 }
 
@@ -379,7 +379,11 @@ pub fn identify_problem_hop(hops: &[HopResult], target_ip: &str) -> Option<i32> 
         .into_iter()
         .filter_map(|affected| persistent_onset(hops, target_ip, affected))
         .min()
-        .map(|hop| hop as i32)
+        .map(|i| hops[i].hop_number as i32)
+}
+
+pub fn persistent_loss_onset<H: ProbedHop>(hops: &[H], target_ip: &str) -> Option<usize> {
+    persistent_onset(hops, target_ip, is_lossy)
 }
 
 fn probe_protocol(method: &str) -> Option<String> {

@@ -80,6 +80,36 @@ impl HopResult {
     }
 }
 
+pub trait ProbedHop {
+    fn ip(&self) -> Option<&str>;
+    fn responded(&self) -> bool;
+    fn loss_pct(&self) -> f64;
+    fn rtt_avg(&self) -> Option<f64>;
+    fn rtt_range(&self) -> Option<(f64, f64)>;
+}
+
+impl ProbedHop for HopResult {
+    fn ip(&self) -> Option<&str> {
+        self.ip.as_deref()
+    }
+
+    fn responded(&self) -> bool {
+        self.responded
+    }
+
+    fn loss_pct(&self) -> f64 {
+        self.packet_loss()
+    }
+
+    fn rtt_avg(&self) -> Option<f64> {
+        self.rtt_avg
+    }
+
+    fn rtt_range(&self) -> Option<(f64, f64)> {
+        self.rtt_min.zip(self.rtt_max)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

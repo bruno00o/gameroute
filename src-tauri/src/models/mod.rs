@@ -12,6 +12,7 @@ pub mod ip_period;
 pub mod network;
 pub mod server_ip;
 pub mod session;
+pub mod severity;
 pub mod traceroute;
 pub mod traceroute_record;
 

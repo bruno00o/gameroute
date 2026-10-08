@@ -18,6 +18,22 @@ export type ResolvedIpData = {
   geo: GeoLocation
 }
 
+// ===== Severity =====
+export type Severity = 'ok' | 'watch' | 'degraded' | 'critical' | 'unmeasured'
+
+export type SeverityThreshold = {
+  lossPct: number
+  jitterMs: number
+  overBaselineMs: number
+  rttMs: number
+}
+
+export type SeverityThresholds = {
+  watch: SeverityThreshold
+  degraded: SeverityThreshold
+  critical: SeverityThreshold
+}
+
 // ===== Sessions =====
 export type Session = {
   id: number
@@ -57,6 +73,7 @@ export type DbHop = {
   packetLoss: number | null
   isProblemHop: boolean
   source: string | null
+  lossStatus: Severity | null
 }
 
 // ===== IP Periods =====
@@ -108,6 +125,7 @@ export type TracerouteWithHops = {
   problemHopIndex: number | null
   tracerouteMethod: string | null
   hops: DbHop[]
+  status: Severity
 }
 
 // ===== Game Library =====
@@ -275,6 +293,7 @@ export type TracerouteServerIpCompleteEvent = {
   index: number
   targetIp: string
   success: boolean
+  status: Severity
 }
 
 export type TracerouteAllCompleteEvent = {
@@ -314,6 +333,7 @@ export type NetworkOverviewStats = {
   totalTraceroutes: number
   totalProblemHops: number
   avgLatency: number | null
+  status: Severity
 }
 
 // ===== Insights =====

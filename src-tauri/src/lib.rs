@@ -23,6 +23,7 @@ use commands::monitoring::{
 };
 use commands::network::{
     get_network_map_data, get_network_overview_stats, get_recurring_problem_hops,
+    get_severity_thresholds,
 };
 use commands::service::{
     check_capture_service_status, open_log_dir, restart_capture_service, set_minimize_to_tray,
@@ -280,6 +281,7 @@ pub fn run() {
             get_network_map_data,
             get_recurring_problem_hops,
             get_network_overview_stats,
+            get_severity_thresholds,
             get_network_quality_over_time,
             get_server_stability,
             get_hourly_quality,
