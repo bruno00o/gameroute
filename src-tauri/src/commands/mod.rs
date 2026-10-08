@@ -7,6 +7,7 @@ pub mod monitoring;
 pub mod network;
 pub mod service;
 pub mod sessions;
+pub mod settings;
 
 use crate::config::{DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT};
 use crate::services::asn_resolver;

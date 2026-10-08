@@ -85,8 +85,13 @@ pub const DB_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 /// Maximum age (days) for IP metadata cache entries before pruning.
 pub const CACHE_MAX_TTL_DAYS: i64 = 30;
 
-/// Maximum age (days) for completed sessions before auto-cleanup on startup.
-pub const SESSION_RETENTION_DAYS: i64 = 90;
+// ── Settings ───────────────────────────────────────────────────────────────
+
+pub const SETTINGS_FILE_NAME: &str = "settings.json";
+
+pub const DEFAULT_SESSION_RETENTION_DAYS: u32 = 365;
+
+pub const SESSION_RETENTION_CHOICES_DAYS: [u32; 4] = [90, 180, 365, 730];
 
 // ── Pagination ─────────────────────────────────────────────────────────────
 

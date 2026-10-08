@@ -10,6 +10,7 @@ pub mod hops;
 pub mod ip_metadata;
 pub mod ip_periods;
 pub mod sessions;
+pub mod storage;
 pub mod traceroutes;
 
 pub use analytics::get_analytics_repository;
@@ -18,6 +19,7 @@ pub use hops::get_hop_repository;
 pub use ip_metadata::get_ip_metadata_repository;
 pub use ip_periods::get_ip_period_repository;
 pub use sessions::get_session_repository;
+pub use storage::get_storage_repository;
 pub use traceroutes::get_traceroute_repository;
 
 #[derive(Debug, Error)]
@@ -67,6 +69,7 @@ pub fn init_repositories(pool: &SqlitePool) {
     ip_metadata::init_ip_metadata_repository(pool.clone());
     games::init_game_repository(pool.clone());
     analytics::init_analytics_repository(pool.clone());
+    storage::init_storage_repository(pool.clone());
 }
 
 #[cfg(test)]

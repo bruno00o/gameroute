@@ -1,9 +1,8 @@
 use serde::Serialize;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager};
 
 use super::CommandError;
 use crate::config::CAPTURE_SERVICE_PIPE_NAME;
-use crate::TraySettings;
 
 #[derive(Debug, Serialize)]
 pub struct ServiceStatus {
@@ -88,11 +87,4 @@ pub async fn open_log_dir(app: AppHandle) -> Result<(), CommandError> {
     let path_str = log_dir.to_string_lossy().to_string();
     tauri_plugin_opener::open_path(&path_str, None::<&str>)
         .map_err(|e| CommandError::internal(format!("Failed to open log directory: {}", e)))
-}
-
-#[tauri::command]
-pub fn set_minimize_to_tray(enabled: bool, state: State<'_, TraySettings>) {
-    state
-        .minimize_to_tray
-        .store(enabled, std::sync::atomic::Ordering::Relaxed);
 }

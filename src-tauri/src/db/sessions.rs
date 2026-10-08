@@ -193,6 +193,18 @@ impl SessionRepository {
         Ok(count)
     }
 
+    pub async fn clean_up_on_startup(
+        &self,
+        retention_days: Option<u32>,
+    ) -> Result<(usize, usize), DbError> {
+        let closed = self.close_orphan_sessions().await?;
+        let deleted = match retention_days {
+            Some(days) => self.delete_old_sessions(days.into()).await?,
+            None => 0,
+        };
+        Ok((closed, deleted))
+    }
+
     /// Find the ID of the most recent completed session for the same game,
     /// started before the given timestamp.
     pub async fn get_previous_session_id(
@@ -380,6 +392,22 @@ mod tests {
                 (ended, false)
             ]
         );
+    }
+
+    #[tokio::test]
+    async fn test_clean_up_on_startup_counts_closed_and_deleted_sessions() {
+        let repo = create_test_repo().await;
+        let now = chrono::Utc::now();
+        let old = (now - chrono::Duration::days(100)).to_rfc3339();
+        let recent = (now - chrono::Duration::days(5)).to_rfc3339();
+        repo.insert_session("VALORANT", &old).await.unwrap();
+        repo.insert_session("VALORANT", &recent).await.unwrap();
+
+        assert_eq!(repo.clean_up_on_startup(None).await.unwrap(), (2, 0));
+        assert_eq!(repo.get_session_count().await.unwrap(), 2);
+
+        assert_eq!(repo.clean_up_on_startup(Some(90)).await.unwrap(), (0, 1));
+        assert_eq!(repo.get_session_count().await.unwrap(), 1);
     }
 
     async fn insert_period(repo: &SessionRepository, session_id: i64, ip: &str, game_server: bool) {
