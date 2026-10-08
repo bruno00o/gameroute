@@ -6,8 +6,10 @@ use crate::models::traceroute::{OperatorRoute, RouteSegment, RouteZone};
 use crate::models::traceroute_record::TracerouteWithHops;
 use crate::services::asn_resolver::lookup_metadata;
 use crate::services::network_capture::is_private_or_special_ip;
-use crate::services::severity::loss_status;
-use crate::services::traceroute::persistent_loss_onset;
+use crate::services::severity::{assess_traceroute, loss_status};
+use crate::services::traceroute::{
+    hop_source, identify_problem_hop, persistent_loss_onset, TracerouteResult,
+};
 use std::collections::{HashMap, HashSet};
 use std::net::IpAddr;
 use std::ops::Range;
@@ -246,10 +248,52 @@ pub async fn attach_routes(
     }
 }
 
+pub async fn assessed_trace(
+    result: &TracerouteResult,
+    metadata: Option<&IpMetadataRepository>,
+) -> TracerouteWithHops {
+    let problem_hop = identify_problem_hop(&result.hops, &result.target_ip);
+    let hops = result
+        .hops
+        .iter()
+        .map(|hop| DbHop {
+            id: i64::from(hop.hop_number),
+            traceroute_id: result.traceroute_id.unwrap_or(0),
+            hop_number: hop.hop_number as i32,
+            ip: hop.ip.clone(),
+            hostname: hop.hostname.clone(),
+            latency_min: hop.rtt_min,
+            latency_avg: hop.rtt_avg,
+            latency_max: hop.rtt_max,
+            packet_loss: Some(hop.packet_loss()),
+            is_problem_hop: problem_hop == Some(hop.hop_number as i32),
+            source: hop_source(result, hop),
+            loss_status: None,
+        })
+        .collect();
+
+    let mut trace = TracerouteWithHops {
+        id: result.traceroute_id.unwrap_or(0),
+        session_id: 0,
+        target_ip: result.target_ip.clone(),
+        started_at: chrono::Utc::now().to_rfc3339(),
+        completed_at: None,
+        problem_hop_index: problem_hop,
+        traceroute_method: Some(result.method.clone()),
+        hops,
+        status: Default::default(),
+        route: None,
+    };
+    assess_traceroute(&mut trace);
+    attach_routes(std::slice::from_mut(&mut trace), metadata).await;
+    trace
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::models::severity::Severity;
+    use crate::models::HopResult;
 
     const SFR: (u32, &str) = (15557, "Societe Francaise Du Radiotelephone - SFR SA");
     const RETN: (u32, &str) = (9002, "RETN Limited");
@@ -616,5 +660,73 @@ mod tests {
             })
         );
         assert_eq!(Operator::from_metadata(metadata(None)), None);
+    }
+
+    fn unsaved_result(target: &str, hops: Vec<HopResult>) -> TracerouteResult {
+        TracerouteResult {
+            target_ip: target.to_string(),
+            index: 1,
+            traceroute_id: None,
+            success: !hops.is_empty(),
+            hops,
+            method: "ICMP (tracert)".to_string(),
+            probe_from_ttl: None,
+        }
+    }
+
+    fn answer(ttl: u32, ip: &str, rtt: f64) -> HopResult {
+        HopResult::new(ttl, Some(ip.to_string()), None, vec![Some(rtt), Some(rtt), Some(rtt)])
+    }
+
+    #[tokio::test]
+    async fn an_unsaved_trace_that_reaches_its_target_has_a_route_and_a_status() {
+        let result = unsaved_result(
+            "162.249.72.1",
+            vec![
+                answer(1, "192.168.1.1", 0.6),
+                HopResult::timeout(2, 3),
+                answer(3, "162.249.72.1", 12.0),
+            ],
+        );
+
+        let trace = assessed_trace(&result, None).await;
+
+        assert_eq!(trace.session_id, 0);
+        assert_eq!(trace.hops.len(), 3);
+        assert_eq!(trace.hops[1].latency_avg, None);
+        assert_eq!(trace.hops[2].source.as_deref(), Some("ICMP"));
+        assert_eq!(trace.status, Severity::Ok);
+        let route = trace.route.expect("route");
+        assert!(!route.destination_silent);
+        assert_eq!(route.last_responding_hop, 3);
+    }
+
+    #[tokio::test]
+    async fn an_unsaved_trace_that_stops_short_reports_a_silent_destination() {
+        let result = unsaved_result(
+            "162.249.72.1",
+            vec![
+                answer(1, "192.168.1.1", 0.6),
+                answer(2, "10.24.0.1", 3.0),
+                HopResult::timeout(3, 3),
+                answer(4, "77.136.10.6", 4.2),
+            ],
+        );
+
+        let trace = assessed_trace(&result, None).await;
+
+        let route = trace.route.expect("route");
+        assert!(route.destination_silent);
+        assert_eq!(route.last_responding_hop, 4);
+        assert_eq!(trace.hops.len(), 4);
+    }
+
+    #[tokio::test]
+    async fn an_unsaved_trace_without_answers_has_no_route() {
+        let trace = assessed_trace(&unsaved_result("162.249.72.1", Vec::new()), None).await;
+
+        assert!(trace.hops.is_empty());
+        assert!(trace.route.is_none());
+        assert_eq!(trace.status, Severity::Unmeasured);
     }
 }

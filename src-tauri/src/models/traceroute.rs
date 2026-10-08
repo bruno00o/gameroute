@@ -1,3 +1,5 @@
+use crate::models::flow_kind::FlowKind;
+use crate::models::session::DbHop;
 use crate::models::severity::Severity;
 use crate::models::HopResult;
 use serde::{Deserialize, Serialize};
@@ -36,19 +38,30 @@ pub struct OperatorRoute {
     pub destination_name: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TracedTarget {
+    pub ip: String,
+    pub kind: Option<FlowKind>,
+    pub protocol: String,
+    pub port: u16,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TracerouteStartedEvent {
     pub server_ip_count: u32,
     pub server_ips: Vec<String>,
+    pub targets: Vec<TracedTarget>,
     pub started_at: String,
 }
 
 impl TracerouteStartedEvent {
-    pub fn new(server_ip_count: u32, server_ips: Vec<String>) -> Self {
+    pub fn new(server_ip_count: u32, targets: Vec<TracedTarget>) -> Self {
         Self {
             server_ip_count,
-            server_ips,
+            server_ips: targets.iter().map(|target| target.ip.clone()).collect(),
+            targets,
             started_at: chrono::Utc::now().to_rfc3339(),
         }
     }
@@ -86,15 +99,26 @@ pub struct TracerouteServerIpCompleteEvent {
     pub target_ip: String,
     pub success: bool,
     pub status: Severity,
+    pub hops: Vec<DbHop>,
+    pub route: Option<OperatorRoute>,
 }
 
 impl TracerouteServerIpCompleteEvent {
-    pub fn new(index: u32, target_ip: String, success: bool, status: Severity) -> Self {
+    pub fn new(
+        index: u32,
+        target_ip: String,
+        success: bool,
+        status: Severity,
+        hops: Vec<DbHop>,
+        route: Option<OperatorRoute>,
+    ) -> Self {
         Self {
             index,
             target_ip,
             success,
             status,
+            hops,
+            route,
         }
     }
 }
@@ -128,6 +152,9 @@ pub struct TracerouteHopEvent {
     pub ip: Option<String>,
     pub hostname: Option<String>,
     pub rtt_ms: Option<f64>,
+    pub rtt_min: Option<f64>,
+    pub rtt_max: Option<f64>,
+    pub packet_loss: f64,
     pub timeout: bool,
 }
 
@@ -140,6 +167,9 @@ impl TracerouteHopEvent {
             ip: hop.ip.clone(),
             hostname: hop.hostname.clone(),
             rtt_ms: hop.rtt_avg,
+            rtt_min: hop.rtt_min,
+            rtt_max: hop.rtt_max,
+            packet_loss: hop.packet_loss(),
             timeout: !hop.responded,
         }
     }
@@ -184,18 +214,29 @@ mod tests {
 
     #[test]
     fn test_traceroute_started_event() {
+        let target = |ip: &str, kind| TracedTarget {
+            ip: ip.to_string(),
+            kind,
+            protocol: "ICMP".to_string(),
+            port: 0,
+        };
         let event = TracerouteStartedEvent::new(
             3,
             vec![
-                "1.1.1.1".to_string(),
-                "2.2.2.2".to_string(),
-                "3.3.3.3".to_string(),
+                target("1.1.1.1", Some(FlowKind::Game)),
+                target("2.2.2.2", Some(FlowKind::Voice)),
+                target("3.3.3.3", None),
             ],
         );
 
         assert_eq!(event.server_ip_count, 3);
-        assert_eq!(event.server_ips.len(), 3);
+        assert_eq!(event.server_ips, vec!["1.1.1.1", "2.2.2.2", "3.3.3.3"]);
         assert!(!event.started_at.is_empty());
+
+        let json = serde_json::to_value(&event).unwrap();
+        assert_eq!(json["targets"][0]["kind"], "game");
+        assert_eq!(json["targets"][1]["kind"], "voice");
+        assert!(json["targets"][2]["kind"].is_null());
     }
 
     #[test]
@@ -221,8 +262,14 @@ mod tests {
 
     #[test]
     fn test_traceroute_server_ip_complete_event() {
-        let event =
-            TracerouteServerIpCompleteEvent::new(1, "1.1.1.1".to_string(), true, Severity::Watch);
+        let event = TracerouteServerIpCompleteEvent::new(
+            1,
+            "1.1.1.1".to_string(),
+            true,
+            Severity::Watch,
+            Vec::new(),
+            None,
+        );
         assert_eq!(event.index, 1);
         assert_eq!(event.target_ip, "1.1.1.1");
         assert!(event.success);
@@ -257,6 +304,9 @@ mod tests {
         assert_eq!(event.ip, Some("8.8.8.8".to_string()));
         assert_eq!(event.hostname, Some("dns.google".to_string()));
         assert!(event.rtt_ms.is_some());
+        assert_eq!(event.rtt_min, Some(14.0));
+        assert_eq!(event.rtt_max, Some(16.0));
+        assert_eq!(event.packet_loss, 0.0);
         assert!(!event.timeout);
     }
 

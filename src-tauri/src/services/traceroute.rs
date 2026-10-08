@@ -394,6 +394,17 @@ fn probe_protocol(method: &str) -> Option<String> {
         .map(|s| s.to_string())
 }
 
+pub fn hop_source(result: &TracerouteResult, hop: &HopResult) -> Option<String> {
+    let from_probe = result
+        .probe_from_ttl
+        .is_some_and(|ttl| hop.hop_number >= ttl);
+    if from_probe {
+        probe_protocol(&result.method)
+    } else {
+        Some("ICMP".to_string())
+    }
+}
+
 pub async fn persist_traceroute_result(result: &TracerouteResult) {
     let traceroute_id = match result.traceroute_id {
         Some(id) => id,
@@ -401,33 +412,21 @@ pub async fn persist_traceroute_result(result: &TracerouteResult) {
     };
 
     let problem_hop_index = identify_problem_hop(&result.hops, &result.target_ip);
-    let probe_source = probe_protocol(&result.method);
 
     if let Some(hop_repo) = get_hop_repository() {
         let hop_data: Vec<HopData> = result
             .hops
             .iter()
-            .map(|hop| {
-                let from_probe = result
-                    .probe_from_ttl
-                    .is_some_and(|ttl| hop.hop_number >= ttl);
-                let source = if from_probe {
-                    probe_source.clone()
-                } else {
-                    Some("ICMP".to_string())
-                };
-
-                HopData {
-                    hop_number: hop.hop_number as i32,
-                    ip: hop.ip.clone(),
-                    hostname: hop.hostname.clone(),
-                    latency_min: hop.rtt_min,
-                    latency_avg: hop.rtt_avg,
-                    latency_max: hop.rtt_max,
-                    packet_loss: Some(hop.packet_loss()),
-                    is_problem_hop: problem_hop_index == Some(hop.hop_number as i32),
-                    source,
-                }
+            .map(|hop| HopData {
+                hop_number: hop.hop_number as i32,
+                ip: hop.ip.clone(),
+                hostname: hop.hostname.clone(),
+                latency_min: hop.rtt_min,
+                latency_avg: hop.rtt_avg,
+                latency_max: hop.rtt_max,
+                packet_loss: Some(hop.packet_loss()),
+                is_problem_hop: problem_hop_index == Some(hop.hop_number as i32),
+                source: hop_source(result, hop),
             })
             .collect();
 
