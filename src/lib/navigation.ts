@@ -53,7 +53,7 @@ export function getNavigationGroups(liveState: LiveState = 'idle'): NavGroup[] {
       label: m.nav_analysis_label(),
       items: [
         { key: 'route', title: m.nav_route(), to: '/route', icon: RiRouteLine },
-        { key: 'history', title: m.nav_history(), to: '/network', icon: RiTimeLine },
+        { key: 'history', title: m.nav_history(), to: '/history', icon: RiTimeLine },
         { key: 'reports', title: m.nav_reports(), to: '/reports', icon: RiFileTextLine },
       ],
     },
