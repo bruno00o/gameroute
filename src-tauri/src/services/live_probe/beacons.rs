@@ -198,6 +198,7 @@ impl Default for LiveProbeConfig {
             enabled: true,
             floor: true,
             region: true,
+            zones: true,
             beacons: default_beacons(),
         }
     }

@@ -54,6 +54,7 @@ fn both() -> ProbePlan {
     ProbePlan {
         floor: Some(floor()),
         region: Some(region()),
+        ..ProbePlan::default()
     }
 }
 
@@ -99,7 +100,7 @@ fn samples_carry_recent_stats_and_slices_flush_every_ten_seconds() {
     let mut engine = Engine::new(9, 1000, riot);
     engine.set_plan(ProbePlan {
         floor: Some(floor()),
-        region: None,
+        ..ProbePlan::default()
     });
     let mut slices: Vec<LiveProbeSlice> = Vec::new();
     let mut last = None;
@@ -195,6 +196,61 @@ fn sources_never_mix_between_tracks() {
         ..due[0].clone()
     };
     assert!(engine.record(&stray, answer(1.0, SFR), at(1)).is_none());
+}
+
+fn zone_probe(source: PingSource, address: &str, ttl: Option<u8>, hop_ip: &str) -> PlannedProbe {
+    PlannedProbe {
+        target: ProbeTarget {
+            source,
+            address: address.to_string(),
+            ttl,
+            hop_ip: Some(hop_ip.to_string()),
+            ..floor().target
+        },
+        ip: address.parse().unwrap(),
+    }
+}
+
+#[test]
+fn zone_probes_get_their_own_tracks_ahead_of_the_region() {
+    let mut engine = Engine::new(1, 1000, riot);
+    engine.set_plan(ProbePlan {
+        gateway: Some(zone_probe(
+            PingSource::Gateway,
+            "192.168.1.254",
+            None,
+            "192.168.1.254",
+        )),
+        isp_edge: Some(zone_probe(PingSource::IspEdge, RIOT, Some(3), "80.10.1.9")),
+        ..both()
+    });
+    let due = engine.due();
+    let sources: Vec<PingSource> = due.iter().map(|probe| probe.source).collect();
+    assert_eq!(
+        sources,
+        vec![
+            PingSource::Floor,
+            PingSource::Gateway,
+            PingSource::IspEdge,
+            PingSource::Region
+        ]
+    );
+    assert_eq!(due[1].ttl, None);
+    assert_eq!(due[2].ttl, Some(3));
+
+    let (gateway, _) = engine
+        .record(&due[1], answer(0.6, "192.168.1.254"), at(0))
+        .unwrap();
+    let (isp_edge, _) = engine
+        .record(&due[2], answer(3.1, "80.10.1.9"), at(0))
+        .unwrap();
+    assert_eq!(gateway.target.source, PingSource::Gateway);
+    assert_eq!(isp_edge.recent.median_ms, Some(3.1));
+
+    let state = engine.snapshot();
+    assert_eq!(state.gateway.unwrap().stats.sent, 1);
+    assert_eq!(state.isp_edge.unwrap().target.ttl, Some(3));
+    assert_eq!(state.floor.unwrap().stats.sent, 0);
 }
 
 struct FixedPlanner(ProbePlan);

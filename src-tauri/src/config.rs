@@ -105,9 +105,9 @@ pub const LIVE_PROBE_STATS_SAMPLES: usize = 10;
 
 pub const LIVE_PROBE_WINDOW_SAMPLES: usize = 60;
 
-pub const LIVE_PROBE_MAX_PACKETS_PER_TICK: usize = 2;
+pub const LIVE_PROBE_MAX_PACKETS_PER_TICK: usize = 4;
 
-pub const LIVE_PROBE_MAX_PACKETS_PER_SESSION: u64 = 43_200;
+pub const LIVE_PROBE_MAX_PACKETS_PER_SESSION: u64 = 172_800;
 
 pub const LIVE_PROBE_PAYLOAD: &[u8] = b"gameroute";
 
