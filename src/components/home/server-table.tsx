@@ -22,6 +22,8 @@ type ServerTableProps = {
   days: number
   usualMinSamples: number
   loading?: boolean
+  showGame?: boolean
+  riotCity?: boolean
 }
 
 function serverId(server: ServerSummaryItem): string {
@@ -32,7 +34,14 @@ function upToLastHop(server: ServerSummaryItem): string | undefined {
   return server.basis && !server.basis.atDestination ? m.route_total_up_to() : undefined
 }
 
-function ServerTable({ servers, days, usualMinSamples, loading = false }: ServerTableProps) {
+function ServerTable({
+  servers,
+  days,
+  usualMinSamples,
+  loading = false,
+  showGame = true,
+  riotCity = true,
+}: ServerTableProps) {
   const columns = useMemo<DataTableColumn<ServerSummaryItem>[]>(
     () => [
       {
@@ -41,10 +50,16 @@ function ServerTable({ servers, days, usualMinSamples, loading = false }: Server
         sortable: false,
         render: server => (
           <span className="flex min-w-0 flex-col">
-            <span className="font-medium">{server.gameName}</span>
-            <span className="text-label text-muted-foreground font-normal">
-              {serverName(server)}
-            </span>
+            {showGame ? (
+              <>
+                <span className="font-medium">{server.gameName}</span>
+                <span className="text-label text-muted-foreground font-normal">
+                  {serverName(server, { riotCity })}
+                </span>
+              </>
+            ) : (
+              <span className="font-medium">{serverName(server, { riotCity })}</span>
+            )}
           </span>
         ),
       },
@@ -123,7 +138,7 @@ function ServerTable({ servers, days, usualMinSamples, loading = false }: Server
         render: server => server.lastIncident && <IncidentCell incident={server.lastIncident} />,
       },
     ],
-    [days, usualMinSamples]
+    [days, usualMinSamples, showGame, riotCity]
   )
 
   return (

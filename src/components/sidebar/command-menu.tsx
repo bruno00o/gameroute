@@ -1,7 +1,13 @@
+import { useMemo } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
+import { RiRouteLine } from '@remixicon/react'
 
-import { getNavigationGroups } from '@/lib/navigation'
 import * as m from '@/paraglide/messages'
+import { getNavigationGroups } from '@/lib/navigation'
+import { getUsualRoute } from '@/lib/tauri'
+import { zoneLabel } from '@/lib/route'
+import { ROUTE_DAYS, routeOperators } from '@/lib/route-history'
 import {
   Command,
   CommandDialog,
@@ -11,6 +17,7 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
+  CommandShortcut,
 } from '@/components/ui/command'
 
 export function CommandMenu({
@@ -22,6 +29,12 @@ export function CommandMenu({
 }) {
   const navigate = useNavigate()
   const groups = getNavigationGroups()
+  const { data: routes } = useQuery({
+    queryKey: ['sessions', 'usual-route', ROUTE_DAYS],
+    queryFn: () => getUsualRoute(ROUTE_DAYS),
+    enabled: open,
+  })
+  const operators = useMemo(() => routeOperators(routes ?? []), [routes])
 
   return (
     <CommandDialog
@@ -54,6 +67,37 @@ export function CommandMenu({
               </CommandGroup>
             </div>
           ))}
+          {operators.length > 0 && (
+            <>
+              <CommandSeparator />
+              <CommandGroup heading={m.command_operators()}>
+                {operators.map(operator => (
+                  <CommandItem
+                    key={`${operator.gameName}|${operator.key}`}
+                    value={`${operator.name} ${operator.asn != null ? `AS${operator.asn}` : ''} ${operator.gameName}`}
+                    onSelect={() => {
+                      navigate({
+                        to: '/route',
+                        search: { game: operator.gameName, operator: operator.key },
+                      })
+                      onOpenChange(false)
+                    }}
+                  >
+                    <RiRouteLine className="size-4" />
+                    <span>
+                      {operator.name} · {zoneLabel(operator.zone).toLowerCase()}
+                      {operator.asn != null && (
+                        <span className="text-data-sm text-ink-subtle ml-2 font-mono">
+                          AS{operator.asn}
+                        </span>
+                      )}
+                    </span>
+                    <CommandShortcut>{operator.gameName}</CommandShortcut>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </>
+          )}
         </CommandList>
       </Command>
     </CommandDialog>

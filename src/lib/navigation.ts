@@ -7,12 +7,14 @@ import {
   RiQuestionLine,
   RiRouteLine,
   RiSettings3Line,
+  RiTimeLine,
 } from '@remixicon/react'
 
 import * as m from '@/paraglide/messages'
 import type { LiveState } from '@/lib/live-state'
 
-export type NavKey = 'home' | 'live' | 'sessions' | 'games' | 'route' | 'settings' | 'help'
+export type NavKey =
+  'home' | 'live' | 'sessions' | 'games' | 'route' | 'history' | 'settings' | 'help'
 
 export type NavItem = {
   key: NavKey
@@ -48,7 +50,10 @@ export function getNavigationGroups(liveState: LiveState = 'idle'): NavGroup[] {
     {
       key: 'analysis',
       label: m.nav_analysis_label(),
-      items: [{ key: 'route', title: m.nav_route(), to: '/network', icon: RiRouteLine }],
+      items: [
+        { key: 'route', title: m.nav_route(), to: '/route', icon: RiRouteLine },
+        { key: 'history', title: m.nav_history(), to: '/network', icon: RiTimeLine },
+      ],
     },
     {
       key: 'bottom',

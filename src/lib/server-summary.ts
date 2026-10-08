@@ -1,7 +1,7 @@
 import * as m from '@/paraglide/messages'
 import type { ServerIncident, ServerSummaryItem, Severity } from '@/types/backend'
 import { formatClock, formatDay } from '@/lib/format'
-import { formatLoss, severityRank } from '@/lib/matches'
+import { formatLoss, isRiot, severityRank } from '@/lib/matches'
 import { shortOperatorName } from '@/lib/operators'
 import { formatRouteMs } from '@/lib/route'
 
@@ -12,11 +12,16 @@ function counted(count: number, one: CountMessage, other: CountMessage): string 
   return count === 1 ? one(params) : other(params)
 }
 
-export function serverName(server: ServerSummaryItem): string {
+export function serverName(
+  server: ServerSummaryItem,
+  { riotCity = true }: { riotCity?: boolean } = {}
+): string {
   const name =
     shortOperatorName(server.operator) ??
     (server.asn != null ? `AS${server.asn}` : (server.ips[0] ?? '—'))
-  return server.city ? `${name} · ${server.city}` : name
+  const hidden =
+    !riotCity && isRiot({ asn: server.asn, name: server.operator, city: null, country: null })
+  return server.city && !hidden ? `${name} · ${server.city}` : name
 }
 
 function upToLastHop(server: ServerSummaryItem): boolean {
