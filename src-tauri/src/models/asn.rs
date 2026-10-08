@@ -10,6 +10,12 @@ pub struct AsnInfo {
     pub org: Option<String>,
 }
 
+impl AsnInfo {
+    pub fn number(&self) -> Option<u32> {
+        self.asn.as_deref()?.strip_prefix("AS")?.parse().ok()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GeoLocation {
@@ -65,5 +71,17 @@ mod tests {
         assert_eq!(resolved.ip, "invalid");
         assert!(resolved.asn_info.asn.is_none());
         assert!(resolved.geo.country.is_none());
+    }
+
+    #[test]
+    fn test_asn_number() {
+        let info = |asn: Option<&str>| AsnInfo {
+            asn: asn.map(String::from),
+            ..AsnInfo::default()
+        };
+
+        assert_eq!(info(Some("AS6507")).number(), Some(6507));
+        assert_eq!(info(Some("6507")).number(), None);
+        assert_eq!(info(None).number(), None);
     }
 }

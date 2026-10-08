@@ -163,6 +163,8 @@ pub fn run() {
                         }
                     }
 
+                    tauri::async_runtime::spawn(asn_resolver::backfill_ip_metadata());
+
                     tauri::async_runtime::spawn(async {
                         match crate::commands::games::scan_all_games().await {
                             Ok(r) => log::info!(

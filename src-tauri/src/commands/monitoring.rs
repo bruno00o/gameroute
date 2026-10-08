@@ -1,16 +1,20 @@
 use super::CommandError;
+use crate::db::ip_metadata::IpMetadataRepository;
+use crate::db::ip_periods::IpPeriodRepository;
 use crate::db::{
-    get_game_repository, get_ip_period_repository, get_session_repository,
-    get_traceroute_repository,
+    get_game_repository, get_ip_metadata_repository, get_ip_period_repository,
+    get_session_repository, get_traceroute_repository, DbError,
 };
+use crate::models::ip_metadata::IpMetadataData;
 use crate::models::{
-    DetectedGame, GameEndedEvent, HopResult, IpCapacityReachedEvent, MonitoringState, RunningApp,
-    RunningProcess, ServerIpCapturedEvent, TracerouteAllCompleteEvent, TracerouteData,
-    TracerouteHopEvent, TracerouteProgressEvent, TracerouteServerIpCompleteEvent,
+    DetectedGame, GameEndedEvent, HopResult, IpCapacityReachedEvent, MonitoringState,
+    ResolvedIpData, RunningApp, RunningProcess, ServerIpCapturedEvent, TracerouteAllCompleteEvent,
+    TracerouteData, TracerouteHopEvent, TracerouteProgressEvent, TracerouteServerIpCompleteEvent,
     TracerouteStartedEvent,
 };
 use crate::platform;
-use crate::services::flow_kind::classify_ip;
+use crate::services::asn_resolver::resolve_ip;
+use crate::services::flow_kind::classify;
 use crate::services::trace_targets::{is_traceable_game_server, select_session_targets, TraceTarget};
 use crate::services::traceroute::{persist_traceroute_result, TracerouteJob};
 use crate::services::{GameDetector, TracerouteService};
@@ -86,11 +90,7 @@ fn make_on_ip_captured(
         log::debug!("Emitting server-ip-captured event for: {}", event.ip);
 
         let state_clone = monitoring_state.clone();
-        let ip_clone = event.ip.clone();
-        let protocol = event.protocol.clone();
-        let port = event.port as i32;
-        let captured_at = event.captured_at.clone();
-        let packet_count = event.packet_count;
+        let captured = event.clone();
         let app_for_trace = app.clone();
         let service = traceroute_service.clone();
         tokio::spawn(async move {
@@ -99,50 +99,44 @@ fn make_on_ip_captured(
                 state_guard.current_session_id
             };
 
-            if let Some(session_id) = session_id {
-                if let Some(ip_period_repo) = get_ip_period_repository() {
-                    match ip_period_repo
-                        .upsert_ip_activity(session_id, &ip_clone, &protocol, port, &captured_at, packet_count)
-                        .await
-                    {
-                        Ok(outcome) => {
-                            {
-                                let mut state_guard = state_clone.write().await;
-                                if let Some(traced_ip) = state_guard
-                                    .traced_server_ips
-                                    .iter_mut()
-                                    .find(|ip| ip.server_ip == ip_clone)
-                                {
-                                    traced_ip.set_period_id(outcome.period_id);
-                                }
-                            }
+            let (Some(session_id), Some(ip_period_repo)) = (session_id, get_ip_period_repository())
+            else {
+                return;
+            };
+            let metadata_repo = get_ip_metadata_repository();
 
-                            if outcome.became_game_server {
-                                let port = u16::try_from(port).unwrap_or(0);
-                                let kind = classify_ip(&ip_clone, &protocol, port);
-                                if let Err(e) = ip_period_repo.set_flow_kind(outcome.period_id, kind).await {
-                                    log::error!("Failed to classify flow {}: {}", ip_clone, e);
-                                }
-                                if is_traceable_game_server(&ip_clone, &protocol, i32::from(port)) {
-                                    log::info!(
-                                        "{} flow {} detected, tracing during the match",
-                                        kind.as_str(),
-                                        ip_clone
-                                    );
-                                    let target = TraceTarget {
-                                        ip: ip_clone.clone(),
-                                        protocol: protocol.clone(),
-                                        port,
-                                        kind,
-                                    };
-                                    enqueue_traceroutes(app_for_trace, service, session_id, vec![target]).await;
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            log::error!("Failed to upsert IP activity {}: {}", ip_clone, e)
+            match record_capture(
+                &ip_period_repo,
+                metadata_repo.as_deref(),
+                resolve_ip,
+                session_id,
+                &captured,
+            )
+            .await
+            {
+                Ok(recorded) => {
+                    {
+                        let mut state_guard = state_clone.write().await;
+                        if let Some(traced_ip) = state_guard
+                            .traced_server_ips
+                            .iter_mut()
+                            .find(|ip| ip.server_ip == captured.ip)
+                        {
+                            traced_ip.set_period_id(recorded.period_id);
                         }
                     }
+
+                    if let Some(target) = recorded.trace {
+                        log::info!(
+                            "{} flow {} detected, tracing during the match",
+                            target.kind.as_str(),
+                            target.ip
+                        );
+                        enqueue_traceroutes(app_for_trace, service, session_id, vec![target]).await;
+                    }
+                }
+                Err(e) => {
+                    log::error!("Failed to upsert IP activity {}: {}", captured.ip, e)
                 }
             }
         });
@@ -151,6 +145,68 @@ fn make_on_ip_captured(
             log::warn!("Failed to emit server-ip-captured: {}", e);
         }
     }
+}
+
+struct RecordedCapture {
+    period_id: i64,
+    trace: Option<TraceTarget>,
+}
+
+async fn record_capture(
+    ip_period_repo: &IpPeriodRepository,
+    metadata_repo: Option<&IpMetadataRepository>,
+    resolve: impl Fn(&str) -> Option<ResolvedIpData>,
+    session_id: i64,
+    event: &ServerIpCapturedEvent,
+) -> Result<RecordedCapture, DbError> {
+    let port = i32::from(event.port);
+    let outcome = ip_period_repo
+        .upsert_ip_activity(
+            session_id,
+            &event.ip,
+            &event.protocol,
+            port,
+            &event.captured_at,
+            event.packet_count,
+        )
+        .await?;
+
+    let operator = if outcome.is_new || outcome.became_game_server {
+        resolve(&event.ip)
+    } else {
+        None
+    };
+
+    if outcome.is_new {
+        if let (Some(repo), Some(operator)) = (metadata_repo, &operator) {
+            let data = IpMetadataData::from_resolved(operator, &chrono::Utc::now().to_rfc3339());
+            if let Err(e) = repo.upsert_metadata(&data).await {
+                log::warn!("Failed to save IP metadata for {}: {}", event.ip, e);
+            }
+        }
+    }
+
+    let mut trace = None;
+    if outcome.became_game_server {
+        let asn = operator.as_ref().and_then(|operator| operator.asn_info.number());
+        let kind = classify(asn, &event.protocol, event.port);
+        if let Err(e) = ip_period_repo.set_flow_kind(outcome.period_id, kind).await {
+            log::error!("Failed to classify flow {}: {}", event.ip, e);
+        }
+        if is_traceable_game_server(asn, &event.protocol, port) {
+            trace = Some(TraceTarget {
+                ip: event.ip.clone(),
+                protocol: event.protocol.clone(),
+                port: event.port,
+                kind,
+            });
+        }
+    }
+
+    Ok(RecordedCapture {
+        period_id: outcome.period_id,
+        trace,
+    })
 }
 
 /// Build the `on_capacity_reached` callback shared by both auto and manual monitoring.
@@ -680,4 +736,131 @@ pub async fn start_manual_monitoring(
         pid
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::create_test_pool;
+    use crate::models::asn::{AsnInfo, GeoLocation};
+    use crate::models::flow_kind::FlowKind;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    async fn create_test_repos() -> (IpPeriodRepository, IpMetadataRepository) {
+        let pool = create_test_pool().await;
+        sqlx::query(
+            "INSERT INTO sessions (id, game_name, started_at) VALUES (1, 'VALORANT', '2026-10-07T20:00:00Z')",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        (IpPeriodRepository::new(pool.clone()), IpMetadataRepository::new(pool))
+    }
+
+    fn operator(ip: &str, asn: u32, org: &str) -> ResolvedIpData {
+        ResolvedIpData {
+            ip: ip.to_string(),
+            asn_info: AsnInfo {
+                asn: Some(format!("AS{}", asn)),
+                isp: Some(org.to_string()),
+                org: Some(org.to_string()),
+            },
+            geo: GeoLocation {
+                lat: Some(48.8582),
+                lon: Some(2.3387),
+                city: Some("Paris".to_string()),
+                country: Some("France".to_string()),
+            },
+        }
+    }
+
+    fn capture(ip: &str, protocol: &str, port: u16, sec: u32, packet_count: Option<u32>) -> ServerIpCapturedEvent {
+        ServerIpCapturedEvent {
+            ip: ip.to_string(),
+            port,
+            protocol: protocol.to_string(),
+            captured_at: format!("2026-10-07T20:{:02}:{:02}Z", sec / 60, sec % 60),
+            packet_count,
+        }
+    }
+
+    #[tokio::test]
+    async fn captured_address_gets_its_operator_saved() {
+        let (periods, metadata) = create_test_repos().await;
+        let riot = |ip: &str| Some(operator(ip, 6507, "Riot Games, Inc."));
+
+        record_capture(&periods, Some(&metadata), riot, 1, &capture("162.249.72.5", "UDP", 7032, 0, Some(384)))
+            .await
+            .unwrap();
+
+        let saved = metadata.get_metadata("162.249.72.5").await.unwrap().unwrap();
+        assert_eq!(saved.asn.as_deref(), Some("AS6507"));
+        assert_eq!(saved.org.as_deref(), Some("Riot Games, Inc."));
+        assert_eq!(saved.city.as_deref(), Some("Paris"));
+        assert!(saved.has_coordinates());
+    }
+
+    #[tokio::test]
+    async fn operator_is_resolved_once_per_period_and_reused_for_classification() {
+        let (periods, metadata) = create_test_repos().await;
+        let lookups = AtomicUsize::new(0);
+        let azure = |ip: &str| {
+            lookups.fetch_add(1, Ordering::Relaxed);
+            Some(operator(ip, 8075, "MICROSOFT-CORP-MSN-AS-BLOCK"))
+        };
+
+        let mut traced = Vec::new();
+        for sec in (0..=60).step_by(5) {
+            let event = capture("20.157.94.82", "UDP", 27020, sec, Some(45));
+            let recorded = record_capture(&periods, Some(&metadata), azure, 1, &event).await.unwrap();
+            traced.extend(recorded.trace);
+        }
+
+        assert_eq!(lookups.load(Ordering::Relaxed), 2);
+        assert_eq!(traced.len(), 1);
+        assert_eq!(traced[0].kind, FlowKind::Voice);
+
+        let period = periods.get_latest_period_for_ip(1, "20.157.94.82").await.unwrap().unwrap();
+        assert_eq!(period.flow_kind.as_deref(), Some("voice"));
+        assert_eq!(period.packet_count, 13 * 45);
+    }
+
+    #[tokio::test]
+    async fn readings_add_real_packets_and_fall_back_to_one() {
+        let (periods, metadata) = create_test_repos().await;
+        let unknown = |_: &str| None;
+
+        for (sec, packets) in [(0, Some(384)), (5, Some(391)), (10, None)] {
+            record_capture(&periods, Some(&metadata), unknown, 1, &capture("162.249.72.5", "UDP", 7032, sec, packets))
+                .await
+                .unwrap();
+        }
+        for sec in [0, 5, 10] {
+            record_capture(&periods, Some(&metadata), unknown, 1, &capture("104.18.41.183", "TCP", 443, sec, None))
+                .await
+                .unwrap();
+        }
+
+        let game = periods.get_latest_period_for_ip(1, "162.249.72.5").await.unwrap().unwrap();
+        assert_eq!(game.packet_count, 776);
+        let web = periods.get_latest_period_for_ip(1, "104.18.41.183").await.unwrap().unwrap();
+        assert_eq!(web.packet_count, 3);
+        assert!(metadata.get_metadata("162.249.72.5").await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn cdn_game_server_is_not_traced() {
+        let (periods, metadata) = create_test_repos().await;
+        let cloudflare = |ip: &str| Some(operator(ip, 13335, "CLOUDFLARENET"));
+
+        for sec in (0..=60).step_by(5) {
+            let event = capture("104.18.41.183", "UDP", 7000, sec, Some(10));
+            let recorded = record_capture(&periods, Some(&metadata), cloudflare, 1, &event).await.unwrap();
+            assert!(recorded.trace.is_none());
+        }
+
+        let period = periods.get_latest_period_for_ip(1, "104.18.41.183").await.unwrap().unwrap();
+        assert!(period.is_game_server);
+        assert_eq!(period.flow_kind.as_deref(), Some("game"));
+    }
 }

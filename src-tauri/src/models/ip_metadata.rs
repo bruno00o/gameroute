@@ -1,3 +1,4 @@
+use super::ResolvedIpData;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
@@ -35,6 +36,22 @@ pub struct IpMetadataData {
     pub lat: Option<f64>,
     pub lon: Option<f64>,
     pub resolved_at: String,
+}
+
+impl IpMetadataData {
+    pub fn from_resolved(resolved: &ResolvedIpData, resolved_at: &str) -> Self {
+        Self {
+            ip: resolved.ip.clone(),
+            asn: resolved.asn_info.asn.clone(),
+            isp: resolved.asn_info.isp.clone(),
+            org: resolved.asn_info.org.clone(),
+            country: resolved.geo.country.clone(),
+            city: resolved.geo.city.clone(),
+            lat: resolved.geo.lat,
+            lon: resolved.geo.lon,
+            resolved_at: resolved_at.to_string(),
+        }
+    }
 }
 
 impl From<IpMetadata> for IpMetadataData {
