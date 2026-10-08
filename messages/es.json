@@ -333,6 +333,8 @@
   "service_warning_fixing": "Reiniciando servicio…",
   "service_warning_fix_success": "Servicio de captura reiniciado",
   "service_warning_fix_error": "No se pudo reiniciar el servicio. Intenta reinstalar la aplicación o ejecutarla como administrador.",
+  "toast_close": "Cerrar",
+  "toast_region": "Notificaciones",
 
   "session_game_servers": "Servidores de juego",
   "session_game_servers_hint": "Estos son probablemente servidores de juego, basado en tráfico UDP de más de 30 segundos. Compara las duraciones con tu tiempo de juego real para confirmar.",
@@ -385,7 +387,7 @@
   "settings_check_updates": "Actualizaciones",
   "settings_check_updates_description": "Verificar si hay una nueva versión de GameRoute disponible.",
   "settings_check_updates_button": "Buscar actualizaciones",
-  "settings_no_updates": "¡Estás al día!",
+  "settings_no_updates": "No hay actualizaciones disponibles",
   "updater_title": "GameRoute — Actualización disponible",
   "updater_update_now": "Actualizar ahora",
   "updater_later": "Más tarde",

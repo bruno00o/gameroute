@@ -35,6 +35,7 @@
   --measured: #d3d7dc;
   --viz-2: #81878d;
   --scrim: #151a2166;
+  --overlay-shadow: 0 12px 32px -8px #151a2133, 0 0 0 1px var(--line);
   --secondary: var(--surface-sunken);
   --accent: var(--surface-sunken);
   --sidebar-accent: var(--surface-sunken);
@@ -69,6 +70,7 @@
   --measured: #363c44;
   --viz-2: #8a9199;
   --scrim: #0a0c10b3;
+  --overlay-shadow: 0 16px 40px -12px #000000cc, 0 0 0 1px var(--line);
   --secondary: var(--surface-raised);
   --accent: var(--surface-raised);
   --sidebar-accent: var(--surface-raised);
@@ -174,6 +176,7 @@
   --color-viz-2: var(--viz-2);
   --color-viz-band: var(--viz-band);
   --color-scrim: var(--scrim);
+  --shadow-overlay: var(--overlay-shadow);
   --radius-sm: var(--radius);
   --radius-md: var(--radius);
   --radius-lg: var(--radius);
