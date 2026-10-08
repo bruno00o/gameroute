@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Outlet, createRootRoute, useLocation, useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { RiAlertLine, RiLoopLeftLine } from '@remixicon/react'
+import { RiLoopLeftLine } from '@remixicon/react'
 import { toast } from 'sonner'
 
 import * as m from '@/paraglide/messages'
@@ -9,8 +9,10 @@ import { restartCaptureService } from '@/lib/tauri'
 import { checkForAppUpdatesOnStartup } from '@/lib/updater'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { Header } from '@/components/header'
+import { Notice } from '@/components/notice'
 import { AppSidebar } from '@/components/sidebar/app-sidebar'
 import { ThemeProvider } from '@/components/theme-provider'
+import { Button } from '@/components/ui/button'
 import { Toaster } from '@/components/ui/sonner'
 import { useAutoStartMonitoring } from '@/hooks/use-auto-start-monitoring'
 import { useInitTraySettings } from '@/hooks/use-init-tray-settings'
@@ -88,22 +90,19 @@ function MainLayout() {
           <SidebarInset className="max-h-screen">
             <Header />
             {!isServiceRunning && !isLoading && (
-              <div className="flex items-center gap-2 border-b border-watch/30 bg-watch-soft px-4 py-2 text-xs text-watch">
-                <RiAlertLine className="size-4 shrink-0" />
-                <div className="flex-1">
-                  <span className="font-medium">{m.service_warning_title()}</span>
-                  {' — '}
-                  {m.service_warning_body()}
-                </div>
-                <button
-                  onClick={handleFixService}
-                  disabled={isFixing}
-                  className="inline-flex items-center gap-1 whitespace-nowrap rounded border border-watch/40 px-2 py-0.5 text-xs font-medium text-watch transition-colors hover:bg-watch/15 disabled:opacity-50"
-                >
-                  <RiLoopLeftLine className={`size-3 ${isFixing ? 'animate-spin' : ''}`} />
-                  {m.service_warning_fix()}
-                </button>
-              </div>
+              <Notice
+                tone="watch"
+                banner
+                title={m.service_warning_title()}
+                action={
+                  <Button size="sm" loading={isFixing} onClick={handleFixService}>
+                    <RiLoopLeftLine />
+                    {isFixing ? m.service_warning_fixing() : m.service_warning_fix()}
+                  </Button>
+                }
+              >
+                {m.service_warning_body()}
+              </Notice>
             )}
             <div className="flex-1 min-h-0 overflow-hidden">
               <Outlet />

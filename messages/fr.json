@@ -327,10 +327,11 @@
   "welcome_advanced_mode_description": "Afficher les détails techniques comme les protocoles, hostnames et compteurs de paquets. Modifiable dans les Paramètres.",
   "welcome_launch_button": "J'ai compris, lancer",
 
-  "service_warning_title": "Fonctionnalités limitées",
-  "service_warning_body": "Le service de surveillance réseau n'est pas actif. Certaines connexions de jeu pourraient ne pas être détectées.",
+  "service_warning_title": "Le service de capture ne répond pas",
+  "service_warning_body": "Certaines connexions de jeu ne seront pas détectées.",
   "service_warning_fix": "Redémarrer le service",
-  "service_warning_fix_success": "Service redémarré avec succès",
+  "service_warning_fixing": "Redémarrage du service…",
+  "service_warning_fix_success": "Service de capture redémarré",
   "service_warning_fix_error": "Impossible de redémarrer le service. Essayez de réinstaller l'application ou de la lancer en tant qu'administrateur.",
 
   "session_game_servers": "Serveurs de jeu",

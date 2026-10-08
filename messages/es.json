@@ -327,10 +327,11 @@
   "welcome_advanced_mode_description": "Mostrar detalles técnicos como protocolos, hostnames y contadores de paquetes. Se puede cambiar en Configuración.",
   "welcome_launch_button": "Entendido, iniciar",
 
-  "service_warning_title": "Funcionalidad limitada",
-  "service_warning_body": "El servicio de monitoreo de red no está activo. Algunas conexiones de juego podrían no ser detectadas.",
+  "service_warning_title": "El servicio de captura no responde",
+  "service_warning_body": "Algunas conexiones de juego no se detectarán.",
   "service_warning_fix": "Reiniciar servicio",
-  "service_warning_fix_success": "Servicio reiniciado con éxito",
+  "service_warning_fixing": "Reiniciando servicio…",
+  "service_warning_fix_success": "Servicio de captura reiniciado",
   "service_warning_fix_error": "No se pudo reiniciar el servicio. Intenta reinstalar la aplicación o ejecutarla como administrador.",
 
   "session_game_servers": "Servidores de juego",

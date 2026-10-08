@@ -327,10 +327,11 @@
   "welcome_advanced_mode_description": "Show technical details like protocols, hostnames, and packet counts. You can change this later in Settings.",
   "welcome_launch_button": "I understand, launch",
 
-  "service_warning_title": "Limited functionality",
-  "service_warning_body": "The network monitoring service is not active. Some game connections may not be detected.",
+  "service_warning_title": "The capture service is not responding",
+  "service_warning_body": "Some game connections will not be detected.",
   "service_warning_fix": "Restart service",
-  "service_warning_fix_success": "Service restarted successfully",
+  "service_warning_fixing": "Restarting service…",
+  "service_warning_fix_success": "Capture service restarted",
   "service_warning_fix_error": "Could not restart the service. Try reinstalling the app or running it as administrator.",
 
   "session_game_servers": "Game Servers",
