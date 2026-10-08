@@ -388,6 +388,7 @@
   "updater_title": "GameRoute — Update available",
   "updater_update_now": "Update now",
   "updater_later": "Later",
+  "updater_match_warning": "{game} is being monitored. Installing the update now will stop the measurement of the current match.",
   "settings_open_logs": "Application logs",
   "settings_open_logs_description": "Open the folder containing diagnostic log files. Useful for troubleshooting.",
   "settings_open_logs_button": "Open folder",

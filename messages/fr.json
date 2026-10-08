@@ -388,6 +388,7 @@
   "updater_title": "GameRoute — Mise à jour disponible",
   "updater_update_now": "Mettre à jour",
   "updater_later": "Plus tard",
+  "updater_match_warning": "{game} est en cours de monitoring. Installer la mise à jour maintenant arrêtera la mesure de la partie en cours.",
   "settings_open_logs": "Journaux de l'application",
   "settings_open_logs_description": "Ouvrir le dossier contenant les fichiers de diagnostic. Utile pour le dépannage.",
   "settings_open_logs_button": "Ouvrir le dossier",
