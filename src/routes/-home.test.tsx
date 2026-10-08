@@ -215,7 +215,7 @@ describe('Home', () => {
 
     const title = await screen.findByRole('heading', { level: 2, name: /median on/ })
     expect(title.textContent).toBe(
-      `≥${NB}38${NB}ms median on VALORANT · Riot Games · Paris, ≥${NB}17${NB}ms usually, no loss`
+      `≥${NB}38${NB}ms median on VALORANT · Riot Games, ≥${NB}17${NB}ms usually, no loss`
     )
     const verdict = title.closest('[data-slot=verdict]')!
     expect(verdict).toHaveAttribute('data-status', 'watch')
@@ -237,15 +237,17 @@ describe('Home', () => {
       expect.arrayContaining(['Median ping', 'Usual', 'Loss', 'Quality', 'Last incident'])
     )
 
-    const silent = cells(/^VALORANT.*Paris/)
+    const silent = cells(/^VALORANT.*Riot Games/)
     expect(silent[2].textContent).toBe(`≥${NB}38${NB}ms`)
     expect(silent[3].textContent).toBe(`≥${NB}17${NB}ms`)
     expect(silent[4].textContent).toBe('0%')
     expect(within(silent[5]).getByText('Watch')).toBeInTheDocument()
 
-    const answering = cells(/League of Legends.*Amsterdam/)
+    const answering = cells(/League of Legends.*Riot Games/)
     expect(answering[2].textContent).toBe(`31${NB}ms`)
     expect(answering[3]).toHaveTextContent('no usual yet (2/5)')
+    expect(screen.queryByText(/Paris|Amsterdam/)).not.toBeInTheDocument()
+    expect(row(/OVH.*Roubaix/)).toBeInTheDocument()
   })
 
   it('tells a server not played this week from a match it could not measure', async () => {
