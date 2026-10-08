@@ -1,6 +1,7 @@
+use super::zone::LogZone;
 use crate::models::game_ping::GamePingSample;
 use crate::models::insights::PingSource;
-use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use std::net::IpAddr;
 
 const ENDPOINT_PREFIX: &str = "aresriot.";
@@ -14,13 +15,9 @@ pub enum ShooterEvent {
     BurstLoss(i64),
 }
 
-pub fn log_opened_at(first_line: &str) -> Option<DateTime<Utc>> {
+pub fn log_opened_at(first_line: &str, zone: LogZone) -> Option<DateTime<Utc>> {
     let stamp = first_line.trim().strip_prefix("Log file open, ")?;
-    let opened = NaiveDateTime::parse_from_str(stamp, "%m/%d/%y %H:%M:%S").ok()?;
-    Local
-        .from_local_datetime(&opened)
-        .earliest()
-        .map(|at| at.with_timezone(&Utc))
+    zone.to_utc(NaiveDateTime::parse_from_str(stamp, "%m/%d/%y %H:%M:%S").ok()?)
 }
 
 fn timestamp(line: &str) -> Option<(DateTime<Utc>, &str)> {
@@ -121,7 +118,9 @@ impl ShooterParser {
 
 #[cfg(test)]
 mod tests {
+    use super::super::zone::offset;
     use super::*;
+    use chrono::TimeZone;
 
     const FIXTURE: &str = include_str!("../../../tests/fixtures/game_logs/ShooterGame.txt");
 
@@ -224,17 +223,11 @@ mod tests {
     }
 
     #[test]
-    fn log_opening_time_is_local() {
-        let expected = Local
-            .with_ymd_and_hms(2026, 10, 4, 15, 2, 14)
-            .unwrap()
-            .with_timezone(&Utc);
-        assert_eq!(
-            log_opened_at(
-                "\u{feff}Log file open, 10/04/26 15:02:14".trim_start_matches('\u{feff}')
-            ),
-            Some(expected)
-        );
-        assert_eq!(log_opened_at("garbage"), None);
+    fn log_opening_time_is_local_while_lines_are_utc() {
+        let header = "Log file open, 10/04/26 15:02:14";
+
+        assert_eq!(log_opened_at(header, offset(2)), Some(utc(13, 2, 14, 0)));
+        assert_eq!(log_opened_at(header, offset(0)), Some(utc(15, 2, 14, 0)));
+        assert_eq!(log_opened_at("garbage", offset(2)), None);
     }
 }

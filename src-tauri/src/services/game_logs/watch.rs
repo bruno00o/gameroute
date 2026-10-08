@@ -1,4 +1,4 @@
-use super::{GameLogFollower, GameLogKind};
+use super::{GameLogFollower, GameLogKind, LogZone};
 use crate::config::GAME_LOG_POLL_SECS;
 use crate::db::get_game_ping_repository;
 use crate::models::game_ping::GamePingSample;
@@ -31,7 +31,7 @@ pub fn follow_game_logs(
     log::info!("Following {} logs in {}", game_name, dir.display());
 
     tokio::spawn(async move {
-        let mut follower = GameLogFollower::new(kind, dir, session_id, since);
+        let mut follower = GameLogFollower::new(kind, dir, session_id, since, LogZone::LOCAL);
         let mut ticks = tokio::time::interval(Duration::from_secs(GAME_LOG_POLL_SECS));
         loop {
             ticks.tick().await;

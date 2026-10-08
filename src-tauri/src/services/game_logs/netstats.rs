@@ -1,6 +1,7 @@
+use super::zone::LogZone;
 use crate::models::game_ping::GamePingSample;
 use crate::models::insights::PingSource;
-use chrono::{DateTime, Duration, Local, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, Duration, NaiveDateTime, Utc};
 use std::path::Path;
 
 const SUFFIX: &str = "_netstats.csv";
@@ -12,13 +13,10 @@ pub fn is_netstats(path: &Path) -> bool {
         .is_some_and(|name| name.ends_with(SUFFIX))
 }
 
-pub fn log_start(path: &Path) -> Option<DateTime<Utc>> {
+pub fn log_start(path: &Path, zone: LogZone) -> Option<DateTime<Utc>> {
     let name = path.file_name()?.to_str()?;
     let stamp = NaiveDateTime::parse_from_str(name.get(..19)?, "%Y-%m-%dT%H-%M-%S").ok()?;
-    Local
-        .from_local_datetime(&stamp)
-        .earliest()
-        .map(|at| at.with_timezone(&Utc))
+    zone.to_utc(stamp)
 }
 
 struct Columns {
@@ -102,7 +100,9 @@ fn round(ms: f64) -> f64 {
 
 #[cfg(test)]
 mod tests {
+    use super::super::zone::offset;
     use super::*;
+    use chrono::TimeZone;
 
     const FIXTURE: &str =
         include_str!("../../../tests/fixtures/game_logs/2026-10-08T19-35-06_netstats.csv");
@@ -167,14 +167,14 @@ mod tests {
     #[test]
     fn match_start_comes_from_the_local_file_name() {
         let path = Path::new("GameLogs/2026-10-08T19-35-06/2026-10-08T19-35-06_netstats.csv");
-        let local = Local
-            .with_ymd_and_hms(2026, 10, 8, 19, 35, 6)
-            .unwrap()
-            .with_timezone(&Utc);
 
         assert!(is_netstats(path));
-        assert_eq!(log_start(path), Some(local));
+        assert_eq!(log_start(path, offset(2)), Some(start()));
+        assert_eq!(
+            log_start(path, offset(0)),
+            Some(Utc.with_ymd_and_hms(2026, 10, 8, 19, 35, 6).unwrap())
+        );
         assert!(!is_netstats(Path::new("2026-10-08T19-35-06_netlog.txt")));
-        assert_eq!(log_start(Path::new("netstats.csv")), None);
+        assert_eq!(log_start(Path::new("netstats.csv"), offset(2)), None);
     }
 }
