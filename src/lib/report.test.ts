@@ -89,6 +89,47 @@ function lossyTrace(): TracerouteWithHops {
   }
 }
 
+function gameMeasuredCase() {
+  const matches = sessionMatches().map(match =>
+    match.number === 1
+      ? {
+          ...match,
+          voice: null,
+          game: {
+            measuredAt: at(15, 51),
+            sampleCount: 142,
+            pingMs: 13.2,
+            jitterMs: 2.4,
+            lossPct: 0.5,
+            packetsLost: 3,
+            usual: { medianMs: 12.3, sampleCount: 20 },
+          },
+        }
+      : match
+  )
+  return { detail: sessionDetail({ gameName: 'League of Legends' }), matches }
+}
+
+function regionContextCase() {
+  const matches = sessionMatches().map(match =>
+    match.number === 2
+      ? {
+          ...match,
+          regionPings: {
+            measuredAt: at(15, 50),
+            pings: [
+              { region: 'Paris', pingMs: 4 },
+              { region: 'Frankfurt', pingMs: 13 },
+              { region: 'London', pingMs: 14 },
+              { region: 'Madrid', pingMs: 31 },
+            ],
+          },
+        }
+      : match
+  )
+  return { detail: sessionDetail(), matches }
+}
+
 function lossyCase() {
   const matches = sessionMatches()
   matches[0] = {
@@ -150,7 +191,7 @@ describe('reportText', () => {
 
       Measurement limits
       Each figure comes from one trace per server (3 probes per hop) started during the session, not from continuous measurement. Ping is the round trip to the last responding router; jitter is the spread of the 3 probes.
-      “≥” marks a lower bound. The servers of Riot Games do not answer probes: the measurement stops at the last responding router (hop 3, RETN).
+      “≥” marks a lower bound. The servers of Riot Games do not answer probes: the measurement of the route stops at the last responding router (hop 3, RETN).
       A loss is counted only if every responding router, from one point of the route to the last, drops at least 10% of the probes. The loss of a single router is not counted.
 
       Local context
@@ -190,7 +231,7 @@ describe('reportText', () => {
 
       Limites de la mesure
       Chaque chiffre vient d'une trace par serveur (3 sondes par saut) lancée pendant la session, pas d'une mesure continue. Le ping est l'aller-retour jusqu'au dernier routeur qui répond ; la gigue est l'écart entre les 3 sondes.
-      « ≥ » indique une valeur minimale. Les serveurs de Riot Games ne répondent pas aux sondes : la mesure s'arrête au dernier routeur qui répond (saut 3, RETN).
+      « ≥ » indique une valeur minimale. Les serveurs de Riot Games ne répondent pas aux sondes : la mesure de la route s'arrête au dernier routeur qui répond (saut 3, RETN).
       Une perte n'est retenue que si chaque routeur qui répond, d'un point de la route jusqu'au dernier, perd au moins 10 % des sondes. La perte d'un routeur isolé n'est pas comptée.
 
       Contexte local
@@ -230,7 +271,7 @@ describe('reportText', () => {
 
       Límites de la medición
       Cada cifra viene de una traza por servidor (3 sondeos por salto) lanzada durante la sesión, no de una medición continua. El ping es la ida y vuelta hasta el último router que responde; el jitter es la diferencia entre los 3 sondeos.
-      «≥» indica un valor mínimo. Los servidores de Riot Games no responden a los sondeos: la medición se detiene en el último router que responde (salto 3, RETN).
+      «≥» indica un valor mínimo. Los servidores de Riot Games no responden a los sondeos: la medición de la ruta se detiene en el último router que responde (salto 3, RETN).
       Una pérdida solo se cuenta si cada router que responde, desde un punto de la ruta hasta el último, pierde al menos 10 % de los sondeos. La pérdida de un router aislado no se cuenta.
 
       Contexto local
@@ -290,7 +331,7 @@ describe('reportText', () => {
 
       Measurement limits
       Each figure comes from one trace per server (3 probes per hop) started during the session, not from continuous measurement. Ping is the round trip to the last responding router; jitter is the spread of the 3 probes.
-      “≥” marks a lower bound. The servers of Riot Games do not answer probes: the measurement stops at the last responding router (hop 6, RETN; hop 3, RETN).
+      “≥” marks a lower bound. The servers of Riot Games do not answer probes: the measurement of the route stops at the last responding router (hop 6, RETN; hop 3, RETN).
       A router that does not answer pings, or ignores some of them, is common: these hops are marked “normal” and do not count as loss.
       A loss is counted only if every responding router, from one point of the route to the last, drops at least 10% of the probes. The loss of a single router is not counted.
 
@@ -351,7 +392,7 @@ describe('reportText', () => {
 
       Limites de la mesure
       Chaque chiffre vient d'une trace par serveur (3 sondes par saut) lancée pendant la session, pas d'une mesure continue. Le ping est l'aller-retour jusqu'au dernier routeur qui répond ; la gigue est l'écart entre les 3 sondes.
-      « ≥ » indique une valeur minimale. Les serveurs de Riot Games ne répondent pas aux sondes : la mesure s'arrête au dernier routeur qui répond (saut 6, RETN; saut 3, RETN).
+      « ≥ » indique une valeur minimale. Les serveurs de Riot Games ne répondent pas aux sondes : la mesure de la route s'arrête au dernier routeur qui répond (saut 6, RETN; saut 3, RETN).
       Un routeur qui ne répond pas aux pings, ou qui en ignore une partie, est courant : ces sauts sont marqués « normal » et ne comptent pas comme une perte.
       Une perte n'est retenue que si chaque routeur qui répond, d'un point de la route jusqu'au dernier, perd au moins 10 % des sondes. La perte d'un routeur isolé n'est pas comptée.
 
@@ -412,7 +453,7 @@ describe('reportText', () => {
 
       Límites de la medición
       Cada cifra viene de una traza por servidor (3 sondeos por salto) lanzada durante la sesión, no de una medición continua. El ping es la ida y vuelta hasta el último router que responde; el jitter es la diferencia entre los 3 sondeos.
-      «≥» indica un valor mínimo. Los servidores de Riot Games no responden a los sondeos: la medición se detiene en el último router que responde (salto 6, RETN; salto 3, RETN).
+      «≥» indica un valor mínimo. Los servidores de Riot Games no responden a los sondeos: la medición de la ruta se detiene en el último router que responde (salto 6, RETN; salto 3, RETN).
       Es habitual que un router no responda a los pings, o ignore parte de ellos: esos saltos se marcan «normal» y no cuentan como pérdida.
       Una pérdida solo se cuenta si cada router que responde, desde un punto de la ruta hasta el último, pierde al menos 10 % de los sondeos. La pérdida de un router aislado no se cuenta.
 
@@ -590,6 +631,171 @@ describe('reportText', () => {
     expect(reportText(all, { ...full, recipient: 'publisher', locale: 'en' })).toContain(
       'For Riot Games support'
     )
+  })
+})
+
+describe('reportText with a ping measured by the game', () => {
+  it('puts the ping, the loss and the jitter of the game first and keeps the trace for the route', () => {
+    const { detail, matches } = gameMeasuredCase()
+    const text = reportText(sources(detail, matches, [1]), { ...full, locale: 'en' })
+
+    expect(text).toMatchInlineSnapshot(`
+      "GameRoute connection report
+      Prepared on October 8, 2026 at 14:32 · For SFR support
+
+      Summary
+      1 match: League of Legends · Sep 13
+      League of Legends · Sep 13 · match 1: loss of 0.5% measured by the game (packets lost: 3).
+
+      Matches
+
+      League of Legends · Sep 13 · match 1
+        Time: 15:45 → 15:51 (6 min 36 s)
+        Server: Riot Games (AS6507) · 162.249.72.5 · UDP 7284
+        Ping: 13.2 ms · measured by the game (League of Legends, 142 readings) · usual 12.3 ms (median of 20 measurements)
+        Loss measured by the game: 0.5% (packets lost: 3)
+        Persistent loss: none
+        Jitter: 2.4 ms (measured by the game)
+        Trace: started 0:41 into the match
+        Route: Your home +0.6 ms → Your ISP · SFR (AS15557) +3.0 ms → Transit · RETN (AS9002) +14 ms → Riot Games (doesn't answer pings) = ≥ 18 ms
+        Hops:
+          1 · Your home · 0.6 ms
+          2 · SFR · 77.136.10.6 · 3.6 ms
+          3 · RETN · 87.245.233.46 · 17.6 ms
+          4 · RETN · This router doesn't answer pings · normal
+          Game server · 162.249.72.5 · This router doesn't answer pings · normal
+
+      Measurement limits
+      Values marked “measured by the game” are readings taken by the game during the match: round-trip ping to the server (median of the readings), jitter and lost packets.
+      The route, the hops and the persistent loss come from one trace per server (3 probes per hop) started during the session, not from continuous measurement. Without a measurement from the game, ping is the round trip to the last responding router and jitter is the spread of the 3 probes.
+      “≥” marks a lower bound. The servers of Riot Games do not answer probes: the measurement of the route stops at the last responding router (hop 3, RETN).
+      A router that does not answer pings, or ignores some of them, is common: these hops are marked “normal” and do not count as loss.
+      A loss is counted only if every responding router, from one point of the route to the last, drops at least 10% of the probes. The loss of a single router is not counted.
+
+      Local context
+      Measured from the player's computer, on Windows, with GameRoute.
+      Local connection type (Wi-Fi or cable): not measured.
+      Local network addresses are not included in this report."
+    `)
+    expect(text).not.toContain('≥ 13')
+  })
+
+  it('writes it in French', () => {
+    const { detail, matches } = gameMeasuredCase()
+    const text = reportText(sources(detail, matches, [1]), { ...full, locale: 'fr' })
+
+    expect(text).toMatchInlineSnapshot(`
+      "Rapport de connexion GameRoute
+      Préparé le 8 octobre 2026 à 14:32 · À l'attention du support SFR
+
+      Résumé
+      1 partie : League of Legends · 13 sept.
+      League of Legends · 13 sept. · partie 1 : perte de 0,5 % mesurée par le jeu (paquets perdus : 3).
+
+      Parties
+
+      League of Legends · 13 sept. · partie 1
+        Heure : 15:45 → 15:51 (6 min 36 s)
+        Serveur : Riot Games (AS6507) · 162.249.72.5 · UDP 7284
+        Ping : 13,2 ms · mesuré par le jeu (League of Legends, 142 relevés) · habituel 12,3 ms (médiane de 20 mesures)
+        Perte mesurée par le jeu : 0,5 % (paquets perdus : 3)
+        Perte persistante : aucune
+        Gigue : 2,4 ms (mesurée par le jeu)
+        Trace : lancée 0:41 après le début de la partie
+        Route : Chez vous +0,6 ms → Votre FAI · SFR (AS15557) +3,0 ms → Transit · RETN (AS9002) +14 ms → Riot Games (ne répond pas aux pings) = ≥ 18 ms
+        Sauts :
+          1 · Chez vous · 0,6 ms
+          2 · SFR · 77.136.10.6 · 3,6 ms
+          3 · RETN · 87.245.233.46 · 17,6 ms
+          4 · RETN · Ce routeur ne répond pas aux pings · normal
+          Serveur du jeu · 162.249.72.5 · Ce routeur ne répond pas aux pings · normal
+
+      Limites de la mesure
+      Les valeurs « mesuré par le jeu » sont des relevés du jeu pendant la partie : ping aller-retour jusqu'au serveur (médiane des relevés), gigue et paquets perdus.
+      La route, les sauts et la perte persistante viennent d'une trace par serveur (3 sondes par saut) lancée pendant la session, pas d'une mesure continue. Sans mesure du jeu, le ping est l'aller-retour jusqu'au dernier routeur qui répond et la gigue l'écart entre les 3 sondes.
+      « ≥ » indique une valeur minimale. Les serveurs de Riot Games ne répondent pas aux sondes : la mesure de la route s'arrête au dernier routeur qui répond (saut 3, RETN).
+      Un routeur qui ne répond pas aux pings, ou qui en ignore une partie, est courant : ces sauts sont marqués « normal » et ne comptent pas comme une perte.
+      Une perte n'est retenue que si chaque routeur qui répond, d'un point de la route jusqu'au dernier, perd au moins 10 % des sondes. La perte d'un routeur isolé n'est pas comptée.
+
+      Contexte local
+      Mesures faites depuis l'ordinateur du joueur, sous Windows, avec GameRoute.
+      Type de connexion locale (Wi-Fi ou câble) : non mesuré.
+      Les adresses du réseau local ne figurent pas dans ce rapport."
+    `)
+  })
+
+  it('lists the region pings of the game as context, never as the ping of the match', () => {
+    const { detail, matches } = regionContextCase()
+    const en = reportText(sources(detail, matches, [2]), { ...full, hops: false, locale: 'en' })
+    const fr = reportText(sources(detail, matches, [2]), { ...full, hops: false, locale: 'fr' })
+
+    expect(en).toMatchInlineSnapshot(`
+      "GameRoute connection report
+      Prepared on October 8, 2026 at 14:32 · For SFR support
+
+      Summary
+      1 match: VALORANT · Sep 13
+      No persistent loss up to the last responding router.
+
+      Matches
+
+      VALORANT · Sep 13 · match 2
+        Time: 15:54 → 16:25 (31 min 12 s)
+        Server: Riot Games (AS6507) · 162.249.72.5 · UDP 7323
+        Ping: ≥ 18 ms · measured up to hop 3 (RETN)
+        Persistent loss: none
+        Jitter: 1.0 ms (spread of 3 probes)
+        Ping measured by VALORANT before the match: Paris 4 ms · Frankfurt 13 ms · London 14 ms
+        Trace: started during match 1
+        Route: Your home +0.6 ms → Your ISP · SFR (AS15557) +3.0 ms → Transit · RETN (AS9002) +14 ms → Riot Games (doesn't answer pings) = ≥ 18 ms
+
+      Measurement limits
+      Each figure comes from one trace per server (3 probes per hop) started during the session, not from continuous measurement. Ping is the round trip to the last responding router; jitter is the spread of the 3 probes.
+      Per-region pings measured by VALORANT before the match are context: they do not measure the match.
+      “≥” marks a lower bound. The servers of Riot Games do not answer probes: the measurement of the route stops at the last responding router (hop 3, RETN).
+      A loss is counted only if every responding router, from one point of the route to the last, drops at least 10% of the probes. The loss of a single router is not counted.
+
+      Local context
+      Measured from the player's computer, on Windows, with GameRoute.
+      Local connection type (Wi-Fi or cable): not measured.
+      Local network addresses are not included in this report."
+    `)
+    expect(fr).toMatchInlineSnapshot(`
+      "Rapport de connexion GameRoute
+      Préparé le 8 octobre 2026 à 14:32 · À l'attention du support SFR
+
+      Résumé
+      1 partie : VALORANT · 13 sept.
+      Aucune perte persistante jusqu'au dernier routeur qui répond.
+
+      Parties
+
+      VALORANT · 13 sept. · partie 2
+        Heure : 15:54 → 16:25 (31 min 12 s)
+        Serveur : Riot Games (AS6507) · 162.249.72.5 · UDP 7323
+        Ping : ≥ 18 ms · mesuré jusqu'au saut 3 (RETN)
+        Perte persistante : aucune
+        Gigue : 1,0 ms (écart entre 3 sondes)
+        Ping mesuré par VALORANT avant la partie : Paris 4 ms · Frankfurt 13 ms · London 14 ms
+        Trace : lancée pendant la partie 1
+        Route : Chez vous +0,6 ms → Votre FAI · SFR (AS15557) +3,0 ms → Transit · RETN (AS9002) +14 ms → Riot Games (ne répond pas aux pings) = ≥ 18 ms
+
+      Limites de la mesure
+      Chaque chiffre vient d'une trace par serveur (3 sondes par saut) lancée pendant la session, pas d'une mesure continue. Le ping est l'aller-retour jusqu'au dernier routeur qui répond ; la gigue est l'écart entre les 3 sondes.
+      Les pings par région mesurés par VALORANT avant la partie sont du contexte : ils ne mesurent pas la partie.
+      « ≥ » indique une valeur minimale. Les serveurs de Riot Games ne répondent pas aux sondes : la mesure de la route s'arrête au dernier routeur qui répond (saut 3, RETN).
+      Une perte n'est retenue que si chaque routeur qui répond, d'un point de la route jusqu'au dernier, perd au moins 10 % des sondes. La perte d'un routeur isolé n'est pas comptée.
+
+      Contexte local
+      Mesures faites depuis l'ordinateur du joueur, sous Windows, avec GameRoute.
+      Type de connexion locale (Wi-Fi ou câble) : non mesuré.
+      Les adresses du réseau local ne figurent pas dans ce rapport."
+    `)
+    expect(en).toContain(
+      'Ping measured by VALORANT before the match: Paris 4 ms · Frankfurt 13 ms · London 14 ms'
+    )
+    expect(en).not.toContain('Madrid')
+    expect(en).toContain('Ping: ≥ 18 ms')
   })
 })
 

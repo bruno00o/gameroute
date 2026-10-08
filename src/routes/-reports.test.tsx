@@ -33,6 +33,7 @@ function listItem(overrides: Partial<SessionListItem> = {}): SessionListItem {
     matchCount: 3,
     medianPingMs: 17.6,
     medianPingAtLeast: true,
+    medianPingByGame: false,
     status: 'watch',
     ...overrides,
   }
