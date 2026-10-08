@@ -105,6 +105,45 @@ export type IpPeriodSummary = {
   flowKind: FlowKind | null
 }
 
+// ===== Matches =====
+export type FlowOperator = {
+  asn: number | null
+  name: string | null
+  city: string | null
+  country: string | null
+}
+
+export type TraceMeasure = {
+  tracerouteId: number
+  startedAt: string
+  completedAt: string | null
+  offsetSecs: number
+  measuredHop: number | null
+  atDestination: boolean
+  pingMs: number | null
+  lossPct: number | null
+  jitterMs: number | null
+}
+
+export type MeasuredFlow = {
+  periodId: number
+  ip: string
+  protocol: string
+  port: number
+  startedAt: string
+  endedAt: string
+  durationSecs: number
+  packetCount: number
+  operator: FlowOperator | null
+  trace: TraceMeasure | null
+  status: Severity
+}
+
+export type SessionMatch = MeasuredFlow & {
+  number: number
+  voice: MeasuredFlow | null
+}
+
 // ===== Traceroute Records =====
 export type TracerouteRecord = {
   id: number

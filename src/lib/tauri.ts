@@ -18,6 +18,7 @@ import type {
   ServerStability,
   SessionDetail,
   SessionListItem,
+  SessionMatch,
   SessionQualityPoint,
   ScanResult,
   SeverityThresholds,
@@ -43,6 +44,8 @@ export const getSessions = (limit: number, offset: number) =>
   invoke<SessionListItem[]>('get_sessions', { limit, offset })
 export const getSessionDetail = (id: number) =>
   invoke<SessionDetail | null>('get_session_detail', { id })
+export const getSessionMatches = (id: number) =>
+  invoke<SessionMatch[]>('get_session_matches', { id })
 export const getSessionCount = () => invoke<number>('get_session_count')
 export const getPreviousSessionId = (gameName: string, beforeStartedAt: string) =>
   invoke<number | null>('get_previous_session_id', { gameName, beforeStartedAt })
