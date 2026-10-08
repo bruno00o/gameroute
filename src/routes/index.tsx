@@ -1,21 +1,19 @@
 import { useMemo } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { RiArrowRightSLine, RiLoopLeftLine } from '@remixicon/react'
-import { toast } from 'sonner'
+import { RiArrowRightSLine } from '@remixicon/react'
 
 import * as m from '@/paraglide/messages'
 import type { ServerSummary, SessionListPage } from '@/types/backend'
-import { getServerSummary, getSessionList, openLogDir } from '@/lib/tauri'
+import { getServerSummary, getSessionList } from '@/lib/tauri'
 import { formatDay, formatNumber } from '@/lib/format'
 import { homeVerdict } from '@/lib/server-summary'
-import { errorMessage } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DataTable } from '@/components/data-table'
 import { EmptyState } from '@/components/empty-state'
-import { Notice } from '@/components/notice'
 import { Panel } from '@/components/panel'
+import { LoadError } from '@/components/load-error'
 import { FirstLaunch } from '@/components/home/first-launch'
 import { ServerTable } from '@/components/home/server-table'
 import { sessionColumns } from '@/components/session/session-columns'
@@ -49,6 +47,7 @@ function HomePage() {
         <h1 className="text-title">{m.page_dashboard_title()}</h1>
         {failed ? (
           <LoadError
+            title={m.sessions_error_title()}
             retrying={summaryQuery.isFetching || recentQuery.isFetching}
             onRetry={() => {
               summaryQuery.refetch()
@@ -151,31 +150,5 @@ function Overview({ summary, recent }: { summary?: ServerSummary; recent?: Sessi
         />
       </Panel>
     </>
-  )
-}
-
-function LoadError({ retrying, onRetry }: { retrying: boolean; onRetry: () => void }) {
-  return (
-    <Notice
-      tone="critical"
-      title={m.sessions_error_title()}
-      action={
-        <>
-          <Button size="sm" loading={retrying} onClick={onRetry}>
-            <RiLoopLeftLine data-icon="inline-start" />
-            {m.sessions_error_retry()}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => openLogDir().catch(err => toast.error(errorMessage(err)))}
-          >
-            {m.sessions_error_logs()}
-          </Button>
-        </>
-      }
-    >
-      {m.sessions_error_body()}
-    </Notice>
   )
 }
