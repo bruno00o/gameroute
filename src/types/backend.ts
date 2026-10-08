@@ -467,7 +467,8 @@ export type ServerStability = {
   isGameServer: boolean
 }
 
-export type PingSource = 'trace' | 'game' | 'game_region' | 'floor' | 'region'
+export type PingSource =
+  'trace' | 'game' | 'game_region' | 'floor' | 'region' | 'gateway' | 'isp_edge'
 
 export type PingBasis = {
   source: PingSource
@@ -509,6 +510,7 @@ export type LiveProbeConfig = {
   enabled: boolean
   floor: boolean
   region: boolean
+  zones: boolean
   beacons: Beacon[]
 }
 
@@ -553,6 +555,8 @@ export type LiveProbeState = {
   packetsSent: number
   floor: LiveTrack | null
   region: LiveTrack | null
+  gateway: LiveTrack | null
+  ispEdge: LiveTrack | null
 }
 
 export type LiveSpan = {

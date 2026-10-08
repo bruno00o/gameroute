@@ -65,6 +65,7 @@ pub struct LiveProbeConfig {
     pub enabled: bool,
     pub floor: bool,
     pub region: bool,
+    pub zones: bool,
     pub beacons: Vec<Beacon>,
 }
 
@@ -121,6 +122,8 @@ pub struct LiveProbeState {
     pub packets_sent: u64,
     pub floor: Option<LiveTrack>,
     pub region: Option<LiveTrack>,
+    pub gateway: Option<LiveTrack>,
+    pub isp_edge: Option<LiveTrack>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, sqlx::FromRow)]

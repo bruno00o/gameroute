@@ -25,6 +25,8 @@ pub enum PingSource {
     GameRegion,
     Floor,
     Region,
+    Gateway,
+    IspEdge,
 }
 
 impl PingSource {
@@ -35,6 +37,8 @@ impl PingSource {
             Self::GameRegion => "game_region",
             Self::Floor => "floor",
             Self::Region => "region",
+            Self::Gateway => "gateway",
+            Self::IspEdge => "isp_edge",
         }
     }
 }
@@ -49,6 +53,8 @@ impl TryFrom<String> for PingSource {
             "game_region" => Ok(Self::GameRegion),
             "floor" => Ok(Self::Floor),
             "region" => Ok(Self::Region),
+            "gateway" => Ok(Self::Gateway),
+            "isp_edge" => Ok(Self::IspEdge),
             _ => Err(format!("unknown ping source {value}")),
         }
     }

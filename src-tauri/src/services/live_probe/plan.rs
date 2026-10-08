@@ -5,9 +5,12 @@ use crate::models::hop::ProbedHop;
 use crate::models::insights::PingSource;
 use crate::models::ip_period::FlowPeriod;
 use crate::models::live_probe::{LiveProbeConfig, ProbeProtocol, ProbeTarget};
+use crate::models::traceroute::RouteZone;
 use crate::models::traceroute_record::TracerouteWithHops;
 use crate::services::matches::{asn_number, is_match};
+use crate::services::route_model::{build_route, Operator};
 use chrono::{DateTime, Duration, Utc};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FloorChoice {
@@ -21,6 +24,52 @@ pub struct FloorChoice {
 pub struct PlanDraft {
     pub floor: Option<ProbeTarget>,
     pub region: Option<ProbeTarget>,
+    pub gateway: Option<ProbeTarget>,
+    pub isp_edge: Option<ProbeTarget>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ZoneEdges {
+    pub gateway: Option<(i32, String)>,
+    pub isp_edge: Option<(i32, String)>,
+}
+
+pub fn zone_edges(trace: &TracerouteWithHops, asn_of: impl Fn(&str) -> Option<u32>) -> ZoneEdges {
+    let operators: HashMap<String, Operator> = trace
+        .hops
+        .iter()
+        .filter_map(|hop| hop.ip())
+        .chain([trace.target_ip.as_str()])
+        .filter_map(|ip| {
+            Some((
+                ip.to_string(),
+                Operator {
+                    asn: asn_of(ip)?,
+                    name: None,
+                },
+            ))
+        })
+        .collect();
+    let Some(route) = build_route(&trace.hops, &trace.target_ip, &operators) else {
+        return ZoneEdges {
+            gateway: None,
+            isp_edge: None,
+        };
+    };
+    let edge = |zone: RouteZone| {
+        let segment = route.segments.iter().find(|segment| segment.zone == zone)?;
+        trace
+            .hops
+            .iter()
+            .rev()
+            .filter(|hop| (segment.first_hop..=segment.last_hop).contains(&hop.hop_number))
+            .filter(|hop| hop.responded())
+            .find_map(|hop| Some((hop.hop_number, hop.ip()?.to_string())))
+    };
+    ZoneEdges {
+        gateway: edge(RouteZone::Home),
+        isp_edge: edge(RouteZone::Isp),
+    }
 }
 
 pub fn is_protected(asn: Option<u32>) -> bool {
@@ -126,13 +175,14 @@ pub fn draft_plan(input: &PlanInput, asn_of: impl Fn(&str) -> Option<u32>) -> Pl
     };
     let server_ip = flow.period.ip.clone();
     let server_asn = asn_number(flow);
+    let trace = latest_trace(input.traces, &server_ip);
 
+    let floor_choice = trace.and_then(|trace| select_floor(trace, server_asn, &asn_of));
     let floor = input
         .config
         .floor
-        .then(|| latest_trace(input.traces, &server_ip))
+        .then_some(floor_choice.clone())
         .flatten()
-        .and_then(|trace| select_floor(trace, server_asn, &asn_of))
         .map(|choice| ProbeTarget {
             source: PingSource::Floor,
             address: server_ip.clone(),
@@ -173,7 +223,53 @@ pub fn draft_plan(input: &PlanInput, asn_of: impl Fn(&str) -> Option<u32>) -> Pl
             provider: Some(beacon.provider),
         });
 
-    PlanDraft { floor, region }
+    let edges = trace
+        .filter(|_| input.config.zones)
+        .map(|trace| zone_edges(trace, &asn_of));
+    let floor_hop = floor_choice
+        .filter(|choice| !choice.at_destination)
+        .map(|choice| choice.hop_number);
+    let before_floor = |hop: i32| floor_hop.is_none_or(|floor| hop < floor);
+    let gateway = edges
+        .as_ref()
+        .and_then(|edges| edges.gateway.clone())
+        .filter(|(hop, _)| before_floor(*hop))
+        .map(|(_, ip)| ProbeTarget {
+            source: PingSource::Gateway,
+            address: ip.clone(),
+            host: None,
+            protocol: ProbeProtocol::Icmp,
+            port: None,
+            ttl: None,
+            server_ip: Some(server_ip.clone()),
+            hop_ip: Some(ip),
+            region: None,
+            provider: None,
+        });
+    let isp_edge = edges
+        .and_then(|edges| edges.isp_edge)
+        .filter(|(hop, ip)| before_floor(*hop) && !is_protected(asn_of(ip)))
+        .and_then(|(hop, ip)| {
+            Some(ProbeTarget {
+                source: PingSource::IspEdge,
+                address: server_ip.clone(),
+                host: None,
+                protocol: ProbeProtocol::Icmp,
+                port: None,
+                ttl: Some(u8::try_from(hop).ok().filter(|ttl| *ttl > 0)?),
+                server_ip: Some(server_ip.clone()),
+                hop_ip: Some(ip),
+                region: None,
+                provider: None,
+            })
+        });
+
+    PlanDraft {
+        floor,
+        region,
+        gateway,
+        isp_edge,
+    }
 }
 
 #[cfg(test)]
@@ -372,6 +468,82 @@ mod tests {
             ..input
         };
         assert_eq!(draft_plan(&lobby, riot_asn), PlanDraft::default());
+    }
+
+    #[test]
+    fn zone_probes_watch_the_box_and_the_last_router_of_the_isp() {
+        let asn = |ip: &str| {
+            if ip.starts_with("80.10.") {
+                Some(15557)
+            } else if ip.starts_with("87.245.") {
+                Some(9002)
+            } else {
+                riot_asn(ip)
+            }
+        };
+        let hops = vec![
+            hop(1, Some("192.168.1.254"), Some(0.6)),
+            hop(2, Some("80.10.1.1"), Some(2.4)),
+            hop(3, Some("80.10.1.9"), Some(3.1)),
+            hop(4, None, None),
+            hop(5, Some("87.245.1.1"), Some(8.0)),
+            hop(6, Some("87.245.1.7"), Some(9.0)),
+            hop(7, Some("104.160.141.1"), Some(12.0)),
+        ];
+        let flows = vec![flow(RIOT, "AS6507", "2026-10-08T20:09:55Z")];
+        let traces = vec![trace(2, RIOT, "2026-10-08T20:01:00Z", hops)];
+        let plan = |config: LiveProbeConfig| {
+            draft_plan(
+                &PlanInput {
+                    config: &config,
+                    game_name: "VALORANT",
+                    flows: &flows,
+                    traces: &traces,
+                    pings: &[],
+                    now: now(),
+                },
+                asn,
+            )
+        };
+
+        let draft = plan(LiveProbeConfig::default());
+        assert_eq!(draft.floor.as_ref().unwrap().ttl, Some(6));
+        let gateway = draft.gateway.unwrap();
+        assert_eq!(gateway.source, PingSource::Gateway);
+        assert_eq!(gateway.address, "192.168.1.254");
+        assert_eq!(gateway.ttl, None);
+        assert_eq!(gateway.server_ip.as_deref(), Some(RIOT));
+        let isp_edge = draft.isp_edge.unwrap();
+        assert_eq!(isp_edge.source, PingSource::IspEdge);
+        assert_eq!(isp_edge.address, RIOT);
+        assert_eq!(isp_edge.ttl, Some(3));
+        assert_eq!(isp_edge.hop_ip.as_deref(), Some("80.10.1.9"));
+
+        let off = plan(LiveProbeConfig {
+            zones: false,
+            ..LiveProbeConfig::default()
+        });
+        assert!(off.gateway.is_none() && off.isp_edge.is_none() && off.floor.is_some());
+    }
+
+    #[test]
+    fn isp_edge_is_skipped_when_the_floor_already_stops_there() {
+        let flows = vec![flow(RIOT, "AS6507", "2026-10-08T20:09:55Z")];
+        let traces = vec![trace(2, RIOT, "2026-10-08T20:01:00Z", riot_route())];
+        let draft = draft_plan(
+            &PlanInput {
+                config: &LiveProbeConfig::default(),
+                game_name: "VALORANT",
+                flows: &flows,
+                traces: &traces,
+                pings: &[],
+                now: now(),
+            },
+            riot_asn,
+        );
+        assert_eq!(draft.floor.unwrap().ttl, Some(5));
+        assert!(draft.isp_edge.is_none());
+        assert_eq!(draft.gateway.unwrap().address, "192.168.1.254");
     }
 
     #[test]

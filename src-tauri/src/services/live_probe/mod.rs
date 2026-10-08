@@ -125,6 +125,8 @@ impl Planner for SessionPlanner {
         ProbePlan {
             floor: self.locate(draft.floor).await,
             region: self.locate(draft.region).await,
+            gateway: self.locate(draft.gateway).await,
+            isp_edge: self.locate(draft.isp_edge).await,
         }
     }
 }

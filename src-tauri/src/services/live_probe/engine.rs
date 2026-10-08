@@ -37,6 +37,8 @@ pub struct PlannedProbe {
 pub struct ProbePlan {
     pub floor: Option<PlannedProbe>,
     pub region: Option<PlannedProbe>,
+    pub gateway: Option<PlannedProbe>,
+    pub isp_edge: Option<PlannedProbe>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -82,6 +84,8 @@ pub struct Engine {
     budget: PacketBudget,
     floor: Option<Track>,
     region: Option<Track>,
+    gateway: Option<Track>,
+    isp_edge: Option<Track>,
     ttl_caps: HashMap<String, u8>,
     protected: Box<dyn Fn(IpAddr) -> bool + Send + Sync>,
 }
@@ -97,6 +101,8 @@ impl Engine {
             budget: PacketBudget::new(limit),
             floor: None,
             region: None,
+            gateway: None,
+            isp_edge: None,
             ttl_caps: HashMap::new(),
             protected: Box::new(protected),
         }
@@ -131,7 +137,12 @@ impl Engine {
         let floor = plan.floor.map(|planned| self.capped(planned));
         let session_id = self.session_id;
         let mut flushed = Vec::new();
-        for (slot, next) in [(&mut self.floor, floor), (&mut self.region, plan.region)] {
+        for (slot, next) in [
+            (&mut self.floor, floor),
+            (&mut self.gateway, plan.gateway),
+            (&mut self.isp_edge, plan.isp_edge),
+            (&mut self.region, plan.region),
+        ] {
             let same = slot.as_ref().map(|track| &track.planned) == next.as_ref();
             if same {
                 continue;
@@ -145,7 +156,7 @@ impl Engine {
     }
 
     pub fn due(&mut self) -> Vec<Probe> {
-        let planned: Vec<PlannedProbe> = [&self.floor, &self.region]
+        let planned: Vec<PlannedProbe> = [&self.floor, &self.gateway, &self.isp_edge, &self.region]
             .into_iter()
             .flatten()
             .map(|track| track.planned.clone())
@@ -199,6 +210,8 @@ impl Engine {
         let track = match probe.source {
             PingSource::Floor => self.floor.as_mut(),
             PingSource::Region => self.region.as_mut(),
+            PingSource::Gateway => self.gateway.as_mut(),
+            PingSource::IspEdge => self.isp_edge.as_mut(),
             _ => None,
         }?;
         if track.planned.ip != probe.ip {
@@ -275,6 +288,8 @@ impl Engine {
             packets_sent: self.budget.sent,
             floor: track(&self.floor),
             region: track(&self.region),
+            gateway: track(&self.gateway),
+            isp_edge: track(&self.isp_edge),
         }
     }
 }
