@@ -189,6 +189,7 @@ export type CapturedConnection = {
   remotePort: number
   protocol: string
   capturedAt: string
+  packetCount: number | null
 }
 
 // ===== Hop (runtime, live traceroute) =====
@@ -244,6 +245,7 @@ export type ServerIpCapturedEvent = {
   port: number
   protocol: string
   capturedAt: string
+  packetCount: number | null
 }
 
 export type TracerouteStartedEvent = {

@@ -100,6 +100,7 @@ describe('addCapturedIp', () => {
       port: 443,
       protocol: 'tcp',
       capturedAt: '2026-01-31T10:00:00Z',
+      packetCount: null,
     }
 
     getState().addCapturedIp(event)
@@ -115,12 +116,14 @@ describe('addCapturedIp', () => {
       port: 80,
       protocol: 'tcp',
       capturedAt: '2026-01-31T10:00:00Z',
+      packetCount: null,
     })
     getState().addCapturedIp({
       ip: '10.0.0.2',
       port: 443,
       protocol: 'udp',
       capturedAt: '2026-01-31T10:00:05Z',
+      packetCount: null,
     })
 
     expect(getState().seenIps.size).toBe(2)
@@ -135,12 +138,14 @@ describe('clearCapturedIps', () => {
       port: 80,
       protocol: 'tcp',
       capturedAt: '2026-01-31T10:00:00Z',
+      packetCount: null,
     })
     getState().addCapturedIp({
       ip: '10.0.0.2',
       port: 443,
       protocol: 'udp',
       capturedAt: '2026-01-31T10:00:05Z',
+      packetCount: null,
     })
 
     getState().clearCapturedIps()
@@ -170,6 +175,7 @@ describe('reset', () => {
       port: 80,
       protocol: 'tcp',
       capturedAt: '2026-01-31T10:00:00Z',
+      packetCount: null,
     })
 
     getState().reset()

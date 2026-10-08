@@ -10,7 +10,7 @@ pub struct IpPeriod {
     pub port: i32,
     pub started_at: String,
     pub ended_at: String,
-    pub packet_count: i32,
+    pub packet_count: i64,
     pub is_game_server: bool,
     pub flow_kind: Option<String>,
 }
@@ -23,11 +23,18 @@ pub struct IpPeriodData {
     pub port: i32,
     pub started_at: String,
     pub ended_at: String,
-    pub packet_count: i32,
+    pub packet_count: i64,
 }
 
 impl IpPeriodData {
-    pub fn new(session_id: i64, ip: String, protocol: String, port: i32, timestamp: String) -> Self {
+    pub fn new(
+        session_id: i64,
+        ip: String,
+        protocol: String,
+        port: i32,
+        timestamp: String,
+        packet_count: i64,
+    ) -> Self {
         Self {
             session_id,
             ip,
@@ -35,7 +42,7 @@ impl IpPeriodData {
             port,
             started_at: timestamp.clone(),
             ended_at: timestamp,
-            packet_count: 1,
+            packet_count,
         }
     }
 }
@@ -51,7 +58,7 @@ pub struct IpPeriodSummary {
 
     pub total_duration_secs: i64,
 
-    pub total_packet_count: i32,
+    pub total_packet_count: i64,
 
     pub period_count: i32,
 
@@ -109,13 +116,13 @@ mod tests {
 
     #[test]
     fn test_ip_period_data_new() {
-        let data = IpPeriodData::new(1, "8.8.8.8".to_string(), "UDP".to_string(), 27015, "2026-01-25T10:00:00Z".to_string());
+        let data = IpPeriodData::new(1, "8.8.8.8".to_string(), "UDP".to_string(), 27015, "2026-01-25T10:00:00Z".to_string(), 42);
 
         assert_eq!(data.session_id, 1);
         assert_eq!(data.ip, "8.8.8.8");
         assert_eq!(data.protocol, "UDP");
         assert_eq!(data.port, 27015);
         assert_eq!(data.started_at, data.ended_at);
-        assert_eq!(data.packet_count, 1);
+        assert_eq!(data.packet_count, 42);
     }
 }
