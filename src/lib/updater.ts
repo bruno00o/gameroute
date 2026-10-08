@@ -1,24 +1,40 @@
 import { check, type Update } from '@tauri-apps/plugin-updater'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { ask } from '@tauri-apps/plugin-dialog'
+import type { StoreApi } from 'zustand'
 
 import * as m from '@/paraglide/messages'
 import { useMonitoringStore } from '@/stores/monitoring-store'
+import { useTraceStore } from '@/stores/trace-store'
 
 export const STARTUP_GRACE_MS = 30_000
+export const POST_MATCH_SETTLE_MS = 5_000
+export const POST_MATCH_TRACE_CAP_MS = 5 * 60_000
 
 let startupCheckStarted = false
 let prompted = false
 
-function waitForGameEnd(): Promise<void> {
+const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms))
+
+function waitUntil<T>(store: StoreApi<T>, isDone: (state: T) => boolean): Promise<void> {
   return new Promise(resolve => {
-    if (!useMonitoringStore.getState().currentGame) return resolve()
-    const unsubscribe = useMonitoringStore.subscribe(state => {
-      if (state.currentGame) return
+    if (isDone(store.getState())) return resolve()
+    const unsubscribe = store.subscribe(state => {
+      if (!isDone(state)) return
       unsubscribe()
       resolve()
     })
   })
+}
+
+async function waitForMatchEnd() {
+  while (useMonitoringStore.getState().currentGame) {
+    await waitUntil(useMonitoringStore, s => !s.currentGame)
+    await Promise.race([
+      sleep(POST_MATCH_SETTLE_MS).then(() => waitUntil(useTraceStore, s => !s.isRunning)),
+      sleep(POST_MATCH_TRACE_CAP_MS),
+    ])
+  }
 }
 
 async function promptForUpdate(update: Update) {
@@ -49,13 +65,13 @@ export async function checkForAppUpdates(): Promise<boolean> {
 export async function checkForAppUpdatesOnStartup(): Promise<void> {
   if (startupCheckStarted) return
   startupCheckStarted = true
-  const graceElapsed = new Promise(resolve => setTimeout(resolve, STARTUP_GRACE_MS))
+  const graceElapsed = sleep(STARTUP_GRACE_MS)
 
   try {
     const update = await check()
     if (!update) return
     await graceElapsed
-    await waitForGameEnd()
+    await waitForMatchEnd()
     if (!prompted) await promptForUpdate(update)
   } catch (e) {
     console.error('Update check failed:', e)

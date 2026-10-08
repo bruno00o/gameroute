@@ -37,10 +37,13 @@ function makeUpdate() {
 async function load() {
   const updater = await import('./updater')
   const { useMonitoringStore } = await import('@/stores/monitoring-store')
+  const { useTraceStore } = await import('@/stores/trace-store')
   return {
     ...updater,
     startGame: () => useMonitoringStore.setState({ currentGame: game, isMonitoring: true }),
     endGame: () => useMonitoringStore.setState({ currentGame: null }),
+    startTraces: () => useTraceStore.setState({ isRunning: true }),
+    finishTraces: () => useTraceStore.setState({ isRunning: false }),
   }
 }
 
@@ -79,7 +82,13 @@ describe('checkForAppUpdatesOnStartup', () => {
   })
 
   it('does not prompt while a game is monitored and prompts once it ends', async () => {
-    const { checkForAppUpdatesOnStartup, startGame, endGame, STARTUP_GRACE_MS } = await load()
+    const {
+      checkForAppUpdatesOnStartup,
+      startGame,
+      endGame,
+      STARTUP_GRACE_MS,
+      POST_MATCH_SETTLE_MS,
+    } = await load()
     check.mockResolvedValue(makeUpdate())
     startGame()
 
@@ -88,7 +97,10 @@ describe('checkForAppUpdatesOnStartup', () => {
     expect(ask).not.toHaveBeenCalled()
 
     endGame()
-    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(POST_MATCH_SETTLE_MS - 1)
+    expect(ask).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(1)
     expect(ask).toHaveBeenCalledOnce()
     expect(ask).toHaveBeenCalledWith(
       'v1.2.3\n\nRelease notes',
@@ -97,7 +109,13 @@ describe('checkForAppUpdatesOnStartup', () => {
   })
 
   it('defers the prompt when a game is detected during the grace period', async () => {
-    const { checkForAppUpdatesOnStartup, startGame, endGame, STARTUP_GRACE_MS } = await load()
+    const {
+      checkForAppUpdatesOnStartup,
+      startGame,
+      endGame,
+      STARTUP_GRACE_MS,
+      POST_MATCH_SETTLE_MS,
+    } = await load()
     check.mockResolvedValue(makeUpdate())
 
     checkForAppUpdatesOnStartup()
@@ -107,7 +125,84 @@ describe('checkForAppUpdatesOnStartup', () => {
     expect(ask).not.toHaveBeenCalled()
 
     endGame()
+    await vi.advanceTimersByTimeAsync(POST_MATCH_SETTLE_MS)
+    expect(ask).toHaveBeenCalledOnce()
+  })
+
+  it('waits for the post-match traceroutes to finish', async () => {
+    const {
+      checkForAppUpdatesOnStartup,
+      startGame,
+      endGame,
+      startTraces,
+      finishTraces,
+      STARTUP_GRACE_MS,
+      POST_MATCH_SETTLE_MS,
+    } = await load()
+    check.mockResolvedValue(makeUpdate())
+    startGame()
+
+    checkForAppUpdatesOnStartup()
+    await vi.advanceTimersByTimeAsync(STARTUP_GRACE_MS)
+    endGame()
+    await vi.advanceTimersByTimeAsync(POST_MATCH_SETTLE_MS / 2)
+    startTraces()
+    await vi.advanceTimersByTimeAsync(POST_MATCH_SETTLE_MS * 10)
+    expect(ask).not.toHaveBeenCalled()
+
+    finishTraces()
     await vi.advanceTimersByTimeAsync(0)
+    expect(ask).toHaveBeenCalledOnce()
+  })
+
+  it('prompts at the cap when a traceroute never finishes', async () => {
+    const {
+      checkForAppUpdatesOnStartup,
+      startGame,
+      endGame,
+      startTraces,
+      STARTUP_GRACE_MS,
+      POST_MATCH_TRACE_CAP_MS,
+    } = await load()
+    check.mockResolvedValue(makeUpdate())
+    startGame()
+    startTraces()
+
+    checkForAppUpdatesOnStartup()
+    await vi.advanceTimersByTimeAsync(STARTUP_GRACE_MS)
+    endGame()
+    await vi.advanceTimersByTimeAsync(POST_MATCH_TRACE_CAP_MS - 1)
+    expect(ask).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(ask).toHaveBeenCalledOnce()
+  })
+
+  it('keeps waiting when a new game starts during the post-match traceroutes', async () => {
+    const {
+      checkForAppUpdatesOnStartup,
+      startGame,
+      endGame,
+      startTraces,
+      finishTraces,
+      STARTUP_GRACE_MS,
+      POST_MATCH_SETTLE_MS,
+    } = await load()
+    check.mockResolvedValue(makeUpdate())
+    startGame()
+    startTraces()
+
+    checkForAppUpdatesOnStartup()
+    await vi.advanceTimersByTimeAsync(STARTUP_GRACE_MS)
+    endGame()
+    await vi.advanceTimersByTimeAsync(POST_MATCH_SETTLE_MS)
+    startGame()
+    finishTraces()
+    await vi.advanceTimersByTimeAsync(STARTUP_GRACE_MS * 10)
+    expect(ask).not.toHaveBeenCalled()
+
+    endGame()
+    await vi.advanceTimersByTimeAsync(POST_MATCH_SETTLE_MS)
     expect(ask).toHaveBeenCalledOnce()
   })
 
@@ -136,6 +231,7 @@ describe('checkForAppUpdatesOnStartup', () => {
       startGame,
       endGame,
       STARTUP_GRACE_MS,
+      POST_MATCH_TRACE_CAP_MS,
     } = await load()
     check.mockResolvedValue(makeUpdate())
     startGame()
@@ -146,7 +242,7 @@ describe('checkForAppUpdatesOnStartup', () => {
     expect(ask).toHaveBeenCalledOnce()
 
     endGame()
-    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(POST_MATCH_TRACE_CAP_MS)
     expect(ask).toHaveBeenCalledOnce()
   })
 
