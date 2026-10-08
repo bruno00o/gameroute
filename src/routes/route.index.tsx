@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { RiMore2Fill } from '@remixicon/react'
 import { toast } from 'sonner'
@@ -16,7 +16,7 @@ import {
 import { exportServerStability } from '@/lib/export-csv'
 import { generateNetworkExport } from '@/lib/export-llm'
 import { counted, destinationName, ROUTE_DAYS, routeLimitNote } from '@/lib/route-history'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -109,6 +109,9 @@ function RoutePage() {
 
   const actions = (
     <>
+      <Link to="/trace" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+        {m.route_page_traces()}
+      </Link>
       {routes && routes.length > 1 && usual && (
         <Segmented
           label={m.route_page_game()}

@@ -11,6 +11,7 @@ type HopListProps = {
   mode?: HopMode
   destinationName?: string | null
   serviceLabel?: string
+  pending?: boolean
   className?: string
 }
 
@@ -38,6 +39,7 @@ function HopList({
   mode = 'simple',
   destinationName,
   serviceLabel,
+  pending = false,
   className,
 }: HopListProps) {
   const detail = mode === 'detail'
@@ -54,7 +56,10 @@ function HopList({
     hop.latencyAvg == null ? 'hatched' : trail && index >= onset ? trail : 'route'
 
   const isDestination = (hop: DbHop) => hop.ip === targetIp && hop.latencyAvg != null
-  const silentDestination = route ? route.destinationSilent : !hops.some(isDestination)
+  const reached = hops.some(isDestination)
+  const waiting = pending && !reached
+  const silentDestination = !pending && (route ? route.destinationSilent : !reached)
+  const closed = !silentDestination && !waiting
   const lastAnswer = lastRespondingHop(hops)
   const lastSegment = lastAnswer && segmentAt(route, lastAnswer.hopNumber)
 
@@ -77,6 +82,23 @@ function HopList({
         })
       }
     />
+  )
+
+  const pendingRow = waiting && (
+    <div
+      role="row"
+      data-kind="pending"
+      aria-live="polite"
+      className="grid min-h-8 grid-cols-(--hop-cols) items-center gap-x-3"
+    >
+      <HopRailCell rail="hatched" node="silent" first={hops.length === 0} last />
+      <span role="cell" className="text-ink-subtle text-right font-mono text-xs tabular-nums">
+        {(hops.at(-1)?.hopNumber ?? 0) + 1}
+      </span>
+      <span role="cell" className="text-label text-ink-subtle col-[3/-1] font-normal">
+        {m.hop_pending()}
+      </span>
+    </div>
   )
 
   return (
@@ -159,18 +181,22 @@ function HopList({
                 mode={mode}
                 rail={railAt(hop, index)}
                 first={index === 0}
-                last={!silentDestination && index === hops.length - 1}
+                last={closed && index === hops.length - 1}
                 destination={isDestination(hop)}
                 name={destinationName}
                 note={index === onset ? m.hop_loss_onset() : undefined}
               />
             ))}
             {isLast && silentDestinationRow}
+            {isLast && pendingRow}
           </div>
         )
       })}
-      {groups.length === 0 && silentDestinationRow && (
-        <div role="rowgroup">{silentDestinationRow}</div>
+      {groups.length === 0 && (silentDestinationRow || pendingRow) && (
+        <div role="rowgroup">
+          {silentDestinationRow}
+          {pendingRow}
+        </div>
       )}
     </div>
   )

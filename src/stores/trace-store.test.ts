@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { useTraceStore } from './trace-store'
 import type {
+  DbHop,
+  OperatorRoute,
+  TracedTarget,
   TracerouteAllCompleteEvent,
   TracerouteHopEvent,
   TracerouteProgressEvent,
@@ -14,6 +17,72 @@ afterEach(() => {
   getState().reset()
 })
 
+function target(ip: string, kind: TracedTarget['kind'] = 'game'): TracedTarget {
+  return { ip, kind, protocol: 'UDP', port: 7220 }
+}
+
+function started(ips: string[], startedAt = '2026-01-31T10:00:00Z'): TracerouteStartedEvent {
+  return {
+    serverIpCount: ips.length,
+    serverIps: ips,
+    targets: ips.map(ip => target(ip)),
+    startedAt,
+  }
+}
+
+function hopEvent(
+  targetIp: string,
+  hopNumber: number,
+  rttMs: number | null = 1.5,
+  overrides: Partial<TracerouteHopEvent> = {}
+): TracerouteHopEvent {
+  return {
+    serverIpIndex: 1,
+    targetIp,
+    hopNumber,
+    ip: rttMs == null ? null : `10.0.0.${hopNumber}`,
+    hostname: null,
+    rttMs,
+    rttMin: rttMs,
+    rttMax: rttMs,
+    packetLoss: rttMs == null ? 100 : 0,
+    timeout: rttMs == null,
+    ...overrides,
+  }
+}
+
+function dbHop(hopNumber: number): DbHop {
+  return {
+    id: hopNumber,
+    tracerouteId: 0,
+    hopNumber,
+    ip: `10.0.0.${hopNumber}`,
+    hostname: null,
+    latencyMin: 1,
+    latencyAvg: 1,
+    latencyMax: 1,
+    packetLoss: 0,
+    isProblemHop: false,
+    source: 'ICMP',
+    lossStatus: null,
+  }
+}
+
+function completed(
+  targetIp: string,
+  overrides: Partial<TracerouteServerIpCompleteEvent> = {}
+): TracerouteServerIpCompleteEvent {
+  return {
+    index: 1,
+    targetIp,
+    success: true,
+    status: 'ok',
+    hops: [dbHop(1)],
+    route: null,
+    ...overrides,
+  }
+}
+
 describe('trace-store initial state', () => {
   it('starts idle', () => {
     const state = getState()
@@ -23,45 +92,36 @@ describe('trace-store initial state', () => {
     expect(state.startedAt).toBeNull()
     expect(state.summary).toBeNull()
     expect(state.liveHops.size).toBe(0)
-    expect(state.completedIps.size).toBe(0)
+    expect(state.targets.size).toBe(0)
+    expect(state.results.size).toBe(0)
   })
 })
 
 describe('setStarted', () => {
-  it('initializes traceroute state', () => {
-    const event: TracerouteStartedEvent = {
+  it('initializes traceroute state with the role of each target', () => {
+    getState().setStarted({
       serverIpCount: 2,
       serverIps: ['1.1.1.1', '8.8.8.8'],
+      targets: [target('1.1.1.1', 'game'), target('8.8.8.8', null)],
       startedAt: '2026-01-31T10:00:00Z',
-    }
-
-    getState().setStarted(event)
+    })
     const state = getState()
 
     expect(state.isRunning).toBe(true)
     expect(state.serverIps).toEqual(['1.1.1.1', '8.8.8.8'])
+    expect(state.targets.get('1.1.1.1')?.kind).toBe('game')
+    expect(state.targets.get('8.8.8.8')?.kind).toBeNull()
     expect(state.startedAt).toBe('2026-01-31T10:00:00Z')
     expect(state.progress).toBeNull()
     expect(state.liveHops.size).toBe(0)
-    expect(state.completedIps.size).toBe(0)
+    expect(state.results.size).toBe(0)
     expect(state.summary).toBeNull()
   })
 
   it('clears previous state on a new start after completion', () => {
-    getState().setStarted({
-      serverIpCount: 1,
-      serverIps: ['1.1.1.1'],
-      startedAt: '2026-01-31T10:00:00Z',
-    })
-    getState().addHop({
-      serverIpIndex: 1,
-      targetIp: '1.1.1.1',
-      hopNumber: 1,
-      ip: '192.168.1.1',
-      hostname: null,
-      rttMs: 1.5,
-      timeout: false,
-    })
+    getState().setStarted(started(['1.1.1.1']))
+    getState().addHop(hopEvent('1.1.1.1', 1))
+    getState().setIpComplete(completed('1.1.1.1'))
     getState().setAllComplete({
       totalCount: 1,
       successful: 1,
@@ -69,96 +129,69 @@ describe('setStarted', () => {
       completedAt: '2026-01-31T10:01:00Z',
     })
 
-    getState().setStarted({
-      serverIpCount: 1,
-      serverIps: ['2.2.2.2'],
-      startedAt: '2026-01-31T11:00:00Z',
-    })
+    getState().setStarted(started(['2.2.2.2'], '2026-01-31T11:00:00Z'))
 
     expect(getState().serverIps).toEqual(['2.2.2.2'])
     expect(getState().liveHops.size).toBe(0)
+    expect(getState().results.size).toBe(0)
     expect(getState().summary).toBeNull()
   })
 
   it('merges targets added while running', () => {
-    getState().setStarted({
-      serverIpCount: 1,
-      serverIps: ['162.249.72.5'],
-      startedAt: '2026-01-31T10:00:00Z',
-    })
-    getState().addHop({
-      serverIpIndex: 1,
-      targetIp: '162.249.72.5',
-      hopNumber: 1,
-      ip: '192.168.1.1',
-      hostname: null,
-      rttMs: 0.5,
-      timeout: false,
-    })
+    getState().setStarted(started(['162.249.72.5']))
+    getState().addHop(hopEvent('162.249.72.5', 1, 0.5))
 
     getState().setStarted({
       serverIpCount: 2,
       serverIps: ['185.40.64.1', '162.249.72.5'],
+      targets: [target('185.40.64.1', 'voice'), target('162.249.72.5')],
       startedAt: '2026-01-31T10:20:00Z',
     })
 
     const state = getState()
     expect(state.isRunning).toBe(true)
     expect(state.serverIps).toEqual(['162.249.72.5', '185.40.64.1'])
+    expect(state.targets.get('185.40.64.1')?.kind).toBe('voice')
     expect(state.startedAt).toBe('2026-01-31T10:00:00Z')
     expect(state.liveHops.get('162.249.72.5')).toHaveLength(1)
+  })
+
+  it('starts over a target that is traced again while running', () => {
+    getState().setStarted(started(['1.1.1.1', '2.2.2.2']))
+    getState().addHop(hopEvent('1.1.1.1', 1))
+    getState().setIpComplete(completed('1.1.1.1'))
+
+    getState().setStarted(started(['1.1.1.1']))
+
+    expect(getState().results.has('1.1.1.1')).toBe(false)
+    expect(getState().liveHops.has('1.1.1.1')).toBe(false)
+    expect(getState().serverIps).toEqual(['1.1.1.1', '2.2.2.2'])
   })
 })
 
 describe('addHop', () => {
-  it('adds hops grouped by target IP', () => {
-    const hop1: TracerouteHopEvent = {
-      serverIpIndex: 1,
-      targetIp: '1.1.1.1',
-      hopNumber: 1,
-      ip: '192.168.1.1',
-      hostname: null,
-      rttMs: 1.5,
-      timeout: false,
-    }
-    const hop2: TracerouteHopEvent = {
-      serverIpIndex: 1,
-      targetIp: '1.1.1.1',
-      hopNumber: 2,
-      ip: '10.0.0.1',
-      hostname: null,
-      rttMs: 5.0,
-      timeout: false,
-    }
-
-    getState().addHop(hop1)
-    getState().addHop(hop2)
+  it('adds hops one by one, grouped by target IP and ordered by hop number', () => {
+    getState().addHop(hopEvent('1.1.1.1', 1))
+    getState().addHop(hopEvent('1.1.1.1', 3, 5))
+    getState().addHop(hopEvent('1.1.1.1', 2, null))
 
     const hops = getState().liveHops.get('1.1.1.1')
-    expect(hops).toHaveLength(2)
-    expect(hops![0].hopNumber).toBe(1)
-    expect(hops![1].hopNumber).toBe(2)
+    expect(hops?.map(hop => hop.hopNumber)).toEqual([1, 2, 3])
+    expect(hops?.[1].timeout).toBe(true)
+  })
+
+  it('replaces a hop that is reported again', () => {
+    getState().addHop(hopEvent('1.1.1.1', 1, 1))
+    getState().addHop(hopEvent('1.1.1.1', 1, 2))
+
+    const hops = getState().liveHops.get('1.1.1.1')
+    expect(hops).toHaveLength(1)
+    expect(hops?.[0].rttMs).toBe(2)
   })
 
   it('keeps hops separate per IP', () => {
-    getState().addHop({
-      serverIpIndex: 1,
-      targetIp: '1.1.1.1',
-      hopNumber: 1,
-      ip: '10.0.0.1',
-      hostname: null,
-      rttMs: 1.0,
-      timeout: false,
-    })
-    getState().addHop({
-      serverIpIndex: 2,
-      targetIp: '8.8.8.8',
-      hopNumber: 1,
-      ip: '10.0.0.1',
-      hostname: null,
-      rttMs: 2.0,
-      timeout: false,
-    })
+    getState().addHop(hopEvent('1.1.1.1', 1))
+    getState().addHop(hopEvent('8.8.8.8', 1))
 
     expect(getState().liveHops.get('1.1.1.1')).toHaveLength(1)
     expect(getState().liveHops.get('8.8.8.8')).toHaveLength(1)
@@ -191,41 +224,42 @@ describe('setProgress', () => {
 })
 
 describe('setIpComplete', () => {
-  it('marks IP as successful', () => {
-    const event: TracerouteServerIpCompleteEvent = {
-      index: 1,
-      targetIp: '1.1.1.1',
-      success: true,
-      status: 'ok',
-    }
+  const route: OperatorRoute = {
+    segments: [],
+    lastRespondingHop: 1,
+    totalMs: 1,
+    destinationSilent: false,
+    destinationAsn: null,
+    destinationName: 'Riot Games, Inc',
+  }
 
-    getState().setIpComplete(event)
-    expect(getState().completedIps.get('1.1.1.1')).toBe(true)
-    expect(getState().statuses.get('1.1.1.1')).toBe('ok')
+  it('keeps the status, the final hops and the route computed by the backend', () => {
+    getState().setIpComplete(completed('1.1.1.1', { status: 'degraded', route }))
+
+    const result = getState().results.get('1.1.1.1')
+    expect(result?.success).toBe(true)
+    expect(result?.status).toBe('degraded')
+    expect(result?.hops).toHaveLength(1)
+    expect(result?.route).toEqual(route)
   })
 
   it('marks IP as failed', () => {
-    const event: TracerouteServerIpCompleteEvent = {
-      index: 1,
-      targetIp: '8.8.8.8',
+    getState().setIpComplete(
+      completed('8.8.8.8', { success: false, status: 'unmeasured', hops: [] })
+    )
+
+    expect(getState().results.get('8.8.8.8')).toMatchObject({
       success: false,
       status: 'unmeasured',
-    }
-
-    getState().setIpComplete(event)
-    expect(getState().completedIps.get('8.8.8.8')).toBe(false)
+      hops: [],
+    })
   })
 
   it('accumulates multiple IPs', () => {
-    getState().setIpComplete({ index: 1, targetIp: '1.1.1.1', success: true, status: 'ok' })
-    getState().setIpComplete({
-      index: 2,
-      targetIp: '8.8.8.8',
-      success: false,
-      status: 'unmeasured',
-    })
+    getState().setIpComplete(completed('1.1.1.1'))
+    getState().setIpComplete(completed('8.8.8.8', { success: false, status: 'unmeasured' }))
 
-    expect(getState().completedIps.size).toBe(2)
+    expect(getState().results.size).toBe(2)
   })
 })
 
@@ -247,17 +281,14 @@ describe('setAllComplete', () => {
   })
 
   it('ignores stale event when not running (cancelled)', () => {
-    // Simulate cancel: isRunning is already false
     expect(getState().isRunning).toBe(false)
 
-    const event: TracerouteAllCompleteEvent = {
+    getState().setAllComplete({
       totalCount: 0,
       successful: 0,
       failed: 0,
       completedAt: '2026-01-31T10:05:00Z',
-    }
-
-    getState().setAllComplete(event)
+    })
 
     expect(getState().summary).toBeNull()
   })
@@ -265,21 +296,9 @@ describe('setAllComplete', () => {
 
 describe('reset', () => {
   it('clears all state', () => {
-    getState().setStarted({
-      serverIpCount: 1,
-      serverIps: ['1.1.1.1'],
-      startedAt: '2026-01-31T10:00:00Z',
-    })
-    getState().addHop({
-      serverIpIndex: 1,
-      targetIp: '1.1.1.1',
-      hopNumber: 1,
-      ip: '10.0.0.1',
-      hostname: null,
-      rttMs: 1.0,
-      timeout: false,
-    })
-    getState().setIpComplete({ index: 1, targetIp: '1.1.1.1', success: true, status: 'ok' })
+    getState().setStarted(started(['1.1.1.1']))
+    getState().addHop(hopEvent('1.1.1.1', 1))
+    getState().setIpComplete(completed('1.1.1.1'))
 
     getState().reset()
 
@@ -287,10 +306,10 @@ describe('reset', () => {
     expect(state.isRunning).toBe(false)
     expect(state.progress).toBeNull()
     expect(state.serverIps).toEqual([])
+    expect(state.targets.size).toBe(0)
     expect(state.startedAt).toBeNull()
     expect(state.liveHops.size).toBe(0)
-    expect(state.completedIps.size).toBe(0)
-    expect(state.statuses.size).toBe(0)
+    expect(state.results.size).toBe(0)
     expect(state.summary).toBeNull()
   })
 })
