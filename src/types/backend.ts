@@ -42,13 +42,35 @@ export type Session = {
   endedAt: string | null
 }
 
-export type SessionListItem = {
+export type MatchSummary = {
+  matchCount: number
+  medianPingMs: number | null
+  medianPingAtLeast: boolean
+  status: Severity | null
+}
+
+export type SessionListItem = MatchSummary & {
   id: number
   gameName: string
   startedAt: string
   endedAt: string | null
+  endEstimated: boolean
   uniqueIpCount: number
   tracerouteCount: number
+}
+
+export type SessionListFilter = {
+  search?: string
+  game?: string
+  toReview?: boolean
+}
+
+export type SessionListPage = {
+  items: SessionListItem[]
+  total: number
+  recorded: number
+  firstStartedAt: string | null
+  games: string[]
 }
 
 export type SessionDetail = {

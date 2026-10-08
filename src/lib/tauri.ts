@@ -17,7 +17,8 @@ import type {
   ServerIpCapturedEvent,
   ServerStability,
   SessionDetail,
-  SessionListItem,
+  SessionListFilter,
+  SessionListPage,
   SessionMatch,
   SessionQualityPoint,
   ScanResult,
@@ -40,19 +41,14 @@ export const startManualMonitoring = (pid: number) =>
 export const cancelTraceroute = () => invoke<void>('cancel_traceroute')
 
 // ===== Sessions =====
-export const getSessions = (limit: number, offset: number) =>
-  invoke<SessionListItem[]>('get_sessions', { limit, offset })
+export const getSessionList = (filter: SessionListFilter, limit: number, offset: number) =>
+  invoke<SessionListPage>('get_session_list', { filter, limit, offset })
 export const getSessionDetail = (id: number) =>
   invoke<SessionDetail | null>('get_session_detail', { id })
 export const getSessionMatches = (id: number) =>
   invoke<SessionMatch[]>('get_session_matches', { id })
-export const getSessionCount = () => invoke<number>('get_session_count')
 export const getPreviousSessionId = (gameName: string, beforeStartedAt: string) =>
   invoke<number | null>('get_previous_session_id', { gameName, beforeStartedAt })
-export const searchSessions = (query: string, limit: number, offset: number) =>
-  invoke<SessionListItem[]>('search_sessions', { query, limit, offset })
-export const searchSessionCount = (query: string) =>
-  invoke<number>('search_session_count', { query })
 export const deleteSession = (id: number) => invoke<void>('delete_session', { id })
 export const retryTraceroutes = (sessionId: number) =>
   invoke<void>('retry_traceroutes', { sessionId })
