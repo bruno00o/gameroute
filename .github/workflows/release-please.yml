@@ -24,6 +24,7 @@ jobs:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
     runs-on: windows-latest
+    environment: release
     steps:
       - uses: actions/checkout@v4
 
@@ -59,13 +60,74 @@ jobs:
           Copy-Item src-tauri/target/release/gameroute-capture-service.exe src-tauri/binaries/gameroute-capture-service-x86_64-pc-windows-msvc.exe -Force
         shell: pwsh
 
+      - name: Configure Windows code signing
+        id: signing
+        env:
+          HAS_AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID != '' }}
+          HAS_AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET != '' }}
+          HAS_AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID != '' }}
+          AZURE_SIGNING_ENDPOINT: ${{ vars.AZURE_SIGNING_ENDPOINT }}
+          AZURE_SIGNING_ACCOUNT: ${{ vars.AZURE_SIGNING_ACCOUNT }}
+          AZURE_SIGNING_PROFILE: ${{ vars.AZURE_SIGNING_PROFILE }}
+        run: |
+          if ($env:HAS_AZURE_CLIENT_ID -ne 'true') {
+            Write-Output 'Azure Artifact Signing is not configured, building unsigned binaries'
+            'enabled=false' >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+          $missing = @(
+            if ($env:HAS_AZURE_CLIENT_SECRET -ne 'true') { 'secrets.AZURE_CLIENT_SECRET' }
+            if ($env:HAS_AZURE_TENANT_ID -ne 'true') { 'secrets.AZURE_TENANT_ID' }
+            if (-not $env:AZURE_SIGNING_ENDPOINT) { 'vars.AZURE_SIGNING_ENDPOINT' }
+            if (-not $env:AZURE_SIGNING_ACCOUNT) { 'vars.AZURE_SIGNING_ACCOUNT' }
+            if (-not $env:AZURE_SIGNING_PROFILE) { 'vars.AZURE_SIGNING_PROFILE' }
+          )
+          if ($missing) { throw "Azure Artifact Signing is partially configured, missing: $($missing -join ', ')" }
+
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\10.*\x64\signtool.exe" |
+            Sort-Object { [version]$_.Directory.Parent.Name } | Select-Object -Last 1
+          if (-not $signtool) { throw 'signtool.exe not found' }
+          "SIGNTOOL_PATH=$($signtool.FullName)" >> $env:GITHUB_ENV
+          "AZURE_CLI_PATH=$((Get-Command az.cmd).Source)" >> $env:GITHUB_ENV
+
+          # artifact-signing-cli has no env fallback for the endpoint, so the overlay is generated from vars
+          $overlay = Join-Path $env:RUNNER_TEMP 'tauri.signing.conf.json'
+          @{
+            bundle = @{
+              windows = @{
+                signCommand = @{
+                  cmd  = 'artifact-signing-cli'
+                  args = @(
+                    '-e', $env:AZURE_SIGNING_ENDPOINT,
+                    '-a', $env:AZURE_SIGNING_ACCOUNT,
+                    '-c', $env:AZURE_SIGNING_PROFILE,
+                    '-d', 'GameRoute',
+                    '%1'
+                  )
+                }
+              }
+            }
+          } | ConvertTo-Json -Depth 5 | Set-Content -Path $overlay -Encoding utf8NoBOM
+          'enabled=true' >> $env:GITHUB_OUTPUT
+          "tauri-args=--config $overlay" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      - name: Install Artifact Signing CLI
+        if: steps.signing.outputs.enabled == 'true'
+        run: cargo install artifact-signing-cli --version 0.11.0 --locked
+        shell: pwsh
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         with:
           releaseId: ${{ needs.release-please.outputs.release_id }}
           releaseBody: ""
           tauriScript: pnpm tauri
           includeUpdaterJson: true
+          args: ${{ steps.signing.outputs.tauri-args }}
