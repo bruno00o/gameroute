@@ -42,12 +42,14 @@ pub fn is_known_game_server(asn: Option<u32>, protocol: &str, port: u16) -> bool
     known_kind(asn, protocol, port) == Some(FlowKind::Game)
 }
 
-pub fn classify_ip(ip: &str, protocol: &str, port: u16) -> FlowKind {
-    let asn = ip
-        .parse::<IpAddr>()
+fn asn_of(ip: &str) -> Option<u32> {
+    ip.parse::<IpAddr>()
         .ok()
-        .and_then(|addr| get_resolver().and_then(|resolver| resolver.asn_number(addr)));
-    classify(asn, protocol, port)
+        .and_then(|addr| get_resolver().and_then(|resolver| resolver.asn_number(addr)))
+}
+
+pub fn classify_ip(ip: &str, protocol: &str, port: u16) -> FlowKind {
+    classify(asn_of(ip), protocol, port)
 }
 
 pub async fn backfill_flow_kinds() {
@@ -76,6 +78,23 @@ pub async fn backfill_flow_kinds() {
 
     if !flows.is_empty() {
         log::info!("Classified {} game-server flows ({} voice)", flows.len(), voice);
+    }
+}
+
+pub async fn backfill_match_periods() {
+    let (Some(repo), Some(_)) = (get_ip_period_repository(), get_resolver()) else {
+        return;
+    };
+
+    let known = |ip: &str, protocol: &str, port: u16| is_known_game_server(asn_of(ip), protocol, port);
+    match repo.merge_closed_match_periods(known).await {
+        Ok(merged) if merged.recognised > 0 || merged.absorbed > 0 => log::info!(
+            "Recognised {} game-server periods and merged {} match fragments",
+            merged.recognised,
+            merged.absorbed
+        ),
+        Ok(_) => {}
+        Err(e) => log::error!("Failed to merge match periods: {}", e),
     }
 }
 
