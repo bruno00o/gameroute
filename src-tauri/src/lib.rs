@@ -29,8 +29,8 @@ use commands::service::{
     check_capture_service_status, open_log_dir, restart_capture_service, set_minimize_to_tray,
 };
 use commands::sessions::{
-    delete_session, get_previous_session_id, get_session_count, get_session_detail,
-    get_session_matches, get_sessions, retry_traceroutes, search_session_count, search_sessions,
+    delete_session, get_previous_session_id, get_session_detail, get_session_list,
+    get_session_matches, retry_traceroutes,
 };
 use config::{CACHE_MAX_TTL_DAYS, SESSION_RETENTION_DAYS};
 use db::{get_ip_metadata_repository, get_session_repository};
@@ -258,14 +258,11 @@ pub fn run() {
             clear_ip_metadata_cache,
             get_ip_metadata_stats,
             prune_ip_metadata_cache,
-            get_sessions,
+            get_session_list,
             get_session_detail,
             get_session_matches,
             get_previous_session_id,
-            search_sessions,
-            search_session_count,
             delete_session,
-            get_session_count,
             retry_traceroutes,
             scan_steam_games,
             scan_epic_games,
