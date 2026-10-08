@@ -1,6 +1,40 @@
 use crate::models::severity::Severity;
 use crate::models::HopResult;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RouteZone {
+    Home,
+    Isp,
+    Transit,
+    Service,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RouteSegment {
+    pub zone: RouteZone,
+    pub asn: Option<u32>,
+    pub name: Option<String>,
+    pub first_hop: i32,
+    pub last_hop: i32,
+    pub hops: u32,
+    pub silent_hops: u32,
+    pub added_ms: f64,
+    pub status: Option<Severity>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OperatorRoute {
+    pub segments: Vec<RouteSegment>,
+    pub last_responding_hop: i32,
+    pub total_ms: f64,
+    pub destination_silent: bool,
+    pub destination_asn: Option<u32>,
+    pub destination_name: Option<String>,
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -114,6 +148,39 @@ impl TracerouteHopEvent {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn operator_route_serializes_in_camel_case() {
+        let route = OperatorRoute {
+            segments: vec![RouteSegment {
+                zone: RouteZone::Transit,
+                asn: Some(9002),
+                name: Some("RETN Limited".to_string()),
+                first_hop: 6,
+                last_hop: 7,
+                hops: 2,
+                silent_hops: 0,
+                added_ms: 27.3,
+                status: Some(Severity::Degraded),
+            }],
+            last_responding_hop: 7,
+            total_ms: 31.0,
+            destination_silent: true,
+            destination_asn: Some(6507),
+            destination_name: Some("Riot Games, Inc".to_string()),
+        };
+
+        let json = serde_json::to_value(&route).unwrap();
+        let segment = &json["segments"][0];
+        assert_eq!(segment["zone"], "transit");
+        assert_eq!(segment["firstHop"], 6);
+        assert_eq!(segment["silentHops"], 0);
+        assert_eq!(segment["addedMs"], 27.3);
+        assert_eq!(segment["status"], "degraded");
+        assert_eq!(json["lastRespondingHop"], 7);
+        assert_eq!(json["destinationSilent"], true);
+        assert_eq!(json["destinationName"], "Riot Games, Inc");
+    }
 
     #[test]
     fn test_traceroute_started_event() {

@@ -105,6 +105,7 @@ impl TracerouteRepository {
             traceroute_method: traceroute.traceroute_method,
             hops,
             status: Severity::default(),
+            route: None,
         }))
     }
 
@@ -158,6 +159,7 @@ impl TracerouteRepository {
                     traceroute_method: row.traceroute_method.clone(),
                     hops: Vec::new(),
                     status: Severity::default(),
+                    route: None,
                 }
             });
 

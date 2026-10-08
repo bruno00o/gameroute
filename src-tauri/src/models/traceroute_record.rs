@@ -49,6 +49,8 @@ pub struct TracerouteWithHops {
     pub hops: Vec<super::session::DbHop>,
     #[serde(default)]
     pub status: super::severity::Severity,
+    #[serde(default)]
+    pub route: Option<super::traceroute::OperatorRoute>,
 }
 
 #[cfg(test)]

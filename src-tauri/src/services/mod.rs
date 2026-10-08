@@ -5,6 +5,7 @@ pub mod flow_kind;
 pub mod game_detection;
 pub mod network_capture;
 pub mod riot_scanner;
+pub mod route_model;
 pub mod scanner_utils;
 pub mod severity;
 pub mod steam_scanner;
