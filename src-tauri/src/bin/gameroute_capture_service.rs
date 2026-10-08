@@ -47,6 +47,18 @@ mod service {
 
     use trippy_core::{Builder, PortDirection, PrivilegeMode, Protocol};
 
+    macro_rules! slog {
+        ($($arg:tt)*) => {
+            eprintln!(
+                "[{}] {}",
+                chrono::Local::now().format("%Y-%m-%d %H:%M:%S%.3f"),
+                format_args!($($arg)*)
+            )
+        };
+    }
+
+    const LOG_MAX_BYTES: u64 = 5 * 1024 * 1024;
+
     const SERVICE_NAME: &str = "GameRouteCaptureService";
     const SERVICE_DISPLAY_NAME: &str = "GameRoute Capture Service";
     const SERVICE_DESCRIPTION: &str =
@@ -65,7 +77,7 @@ mod service {
 
     fn service_main(_arguments: Vec<OsString>) {
         if let Err(e) = run_service() {
-            eprintln!("Service error: {}", e);
+            slog!("Service error: {}", e);
         }
     }
 
@@ -79,10 +91,10 @@ mod service {
                 "uninstall" => return uninstall_service(),
                 "run" => return run_as_console(),
                 _ => {
-                    eprintln!("Usage: gameroute-capture-service [install|uninstall|run]");
-                    eprintln!("  install   - Install as Windows service");
-                    eprintln!("  uninstall - Remove Windows service");
-                    eprintln!("  run       - Run in console mode (for debugging)");
+                    slog!("Usage: gameroute-capture-service [install|uninstall|run]");
+                    slog!("  install   - Install as Windows service");
+                    slog!("  uninstall - Remove Windows service");
+                    slog!("  run       - Run in console mode (for debugging)");
                     return Ok(());
                 }
             }
@@ -147,7 +159,29 @@ mod service {
         Ok(())
     }
 
+    fn redirect_stderr_to_log_file() {
+        use std::os::windows::io::IntoRawHandle;
+        use windows_sys::Win32::System::Console::{SetStdHandle, STD_ERROR_HANDLE};
+
+        let program_data =
+            std::env::var_os("ProgramData").unwrap_or_else(|| r"C:\ProgramData".into());
+        let dir = std::path::Path::new(&program_data).join("GameRoute").join("logs");
+        if std::fs::create_dir_all(&dir).is_err() {
+            return;
+        }
+        let path = dir.join("capture-service.log");
+        if std::fs::metadata(&path).is_ok_and(|m| m.len() > LOG_MAX_BYTES) {
+            let _ = std::fs::rename(&path, dir.join("capture-service.old.log"));
+        }
+        if let Ok(file) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
+            unsafe { SetStdHandle(STD_ERROR_HANDLE, file.into_raw_handle()) };
+        }
+    }
+
     fn run_service() -> Result<(), Box<dyn std::error::Error>> {
+        redirect_stderr_to_log_file();
+        slog!("Service starting (version {})", env!("CARGO_PKG_VERSION"));
+
         let stop_flag = Arc::new(AtomicBool::new(false));
         let stop_flag_clone = stop_flag.clone();
 
@@ -213,10 +247,10 @@ mod service {
         match &filter_result {
             Ok(out) => {
                 let stdout = String::from_utf8_lossy(&out.stdout);
-                eprintln!("pktmon filter add UDP: {}", stdout.trim());
+                slog!("pktmon filter add UDP: {}", stdout.trim());
             }
             Err(e) => {
-                eprintln!("pktmon filter add failed: {}", e);
+                slog!("pktmon filter add failed: {}", e);
                 return None;
             }
         }
@@ -239,7 +273,7 @@ mod service {
 
         match child {
             Ok(child) => {
-                eprintln!("pktmon started in real-time mode (pid {})", child.id());
+                slog!("pktmon started in real-time mode (pid {})", child.id());
 
                 // Give pktmon a moment to initialize the ETW session
                 std::thread::sleep(Duration::from_millis(500));
@@ -251,13 +285,13 @@ mod service {
                     .output()
                 {
                     let stdout = String::from_utf8_lossy(&status.stdout);
-                    eprintln!("pktmon status: {}", stdout.trim());
+                    slog!("pktmon status: {}", stdout.trim());
                 }
 
                 Some(child)
             }
             Err(e) => {
-                eprintln!("Failed to spawn pktmon: {}", e);
+                slog!("Failed to spawn pktmon: {}", e);
                 None
             }
         }
@@ -280,7 +314,7 @@ mod service {
             let _ = c.wait();
         }
 
-        eprintln!("pktmon stopped and cleaned up");
+        slog!("pktmon stopped and cleaned up");
     }
 
     // ── Named Pipe Server using Win32 API with restricted ACL ──────────
@@ -304,7 +338,7 @@ mod service {
 
         let mut pktmon_child = start_persistent_pktmon();
         if pktmon_child.is_none() {
-            eprintln!("WARNING: pktmon failed to start, captures will fail");
+            slog!("WARNING: pktmon failed to start, captures will fail");
         }
 
         let pipe_name_wide = encode_wide(PIPE_NAME);
@@ -320,7 +354,7 @@ mod service {
             )
         };
         if sd_ok == 0 {
-            eprintln!("Failed to build pipe security descriptor: error {}", unsafe {
+            slog!("Failed to build pipe security descriptor: error {}", unsafe {
                 GetLastError()
             });
             stop_persistent_pktmon(&mut pktmon_child);
@@ -333,7 +367,7 @@ mod service {
             bInheritHandle: 0,
         };
 
-        eprintln!("Pipe server listening on {}", PIPE_NAME);
+        slog!("Pipe server listening on {}", PIPE_NAME);
 
         while !stop_flag.load(Ordering::SeqCst) {
             // Create a new named pipe instance
@@ -352,7 +386,7 @@ mod service {
 
             if handle == INVALID_HANDLE_VALUE {
                 if !stop_flag.load(Ordering::SeqCst) {
-                    eprintln!("CreateNamedPipeW failed: error {}", unsafe { GetLastError() });
+                    slog!("CreateNamedPipeW failed: error {}", unsafe { GetLastError() });
                     std::thread::sleep(Duration::from_millis(500));
                 }
                 continue;
@@ -365,7 +399,7 @@ mod service {
                 if err != ERROR_PIPE_CONNECTED {
                     unsafe { CloseHandle(handle) };
                     if !stop_flag.load(Ordering::SeqCst) {
-                        eprintln!("ConnectNamedPipe error: {}", err);
+                        slog!("ConnectNamedPipe error: {}", err);
                         std::thread::sleep(Duration::from_millis(100));
                     }
                     continue;
@@ -377,7 +411,7 @@ mod service {
                 break;
             }
 
-            eprintln!("Client connected");
+            slog!("Client connected");
 
             // Wrap the pipe handle as a File and spawn a thread to handle it.
             // This allows concurrent requests (traceroutes don't block captures).
@@ -387,9 +421,9 @@ mod service {
             std::thread::spawn(move || {
                 let mut file = file;
                 if let Err(e) = handle_client_request(&mut file) {
-                    eprintln!("Client request error: {}", e);
+                    slog!("Client request error: {}", e);
                 }
-                eprintln!("Client disconnected");
+                slog!("Client disconnected");
                 // File drop closes the handle automatically
             });
         }
@@ -399,7 +433,7 @@ mod service {
         // Stop persistent pktmon on shutdown
         stop_persistent_pktmon(&mut pktmon_child);
 
-        eprintln!("Pipe server shutting down");
+        slog!("Pipe server shutting down");
     }
 
     fn encode_wide(s: &str) -> Vec<u16> {
@@ -483,7 +517,7 @@ mod service {
             }
         };
 
-        eprintln!(
+        slog!(
             "Traceroute request: {} via {} port {} (max_hops={})",
             request.target_ip, request.protocol, request.port, request.max_hops
         );
@@ -501,13 +535,13 @@ mod service {
                 // (only timeouts + maybe the destination), retry with ICMP
                 // to get useful path information.
                 if is_protocol_aware && should_fallback_to_icmp(&hops) {
-                    eprintln!(
+                    slog!(
                         "Traceroute to {} via {} had no intermediate hops, retrying with ICMP",
                         request.target_ip, request.protocol
                     );
                     match run_trippy_traceroute(target_ip, "ICMP", 0, request.max_hops) {
                         Ok((icmp_hops, icmp_reached)) => {
-                            eprintln!(
+                            slog!(
                                 "ICMP fallback to {} complete: {} hops, reached={}",
                                 request.target_ip, icmp_hops.len(), icmp_reached
                             );
@@ -531,7 +565,7 @@ mod service {
                         }
                     }
                 } else {
-                    eprintln!(
+                    slog!(
                         "Traceroute to {} complete: {} hops, reached={}",
                         request.target_ip, hops.len(), destination_reached
                     );
@@ -547,7 +581,7 @@ mod service {
             Err(e) => {
                 // TCP/UDP failed entirely, try ICMP as fallback
                 if is_protocol_aware {
-                    eprintln!(
+                    slog!(
                         "Traceroute to {} via {} failed: {}, retrying with ICMP",
                         request.target_ip, request.protocol, e
                     );
@@ -562,7 +596,7 @@ mod service {
                             };
                         }
                         Err(icmp_e) => {
-                            eprintln!("ICMP fallback also failed: {}", icmp_e);
+                            slog!("ICMP fallback also failed: {}", icmp_e);
                         }
                     }
                 }
@@ -624,7 +658,7 @@ mod service {
         let trace_thread = std::thread::spawn(move || {
             let result = tracer_clone.run();
             if let Err(ref e) = result {
-                eprintln!("Tracer.run() error: {:?}", e);
+                slog!("Tracer.run() error: {:?}", e);
             }
             result
         });
@@ -639,7 +673,7 @@ mod service {
             }
             if start.elapsed() >= timeout_dur {
                 // Thread is still running but we've timed out — collect what we have
-                eprintln!("Traceroute timed out after {}s, collecting partial results", TRACEROUTE_TIMEOUT_SECS);
+                slog!("Traceroute timed out after {}s, collecting partial results", TRACEROUTE_TIMEOUT_SECS);
                 break;
             }
             std::thread::sleep(Duration::from_millis(100));
@@ -652,14 +686,14 @@ mod service {
         let mut destination_reached = false;
         let mut last_responding_index: Option<usize> = None;
 
-        eprintln!(
+        slog!(
             "Snapshot for {}: {} hops in snapshot",
             target_str,
             snapshot.hops().len()
         );
         for (i, hop) in snapshot.hops().iter().enumerate() {
             let addr = hop.addrs().next().map(|a| a.to_string());
-            eprintln!(
+            slog!(
                 "  hop {} (ttl {}): addr={:?}, sent={}, recv={}, samples={}",
                 i + 1,
                 hop.ttl(),
@@ -873,7 +907,7 @@ mod service {
             PROCESS_TRACE_MODE_EVENT_RECORD, PROCESS_TRACE_MODE_REAL_TIME,
         };
 
-        eprintln!(
+        slog!(
             "Capturing UDP on ports {:?} for {}s via ETW",
             local_ports, duration_secs
         );
@@ -955,7 +989,7 @@ mod service {
             )
             .collect();
 
-        eprintln!("ETW capture complete: {} endpoints found", endpoints.len());
+        slog!("ETW capture complete: {} endpoints found", endpoints.len());
 
         Ok(endpoints)
     }
