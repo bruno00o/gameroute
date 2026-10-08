@@ -5,6 +5,17 @@ use crate::models::severity::Severity;
 use sqlx::sqlite::SqlitePool;
 use std::sync::{Arc, OnceLock};
 
+const TRACEROUTE_PINGS: &str = "traceroute_pings AS (
+    SELECT traceroute_id, latency_avg AS ping_ms
+    FROM (
+        SELECT traceroute_id, latency_avg,
+               ROW_NUMBER() OVER (PARTITION BY traceroute_id ORDER BY hop_number DESC) AS rn
+        FROM hops
+        WHERE latency_avg IS NOT NULL
+    )
+    WHERE rn = 1
+)";
+
 pub struct AnalyticsRepository {
     pool: SqlitePool,
 }
@@ -92,21 +103,13 @@ impl AnalyticsRepository {
         .fetch_one(&self.pool)
         .await?;
 
-        // Use destination hop latency (last responding hop per traceroute)
-        // rather than average of all hops, which inflates the value.
-        let avg_latency: (Option<f64>,) = sqlx::query_as(
-            "SELECT AVG(dest.latency_avg) FROM (
-                SELECT h.latency_avg
-                FROM hops h
-                JOIN traceroutes t ON t.id = h.traceroute_id
-                JOIN (SELECT DISTINCT ip FROM ip_periods WHERE is_game_server = 1) gs ON gs.ip = t.target_ip
-                WHERE h.latency_avg IS NOT NULL
-                  AND h.hop_number = (
-                    SELECT MAX(h2.hop_number) FROM hops h2
-                    WHERE h2.traceroute_id = t.id AND h2.latency_avg IS NOT NULL
-                  )
-             ) dest",
-        )
+        let avg_latency: (Option<f64>,) = sqlx::query_as(&format!(
+            "WITH {TRACEROUTE_PINGS}
+             SELECT AVG(p.ping_ms)
+             FROM traceroute_pings p
+             JOIN traceroutes t ON t.id = p.traceroute_id
+             JOIN (SELECT DISTINCT ip FROM ip_periods WHERE is_game_server = 1) gs ON gs.ip = t.target_ip"
+        ))
         .fetch_one(&self.pool)
         .await?;
 
@@ -124,18 +127,26 @@ impl AnalyticsRepository {
     pub async fn get_network_quality_over_time(
         &self,
     ) -> Result<Vec<SessionQualityPoint>, DbError> {
-        sqlx::query_as::<_, SessionQualityPoint>(
-            "SELECT
+        sqlx::query_as::<_, SessionQualityPoint>(&format!(
+            "WITH {TRACEROUTE_PINGS},
+             session_pings AS (
+                 SELECT t.session_id, AVG(p.ping_ms) as avg_latency
+                 FROM traceroute_pings p
+                 JOIN traceroutes t ON t.id = p.traceroute_id
+                 GROUP BY t.session_id
+             )
+             SELECT
                 s.id as session_id,
                 s.game_name,
                 s.started_at,
-                AVG(h.latency_avg) as avg_latency,
+                MAX(sp.avg_latency) as avg_latency,
                 CASE WHEN COUNT(h.id) > 0
                     THEN CAST(SUM(CASE WHEN h.is_problem_hop = 1 THEN 1 ELSE 0 END) AS REAL) / COUNT(h.id)
                     ELSE 0.0
                 END as problem_hop_ratio,
                 COALESCE(ip_counts.ip_count, 0) as ip_count
              FROM sessions s
+             LEFT JOIN session_pings sp ON sp.session_id = s.id
              LEFT JOIN traceroutes t ON t.session_id = s.id
              LEFT JOIN hops h ON h.traceroute_id = t.id
              LEFT JOIN (
@@ -144,23 +155,30 @@ impl AnalyticsRepository {
                  GROUP BY session_id
              ) ip_counts ON ip_counts.session_id = s.id
              GROUP BY s.id
-             ORDER BY s.started_at ASC",
-        )
+             ORDER BY s.started_at ASC"
+        ))
         .fetch_all(&self.pool)
         .await
         .map_err(Into::into)
     }
 
     pub async fn get_server_stability(&self) -> Result<Vec<ServerStability>, DbError> {
-        sqlx::query_as::<_, ServerStability>(
-            "SELECT
+        sqlx::query_as::<_, ServerStability>(&format!(
+            "WITH {TRACEROUTE_PINGS},
+             target_pings AS (
+                 SELECT t.target_ip, AVG(p.ping_ms) as avg_latency
+                 FROM traceroute_pings p
+                 JOIN traceroutes t ON t.id = p.traceroute_id
+                 GROUP BY t.target_ip
+             )
+             SELECT
                 t.target_ip as ip,
                 m.asn,
                 m.isp,
                 m.country,
                 m.lat,
                 m.lon,
-                AVG(h.latency_avg) as avg_latency,
+                MAX(tp.avg_latency) as avg_latency,
                 AVG(h.packet_loss) as avg_packet_loss,
                 COUNT(DISTINCT t.id) as traceroute_count,
                 CASE WHEN COUNT(h.id) > 0
@@ -169,6 +187,7 @@ impl AnalyticsRepository {
                 END as problem_hop_ratio,
                 COALESCE(gs.is_game_server, 0) as is_game_server
              FROM traceroutes t
+             LEFT JOIN target_pings tp ON tp.target_ip = t.target_ip
              LEFT JOIN hops h ON h.traceroute_id = t.id
              LEFT JOIN ip_metadata m ON m.ip = t.target_ip
              LEFT JOIN (
@@ -176,29 +195,38 @@ impl AnalyticsRepository {
                  FROM ip_periods GROUP BY ip
              ) gs ON gs.ip = t.target_ip
              GROUP BY t.target_ip
-             ORDER BY problem_hop_ratio ASC, avg_latency ASC",
-        )
+             ORDER BY problem_hop_ratio ASC, avg_latency ASC"
+        ))
         .fetch_all(&self.pool)
         .await
         .map_err(Into::into)
     }
 
     pub async fn get_hourly_quality(&self) -> Result<Vec<HourlyQuality>, DbError> {
-        sqlx::query_as::<_, HourlyQuality>(
-            "SELECT
+        sqlx::query_as::<_, HourlyQuality>(&format!(
+            "WITH {TRACEROUTE_PINGS},
+             hour_pings AS (
+                 SELECT CAST(strftime('%H', s.started_at) AS INTEGER) as hour, AVG(p.ping_ms) as avg_latency
+                 FROM traceroute_pings p
+                 JOIN traceroutes t ON t.id = p.traceroute_id
+                 JOIN sessions s ON s.id = t.session_id
+                 GROUP BY hour
+             )
+             SELECT
                 CAST(strftime('%H', s.started_at) AS INTEGER) as hour,
                 COUNT(DISTINCT s.id) as session_count,
-                AVG(h.latency_avg) as avg_latency,
+                MAX(hp.avg_latency) as avg_latency,
                 CASE WHEN COUNT(h.id) > 0
                     THEN CAST(SUM(CASE WHEN h.is_problem_hop = 1 THEN 1 ELSE 0 END) AS REAL) / COUNT(h.id)
                     ELSE 0.0
                 END as problem_hop_ratio
              FROM sessions s
+             LEFT JOIN hour_pings hp ON hp.hour = CAST(strftime('%H', s.started_at) AS INTEGER)
              LEFT JOIN traceroutes t ON t.session_id = s.id
              LEFT JOIN hops h ON h.traceroute_id = t.id
              GROUP BY hour
-             ORDER BY hour ASC",
-        )
+             ORDER BY hour ASC"
+        ))
         .fetch_all(&self.pool)
         .await
         .map_err(Into::into)
@@ -215,4 +243,89 @@ pub fn init_analytics_repository(pool: SqlitePool) {
 
 pub fn get_analytics_repository() -> Option<Arc<AnalyticsRepository>> {
     ANALYTICS_REPOSITORY.get().cloned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::create_test_pool;
+
+    const GAME: &str = "162.249.72.5";
+    const VOICE: &str = "20.47.65.180";
+
+    async fn trace(pool: &SqlitePool, id: i64, session: i64, target: &str, rtts: &[Option<f64>]) {
+        sqlx::query("INSERT INTO traceroutes (id, session_id, target_ip, started_at) VALUES ($1, $2, $3, '2026-10-08T14:00:00Z')")
+            .bind(id)
+            .bind(session)
+            .bind(target)
+            .execute(pool)
+            .await
+            .unwrap();
+        for (i, rtt) in rtts.iter().enumerate() {
+            sqlx::query(
+                "INSERT INTO hops (traceroute_id, hop_number, latency_avg) VALUES ($1, $2, $3)",
+            )
+            .bind(id)
+            .bind(i as i32 + 1)
+            .bind(rtt)
+            .execute(pool)
+            .await
+            .unwrap();
+        }
+    }
+
+    async fn repo_with_pings() -> AnalyticsRepository {
+        let pool = create_test_pool().await;
+        sqlx::query(
+            "INSERT INTO sessions (id, game_name, started_at) VALUES
+                (1, 'VALORANT', '2026-10-08T14:00:00Z'),
+                (2, 'VALORANT', '2026-10-08T20:00:00Z')",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO ip_periods (session_id, ip, protocol, port, started_at, ended_at, is_game_server)
+             VALUES (1, $1, 'UDP', 7036, '2026-10-08T14:00:00Z', '2026-10-08T14:30:00Z', 1)",
+        )
+        .bind(GAME)
+        .execute(&pool)
+        .await
+        .unwrap();
+        trace(&pool, 1, 1, GAME, &[Some(1.0), Some(10.0), None]).await;
+        trace(&pool, 2, 1, VOICE, &[Some(1.0), Some(5.0), Some(30.0)]).await;
+        trace(&pool, 3, 2, GAME, &[Some(2.0), Some(40.0)]).await;
+        AnalyticsRepository::new(pool)
+    }
+
+    #[tokio::test]
+    async fn every_ping_is_read_at_the_last_responding_hop() {
+        let repo = repo_with_pings().await;
+
+        let sessions: Vec<Option<f64>> = repo
+            .get_network_quality_over_time()
+            .await
+            .unwrap()
+            .iter()
+            .map(|point| point.avg_latency)
+            .collect();
+        assert_eq!(sessions, vec![Some(20.0), Some(40.0)]);
+
+        let servers = repo.get_server_stability().await.unwrap();
+        let ping = |ip: &str| servers.iter().find(|s| s.ip == ip).unwrap().avg_latency;
+        assert_eq!(ping(GAME), Some(25.0));
+        assert_eq!(ping(VOICE), Some(30.0));
+
+        let hours: Vec<(i32, Option<f64>)> = repo
+            .get_hourly_quality()
+            .await
+            .unwrap()
+            .iter()
+            .map(|h| (h.hour, h.avg_latency))
+            .collect();
+        assert_eq!(hours, vec![(14, Some(20.0)), (20, Some(40.0))]);
+
+        let overview = repo.get_network_overview_stats().await.unwrap();
+        assert_eq!(overview.avg_latency, Some(25.0));
+    }
 }
