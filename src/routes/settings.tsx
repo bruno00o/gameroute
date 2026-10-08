@@ -13,14 +13,8 @@ import { clearIpMetadataCache, getIpMetadataStats, openLogDir, pruneIpMetadataCa
 import { checkForAppUpdates } from '@/lib/updater'
 import { formatDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
+import { Segmented } from '@/components/ui/segmented'
 import { Separator } from '@/components/ui/separator'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { SwitchField } from '@/components/ui/switch'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 
@@ -79,36 +73,31 @@ function SettingRow({
   )
 }
 
-const localeLabels: Record<string, () => string> = {
+const localeLabels: Record<(typeof locales)[number], () => string> = {
   en: m.settings_language_en,
   fr: m.settings_language_fr,
   es: m.settings_language_es,
 }
 
+type Theme = 'dark' | 'light' | 'system'
+
 function LanguageSetting() {
   const currentLocale = getLocale()
   const bumpLocaleVersion = useSettingsStore(s => s.bumpLocaleVersion)
 
-  const handleChange = (val: string | null) => {
-    if (!val) return
-    setLocale(val as (typeof locales)[number], { reload: false })
+  const handleChange = (locale: (typeof locales)[number]) => {
+    setLocale(locale, { reload: false })
     bumpLocaleVersion()
   }
 
   return (
     <SettingRow label={m.settings_language()} description={m.settings_language_description()}>
-      <Select value={currentLocale} onValueChange={handleChange}>
-        <SelectTrigger className="w-28">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {locales.map(locale => (
-            <SelectItem key={locale} value={locale}>
-              {localeLabels[locale]?.() ?? locale}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Segmented
+        label={m.settings_language()}
+        value={currentLocale}
+        onValueChange={handleChange}
+        options={locales.map(locale => ({ value: locale, label: localeLabels[locale]() }))}
+      />
     </SettingRow>
   )
 }
@@ -118,16 +107,16 @@ function ThemeSetting() {
 
   return (
     <SettingRow label={m.settings_theme()} description={m.settings_theme_description()}>
-      <Select value={theme} onValueChange={val => setTheme(val as 'dark' | 'light' | 'system')}>
-        <SelectTrigger className="w-28">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="light">{m.settings_theme_light()}</SelectItem>
-          <SelectItem value="dark">{m.settings_theme_dark()}</SelectItem>
-          <SelectItem value="system">{m.settings_theme_system()}</SelectItem>
-        </SelectContent>
-      </Select>
+      <Segmented<Theme>
+        label={m.settings_theme()}
+        value={theme}
+        onValueChange={setTheme}
+        options={[
+          { value: 'light', label: m.settings_theme_light() },
+          { value: 'dark', label: m.settings_theme_dark() },
+          { value: 'system', label: m.settings_theme_system() },
+        ]}
+      />
     </SettingRow>
   )
 }
