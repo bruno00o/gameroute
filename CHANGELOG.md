@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.17](https://github.com/bruno00o/gameroute/compare/v0.1.16...v0.1.17) (2026-10-08)
+
+
+### Features
+
+* **capture:** persist the operator of captured addresses ([1671a5f](https://github.com/bruno00o/gameroute/commit/1671a5f11c340ec90bc2a2bf01d93166b9ad345e))
+
+
+### Bug Fixes
+
+* **capture:** count real packets per period ([c1b7971](https://github.com/bruno00o/gameroute/commit/c1b7971f03b59fc4e9d50a4cf0d8f553d6671552))
+* **capture:** send 10 probes per hop in protocol traceroutes ([b300d53](https://github.com/bruno00o/gameroute/commit/b300d53536785f627ad684e2767d931719853b8f))
+* **db:** recompute stored problem hops with the persistent loss rule ([7748f04](https://github.com/bruno00o/gameroute/commit/7748f04d71bf1a49af2486341ef7f2668ccb2ea0))
+* **traceroute:** flag persistent latency instability instead of distance jumps ([dd7e2f4](https://github.com/bruno00o/gameroute/commit/dd7e2f454ad7b577f51ba53bb80fd10d07646549))
+* **traceroute:** only flag loss that persists to the destination ([d68dda4](https://github.com/bruno00o/gameroute/commit/d68dda45b384e871e47aef034670636bc278f6e2))
+
 ## [0.1.16](https://github.com/bruno00o/gameroute/compare/v0.1.15...v0.1.16) (2026-10-08)
 
 
