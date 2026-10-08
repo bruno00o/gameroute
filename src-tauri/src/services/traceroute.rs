@@ -346,17 +346,30 @@ pub fn merge_probe_hops(
     })
 }
 
-pub fn identify_problem_hop(hops: &[HopResult]) -> Option<i32> {
+fn persistent_loss_onset(hops: &[HopResult], target_ip: &str) -> Option<u32> {
+    let responding: Vec<&HopResult> = hops.iter().filter(|h| h.responded).collect();
+    let lossy_tail = responding
+        .iter()
+        .rev()
+        .take_while(|h| h.packet_loss() >= PACKET_LOSS_THRESHOLD)
+        .count();
+    let reached = responding
+        .last()
+        .is_some_and(|h| h.ip.as_deref() == Some(target_ip));
+
+    match lossy_tail {
+        0 => None,
+        1 if !reached => None,
+        n => Some(responding[responding.len() - n].hop_number),
+    }
+}
+
+pub fn identify_problem_hop(hops: &[HopResult], target_ip: &str) -> Option<i32> {
+    let loss_onset = persistent_loss_onset(hops, target_ip);
     let mut prev_latency: Option<f64> = None;
 
     for hop in hops {
-        let packet_loss = if hop.probe_count > 0 {
-            (hop.timeout_count as f64 / hop.probe_count as f64) * 100.0
-        } else {
-            0.0
-        };
-
-        if packet_loss >= PACKET_LOSS_THRESHOLD {
+        if loss_onset == Some(hop.hop_number) {
             return Some(hop.hop_number as i32);
         }
 
@@ -386,7 +399,7 @@ pub async fn persist_traceroute_result(result: &TracerouteResult) {
         None => return,
     };
 
-    let problem_hop_index = identify_problem_hop(&result.hops);
+    let problem_hop_index = identify_problem_hop(&result.hops, &result.target_ip);
     let probe_source = probe_protocol(&result.method);
 
     if let Some(hop_repo) = get_hop_repository() {
@@ -394,12 +407,6 @@ pub async fn persist_traceroute_result(result: &TracerouteResult) {
             .hops
             .iter()
             .map(|hop| {
-                let packet_loss = if hop.probe_count > 0 {
-                    (hop.timeout_count as f64 / hop.probe_count as f64) * 100.0
-                } else {
-                    0.0
-                };
-
                 let from_probe = result
                     .probe_from_ttl
                     .is_some_and(|ttl| hop.hop_number >= ttl);
@@ -416,7 +423,7 @@ pub async fn persist_traceroute_result(result: &TracerouteResult) {
                     latency_min: hop.rtt_min,
                     latency_avg: hop.rtt_avg,
                     latency_max: hop.rtt_max,
-                    packet_loss: Some(packet_loss),
+                    packet_loss: Some(hop.packet_loss()),
                     is_problem_hop: problem_hop_index == Some(hop.hop_number as i32),
                     source,
                 }
@@ -602,6 +609,119 @@ mod tests {
         let probe = vec![hop(1, Some("192.168.1.254"), 0.6), hop(2, None, 0.0)];
 
         assert!(merge_probe_hops(&tracert, &probe, "162.249.72.5").is_none());
+    }
+
+    fn lossy(ttl: u32, ip: &str, rtt: f64, lost: usize, sent: usize) -> HopResult {
+        let mut probes = vec![Some(rtt); sent - lost];
+        probes.resize(sent, None);
+        HopResult::new(ttl, Some(ip.to_string()), None, probes)
+    }
+
+    const TARGET: &str = "162.249.72.5";
+
+    fn rate_limited_route() -> Vec<HopResult> {
+        vec![
+            lossy(1, "192.168.1.254", 0.5, 2, 3),
+            lossy(2, "10.0.0.1", 3.0, 1, 3),
+            HopResult::timeout(3, 3),
+            lossy(4, "87.245.1.1", 5.0, 0, 3),
+            lossy(5, TARGET, 12.0, 0, 3),
+        ]
+    }
+
+    fn persistent_loss_route() -> Vec<HopResult> {
+        vec![
+            lossy(1, "192.168.1.254", 0.5, 1, 3),
+            lossy(2, "10.0.0.1", 3.0, 0, 10),
+            lossy(3, "87.245.1.1", 5.0, 3, 10),
+            HopResult::timeout(4, 10),
+            lossy(5, "104.160.1.1", 9.0, 4, 10),
+            lossy(6, TARGET, 12.0, 3, 10),
+        ]
+    }
+
+    fn destination_loss_route() -> Vec<HopResult> {
+        vec![
+            lossy(1, "192.168.1.254", 0.5, 0, 10),
+            lossy(2, "10.0.0.1", 3.0, 0, 10),
+            lossy(3, TARGET, 12.0, 2, 10),
+        ]
+    }
+
+    fn trailing_timeouts_route() -> Vec<HopResult> {
+        vec![
+            lossy(1, "192.168.1.254", 0.5, 0, 3),
+            lossy(2, "10.0.0.1", 3.0, 0, 3),
+            HopResult::timeout(3, 3),
+            HopResult::timeout(4, 3),
+            HopResult::timeout(5, 3),
+        ]
+    }
+
+    fn unreachable_edge_loss_route() -> Vec<HopResult> {
+        vec![
+            lossy(1, "192.168.1.254", 0.5, 0, 3),
+            lossy(2, "10.0.0.1", 3.0, 0, 3),
+            lossy(3, "104.160.1.1", 9.0, 1, 3),
+            HopResult::timeout(4, 3),
+            HopResult::timeout(5, 3),
+        ]
+    }
+
+    fn unreachable_persistent_loss_route() -> Vec<HopResult> {
+        vec![
+            lossy(1, "192.168.1.254", 0.5, 0, 3),
+            lossy(2, "10.0.0.1", 3.0, 1, 3),
+            lossy(3, "104.160.1.1", 9.0, 2, 3),
+            HopResult::timeout(4, 3),
+        ]
+    }
+
+    fn latency_jump_route() -> Vec<HopResult> {
+        vec![
+            lossy(1, "192.168.1.254", 0.5, 1, 3),
+            lossy(2, "10.0.0.1", 3.0, 0, 3),
+            lossy(3, "62.115.140.105", 84.0, 0, 3),
+            lossy(4, TARGET, 85.0, 0, 3),
+        ]
+    }
+
+    #[test]
+    fn rate_limited_hops_are_not_flagged() {
+        assert_eq!(identify_problem_hop(&rate_limited_route(), TARGET), None);
+    }
+
+    #[test]
+    fn persistent_loss_is_flagged_where_it_starts() {
+        assert_eq!(identify_problem_hop(&persistent_loss_route(), TARGET), Some(3));
+    }
+
+    #[test]
+    fn loss_at_destination_only_is_flagged() {
+        assert_eq!(identify_problem_hop(&destination_loss_route(), TARGET), Some(3));
+    }
+
+    #[test]
+    fn trailing_timeouts_are_not_loss() {
+        assert_eq!(identify_problem_hop(&trailing_timeouts_route(), TARGET), None);
+    }
+
+    #[test]
+    fn unconfirmed_loss_before_unreachable_destination_is_not_flagged() {
+        assert_eq!(identify_problem_hop(&unreachable_edge_loss_route(), TARGET), None);
+    }
+
+    #[test]
+    fn loss_persisting_until_unreachable_destination_is_flagged() {
+        assert_eq!(
+            identify_problem_hop(&unreachable_persistent_loss_route(), TARGET),
+            Some(2)
+        );
+    }
+
+    #[test]
+    fn latency_jump_is_still_flagged() {
+        assert_eq!(identify_problem_hop(&latency_jump_route(), TARGET), Some(3));
     }
 
     #[test]

@@ -70,6 +70,14 @@ impl HopResult {
             responded: false,
         }
     }
+
+    pub fn packet_loss(&self) -> f64 {
+        if self.probe_count > 0 {
+            (self.timeout_count as f64 / self.probe_count as f64) * 100.0
+        } else {
+            0.0
+        }
+    }
 }
 
 #[cfg(test)]

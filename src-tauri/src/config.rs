@@ -51,7 +51,8 @@ pub const CDN_ASNS: &[u32] = &[
 /// Minimum latency increase (ms) between consecutive hops to flag as a problem hop.
 pub const LATENCY_INCREASE_THRESHOLD: f64 = 50.0;
 
-/// Minimum packet loss percentage to flag a hop as problematic.
+/// Minimum packet loss percentage for a hop to count as lossy. A hop is only
+/// flagged when every following responding hop is lossy too.
 pub const PACKET_LOSS_THRESHOLD: f64 = 10.0;
 
 // ── Database ──────────────────────────────────────────────────────────────
