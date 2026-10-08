@@ -51,7 +51,9 @@ export function sessionDiagnostic(
   const duration = formatDuration(computeDurationSecs(detail.startedAt, detail.endedAt))
 
   lines.push(m.diagnostic_title({ game: detail.gameName }))
-  lines.push(`${formatDay(detail.startedAt)} · ${sessionSpan(detail)} · ${duration}`)
+  lines.push(
+    `${formatDay(detail.startedAt, { weekday: true })} · ${sessionSpan(detail)} · ${duration}`
+  )
 
   const verdict = sessionVerdict(matches, detail.traceroutes, thresholds, detail.endedAt === null)
   if (!verdict) {

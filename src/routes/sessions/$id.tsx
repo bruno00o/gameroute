@@ -123,7 +123,7 @@ function SessionPage() {
 
   useEffect(() => {
     if (!detail) return
-    const day = formatDay(detail.startedAt)
+    const day = formatDay(detail.startedAt, { weekday: true })
     const selected = periodId != null && matches ? periodTitle(detail, matches, periodId) : null
     const segments: BreadcrumbSegment[] = selected
       ? [
