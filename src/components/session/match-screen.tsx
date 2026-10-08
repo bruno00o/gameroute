@@ -15,12 +15,14 @@ import {
   flowServerName,
   formatFlowPing,
   formatLoss,
+  formatUsualPing,
   measuredUpTo,
   statusReason,
   thresholdRules,
   traceOf,
   traceSource,
   traceTiming,
+  usualPing,
   type TraceTiming,
 } from '@/lib/matches'
 import { formatRouteMs, hopCount, routeMapPoints } from '@/lib/route'
@@ -219,19 +221,24 @@ function StatusReason({
   match: SessionMatch
   thresholds?: SeverityThresholds | null
 }) {
-  const measured = match.trace?.pingMs != null
+  const trace = match.trace
+  const usual = trace ? formatUsualPing(trace) : null
+  const body =
+    trace?.pingMs == null
+      ? m.match_why_unmeasured_body()
+      : usual
+        ? m.match_why_body_usual({ usual, count: String(trace.usual!.sampleCount) })
+        : m.match_why_body()
 
   return (
     <Panel tone="sunken" label={m.match_why_label()} title={statusReason(match, thresholds)}>
-      <p className="text-ui text-muted-foreground max-w-[60ch]">
-        {measured ? m.match_why_body() : m.match_why_unmeasured_body()}
-      </p>
+      <p className="text-ui text-muted-foreground max-w-[60ch]">{body}</p>
       {thresholds && (
         <dl
           aria-label={m.match_why_thresholds()}
           className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2"
         >
-          {thresholdRules(thresholds).map(({ level, rule }) => {
+          {thresholdRules(thresholds, usualPing(trace)).map(({ level, rule }) => {
             const current = match.status === level
             return (
               <div key={level} data-current={current || undefined} className="contents">

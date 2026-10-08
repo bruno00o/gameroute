@@ -129,6 +129,23 @@ describe('MatchScreen', () => {
     expect(why.querySelector('[data-current]')).toHaveTextContent('Degraded')
   })
 
+  it('compares the ping with the usual value when there is one', () => {
+    const usual = { medianMs: 4.3, sampleCount: 20 }
+    const matches: SessionMatch[] = sessionMatches().map(match =>
+      match.number === 1
+        ? { ...match, status: 'watch', trace: measure({ pingMs: 44, usual }) }
+        : match
+    )
+    renderMatch(1, { matches })
+
+    const why = region('Why this status')
+    expect(why).toHaveTextContent('Ping ≥ 44 ms against ≥ 4.3 ms usually, +20 ms threshold reached')
+    expect(why).toHaveTextContent('median of the 20 previous measurements')
+    const rules = within(why).getAllByRole('definition')
+    expect(rules[0].textContent?.replace(/\s+/g, ' ')).toBe('loss ≥ 0.5% · ping ≥ usual +20 ms')
+    expect(why.querySelector('[data-current]')).toHaveTextContent('Watch')
+  })
+
   it('shows the voice flow linked to the match', () => {
     renderMatch(1)
 
