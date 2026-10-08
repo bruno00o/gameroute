@@ -17,8 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { TextField } from '@/components/ui/text-field'
 
 export function AddGameDialog({ children }: { children: React.ReactElement }) {
   const [open_, setOpen] = useState(false)
@@ -77,45 +76,45 @@ export function AddGameDialog({ children }: { children: React.ReactElement }) {
             <DialogDescription>{m.games_add_description()}</DialogDescription>
           </DialogHeader>
           <div className="mt-4 grid gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="game-name">{m.games_add_name()}</Label>
-              <Input
-                id="game-name"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder={m.games_add_name_placeholder()}
+            <TextField
+              id="game-name"
+              label={m.games_add_name()}
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder={m.games_add_name_placeholder()}
+              required
+            />
+            <div className="flex items-end gap-2">
+              <TextField
+                id="game-path"
+                label={m.games_add_path()}
+                value={path}
+                onChange={e => setPath(e.target.value)}
+                placeholder={m.games_add_path_placeholder()}
                 required
+                className="flex-1"
               />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="game-path">{m.games_add_path()}</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="game-path"
-                  value={path}
-                  onChange={e => setPath(e.target.value)}
-                  placeholder={m.games_add_path_placeholder()}
-                  required
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={handleBrowse}
-                  title={m.games_add_browse()}
-                  aria-label={m.games_add_browse()}
-                >
-                  <RiFolderOpenLine className="size-4" />
-                </Button>
-              </div>
+              <Button
+                type="button"
+                size="icon"
+                onClick={handleBrowse}
+                title={m.games_add_browse()}
+                aria-label={m.games_add_browse()}
+              >
+                <RiFolderOpenLine />
+              </Button>
             </div>
           </div>
           <DialogFooter className="mt-4">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" onClick={() => setOpen(false)}>
               {m.games_add_cancel()}
             </Button>
-            <Button type="submit" disabled={isSubmitting || !name.trim() || !path.trim()}>
+            <Button
+              type="submit"
+              variant="primary"
+              loading={isSubmitting}
+              disabled={!name.trim() || !path.trim()}
+            >
               {m.games_add_submit()}
             </Button>
           </DialogFooter>

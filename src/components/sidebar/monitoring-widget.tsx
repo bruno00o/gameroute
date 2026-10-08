@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { RiGamepadLine, RiPlayLine, RiStopLine, RiUserLine } from '@remixicon/react'
+import { RiGamepadLine, RiPlayFill, RiStopFill, RiUserLine } from '@remixicon/react'
 import { Link } from '@tanstack/react-router'
 import { toast } from 'sonner'
 
@@ -18,8 +18,10 @@ export function MonitoringWidget() {
   const { isMonitoring, currentGame, isManualMode, serverIpCount, currentSessionId } =
     useMonitoringStore()
   const [processOpen, setProcessOpen] = useState(false)
+  const [isToggling, setIsToggling] = useState(false)
 
   const handleToggle = useCallback(async () => {
+    setIsToggling(true)
     try {
       if (isMonitoring) {
         await stopMonitoring()
@@ -37,6 +39,8 @@ export function MonitoringWidget() {
       }
     } catch (e) {
       toast.error(friendlyError(e))
+    } finally {
+      setIsToggling(false)
     }
   }, [isMonitoring])
 
@@ -119,15 +123,16 @@ export function MonitoringWidget() {
 
         <div className="flex gap-1">
           <Button
-            variant={isMonitoring ? 'outline' : 'default'}
-            size="xs"
+            variant={isMonitoring ? 'secondary' : 'primary'}
+            size="sm"
             className="flex-1"
+            loading={isToggling}
             onClick={handleToggle}
           >
             {isMonitoring ? (
-              <RiStopLine className="size-3" data-icon="inline-start" />
+              <RiStopFill data-icon="inline-start" />
             ) : (
-              <RiPlayLine className="size-3" data-icon="inline-start" />
+              <RiPlayFill data-icon="inline-start" />
             )}
             {isMonitoring ? m.monitoring_stop() : m.monitoring_start()}
           </Button>
@@ -135,10 +140,14 @@ export function MonitoringWidget() {
             <Tooltip>
               <TooltipTrigger
                 render={
-                  <Button variant="outline" size="icon-xs" onClick={() => setProcessOpen(true)} aria-label={m.monitoring_manual_select()} />
+                  <Button
+                    size="icon-sm"
+                    onClick={() => setProcessOpen(true)}
+                    aria-label={m.monitoring_manual_select()}
+                  />
                 }
               >
-                <RiUserLine className="size-3" />
+                <RiUserLine />
               </TooltipTrigger>
               <TooltipContent>{m.monitoring_manual()}</TooltipContent>
             </Tooltip>

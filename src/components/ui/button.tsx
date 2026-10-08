@@ -1,56 +1,73 @@
 import { Button as ButtonPrimitive } from '@base-ui/react/button'
+import { RiLoopLeftLine } from '@remixicon/react'
 import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  "focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 rounded-none border border-transparent bg-clip-padding text-xs font-medium focus-visible:ring-1 aria-invalid:ring-1 [&_svg:not([class*='size-'])]:size-4 inline-flex items-center justify-center whitespace-nowrap transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none shrink-0 [&_svg]:shrink-0 outline-none group/button select-none cursor-pointer",
+  "group/button inline-flex shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-sm border border-transparent bg-clip-padding font-[560] outline-none select-none transition-colors duration-(--dur-instant) ease-standard focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-45 aria-disabled:cursor-not-allowed aria-disabled:opacity-45 aria-invalid:border-critical [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground [a]:hover:bg-primary/80',
-        outline:
-          'border-border bg-background hover:bg-muted hover:text-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 aria-expanded:bg-muted aria-expanded:text-foreground',
+        primary:
+          'bg-primary text-primary-foreground hover:bg-action-hover aria-expanded:bg-action-hover',
         secondary:
-          'bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground',
+          'border-line-strong bg-card text-foreground hover:bg-accent aria-expanded:bg-accent',
         ghost:
-          'hover:bg-muted hover:text-foreground dark:hover:bg-muted/50 aria-expanded:bg-muted aria-expanded:text-foreground',
-        destructive:
-          'bg-critical-soft hover:border-destructive focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 text-destructive focus-visible:border-destructive/40',
-        link: 'text-primary underline-offset-4 hover:underline',
+          'text-muted-foreground hover:bg-accent hover:text-foreground aria-expanded:bg-accent aria-expanded:text-foreground',
+        danger: 'bg-critical-soft text-critical hover:border-critical',
       },
       size: {
-        default:
-          'h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2',
-        xs: "h-6 gap-1 rounded-none px-2 text-xs has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-7 gap-1 rounded-none px-2.5 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
-        lg: 'h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3',
+        sm: "h-7 gap-1.5 px-2.5 text-label [&_svg:not([class*='size-'])]:size-3.5",
+        md: 'h-8 gap-2 px-3 text-ui',
+        lg: 'h-10 gap-2 px-4 text-body',
+        'icon-xs': "size-6 [&_svg:not([class*='size-'])]:size-3.5",
+        'icon-sm': "size-7 [&_svg:not([class*='size-'])]:size-3.5",
         icon: 'size-8',
-        'icon-xs': "size-6 rounded-none [&_svg:not([class*='size-'])]:size-3",
-        'icon-sm': 'size-7 rounded-none',
-        'icon-lg': 'size-9',
+        'icon-lg': 'size-10',
       },
     },
     defaultVariants: {
-      variant: 'default',
-      size: 'default',
+      variant: 'secondary',
+      size: 'md',
     },
   }
 )
 
+type ButtonProps = ButtonPrimitive.Props &
+  VariantProps<typeof buttonVariants> & {
+    loading?: boolean
+  }
+
 function Button({
   className,
-  variant = 'default',
-  size = 'default',
+  variant = 'secondary',
+  size = 'md',
+  loading = false,
+  disabled,
+  children,
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+}: ButtonProps) {
   return (
     <ButtonPrimitive
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      data-loading={loading || undefined}
+      aria-busy={loading || undefined}
+      disabled={disabled || loading}
+      className={cn(
+        buttonVariants({ variant, size }),
+        loading &&
+          'disabled:cursor-progress disabled:opacity-100 [&>svg:not([data-slot=spinner])]:hidden',
+        className
+      )}
       {...props}
-    />
+    >
+      {loading && (
+        <RiLoopLeftLine data-slot="spinner" aria-hidden className="motion-safe:animate-spin" />
+      )}
+      {children}
+    </ButtonPrimitive>
   )
 }
 
-export { Button, buttonVariants }
+export { Button, buttonVariants, type ButtonProps }

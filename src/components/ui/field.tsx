@@ -51,7 +51,7 @@ function FieldGroup({ className, ...props }: React.ComponentProps<'div'>) {
   )
 }
 
-const fieldVariants = cva('data-[invalid=true]:text-destructive gap-2 group/field flex w-full', {
+const fieldVariants = cva('group/field flex w-full gap-1.5', {
   variants: {
     orientation: {
       vertical: 'flex-col [&>*]:w-full [&>.sr-only]:w-auto',
@@ -97,7 +97,7 @@ function FieldLabel({ className, ...props }: React.ComponentProps<typeof Label>)
     <Label
       data-slot="field-label"
       className={cn(
-        'has-data-checked:bg-primary/5 has-data-checked:border-primary dark:has-data-checked:bg-primary/10 gap-2 group-data-[disabled=true]/field:opacity-50 has-[>[data-slot=field]]:rounded-none has-[>[data-slot=field]]:border [&>*]:data-[slot=field]:p-2 group/field-label peer/field-label flex w-fit leading-snug',
+        'group/field-label peer/field-label flex w-fit gap-2 text-label font-stretch-[92%] text-muted-foreground group-data-[disabled=true]/field:opacity-45 has-[>[data-slot=field]]:rounded-sm has-[>[data-slot=field]]:border has-data-checked:border-primary [&>*]:data-[slot=field]:p-2',
         'has-[>[data-slot=field]]:w-full has-[>[data-slot=field]]:flex-col',
         className
       )}
@@ -124,9 +124,9 @@ function FieldDescription({ className, ...props }: React.ComponentProps<'p'>) {
     <p
       data-slot="field-description"
       className={cn(
-        'text-muted-foreground text-left text-xs/relaxed [[data-variant=legend]+&]:-mt-1.5 leading-normal font-normal group-has-[[data-orientation=horizontal]]/field:text-balance',
+        'text-left text-label font-normal text-ink-subtle [[data-variant=legend]+&]:-mt-1.5 group-has-[[data-orientation=horizontal]]/field:text-balance',
         'last:mt-0 nth-last-2:-mt-1',
-        '[&>a:hover]:text-primary [&>a]:underline [&>a]:underline-offset-4',
+        '[&>a]:text-foreground [&>a]:underline [&>a]:decoration-line-strong [&>a]:underline-offset-4 [&>a:hover]:decoration-foreground',
         className
       )}
       {...props}
@@ -202,7 +202,7 @@ function FieldError({
     <div
       role="alert"
       data-slot="field-error"
-      className={cn('text-destructive text-xs font-normal', className)}
+      className={cn('text-label font-medium text-critical', className)}
       {...props}
     >
       {content}

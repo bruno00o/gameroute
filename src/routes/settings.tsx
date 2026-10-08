@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
+import { SwitchField } from '@/components/ui/switch'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 
 export const Route = createFileRoute('/settings')({
@@ -69,8 +69,10 @@ function SettingRow({
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="min-w-0">
-        <p className="text-sm font-medium">{label}</p>
-        <p className="text-muted-foreground text-xs">{description}</p>
+        <p className="text-ui font-[560]">{label}</p>
+        <p className="mt-0.5 max-w-[52ch] text-label font-normal text-muted-foreground">
+          {description}
+        </p>
       </div>
       <div className="shrink-0">{children}</div>
     </div>
@@ -135,9 +137,12 @@ function AutoStartSetting() {
   const setAutoStart = useSettingsStore(s => s.setAutoStartMonitoring)
 
   return (
-    <SettingRow label={m.settings_auto_start()} description={m.settings_auto_start_description()}>
-      <Switch checked={autoStart} onCheckedChange={setAutoStart} />
-    </SettingRow>
+    <SwitchField
+      label={m.settings_auto_start()}
+      description={m.settings_auto_start_description()}
+      checked={autoStart}
+      onCheckedChange={setAutoStart}
+    />
   )
 }
 
@@ -163,12 +168,13 @@ function LaunchOnStartupSetting() {
   }
 
   return (
-    <SettingRow
+    <SwitchField
       label={m.settings_launch_on_startup()}
       description={m.settings_launch_on_startup_description()}
-    >
-      <Switch checked={enabled} onCheckedChange={handleToggle} disabled={loading} />
-    </SettingRow>
+      checked={enabled}
+      onCheckedChange={handleToggle}
+      disabled={loading}
+    />
   )
 }
 
@@ -177,12 +183,12 @@ function MinimizeToTraySetting() {
   const setMinimizeToTray = useSettingsStore(s => s.setMinimizeToTray)
 
   return (
-    <SettingRow
+    <SwitchField
       label={m.settings_minimize_to_tray()}
       description={m.settings_minimize_to_tray_description()}
-    >
-      <Switch checked={minimizeToTray} onCheckedChange={setMinimizeToTray} />
-    </SettingRow>
+      checked={minimizeToTray}
+      onCheckedChange={setMinimizeToTray}
+    />
   )
 }
 
@@ -191,12 +197,12 @@ function AdvancedModeSetting() {
   const setAdvancedMode = useSettingsStore(s => s.setAdvancedMode)
 
   return (
-    <SettingRow
+    <SwitchField
       label={m.settings_advanced_mode()}
       description={m.settings_advanced_mode_description()}
-    >
-      <Switch checked={advancedMode} onCheckedChange={setAdvancedMode} />
-    </SettingRow>
+      checked={advancedMode}
+      onCheckedChange={setAdvancedMode}
+    />
   )
 }
 
@@ -209,9 +215,8 @@ function CheckUpdatesSetting() {
       description={m.settings_check_updates_description()}
     >
       <Button
-        variant="outline"
         size="sm"
-        disabled={isChecking}
+        loading={isChecking}
         onClick={async () => {
           setIsChecking(true)
           try {
@@ -240,7 +245,6 @@ function ReplayOnboardingSetting() {
       description={m.settings_replay_onboarding_description()}
     >
       <Button
-        variant="outline"
         size="sm"
         onClick={() => {
           setOnboardingCompleted(false)
@@ -259,7 +263,7 @@ function OpenLogsSetting() {
       label={m.settings_open_logs()}
       description={m.settings_open_logs_description()}
     >
-      <Button variant="outline" size="sm" onClick={() => openLogDir()}>
+      <Button size="sm" onClick={() => openLogDir()}>
         {m.settings_open_logs_button()}
       </Button>
     </SettingRow>
@@ -330,12 +334,12 @@ function CacheSection() {
       )}
 
       <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={() => pruneMutation.mutate()}>
-          <RiFilterLine className="size-3.5" data-icon="inline-start" />
+        <Button size="sm" loading={pruneMutation.isPending} onClick={() => pruneMutation.mutate()}>
+          <RiFilterLine data-icon="inline-start" />
           {m.settings_cache_prune()}
         </Button>
-        <Button variant="destructive" size="sm" onClick={() => clearMutation.mutate()}>
-          <RiDeleteBinLine className="size-3.5" data-icon="inline-start" />
+        <Button size="sm" loading={clearMutation.isPending} onClick={() => clearMutation.mutate()}>
+          <RiDeleteBinLine data-icon="inline-start" />
           {m.settings_cache_clear()}
         </Button>
       </div>

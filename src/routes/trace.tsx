@@ -78,7 +78,7 @@ function TraceRunningState() {
               : undefined
           }
         />
-        <Button variant="outline" size="sm" onClick={handleCancel}>
+        <Button size="sm" onClick={handleCancel}>
           <RiStopLine className="size-3.5" data-icon="inline-start" />
           {m.trace_cancel()}
         </Button>
@@ -115,7 +115,7 @@ function TraceCompleteState() {
         {summary.failed > 0 && (
           <Badge variant="destructive">{m.trace_failed({ count: String(summary.failed) })}</Badge>
         )}
-        <Button variant="outline" size="sm" className="ml-auto" onClick={reset}>
+        <Button size="sm" className="ml-auto" onClick={reset}>
           {m.trace_clear()}
         </Button>
       </div>

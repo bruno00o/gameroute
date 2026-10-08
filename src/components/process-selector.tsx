@@ -16,8 +16,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { TextField } from '@/components/ui/text-field'
 
 export function ProcessSelector({
   open,
@@ -60,15 +60,13 @@ export function ProcessSelector({
           <DialogTitle>{m.process_selector_title()}</DialogTitle>
           <DialogDescription>{m.process_selector_description()}</DialogDescription>
         </DialogHeader>
-        <div className="relative">
-          <RiSearchLine className="text-muted-foreground pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2" />
-          <Input
-            placeholder={m.process_selector_search()}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-8"
-          />
-        </div>
+        <TextField
+          prefix={<RiSearchLine />}
+          aria-label={m.process_selector_search()}
+          placeholder={m.process_selector_search()}
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
         <ScrollArea className="h-64 overflow-hidden">
           {isLoading ? (
             <div className="text-muted-foreground p-4 text-center text-xs">
@@ -103,9 +101,7 @@ export function ProcessSelector({
           )}
         </ScrollArea>
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" size="xs" />}>
-            {m.process_selector_cancel()}
-          </DialogClose>
+          <DialogClose render={<Button />}>{m.process_selector_cancel()}</DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>
