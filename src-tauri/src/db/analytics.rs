@@ -1,5 +1,5 @@
 use crate::db::DbError;
-use crate::models::insights::{HourlyQuality, ServerStability, SessionQualityPoint};
+use crate::models::insights::ServerStability;
 use crate::models::network::{NetworkMapEntry, NetworkOverviewStats, RecurringProblemHop};
 use crate::models::severity::Severity;
 use sqlx::sqlite::SqlitePool;
@@ -135,44 +135,6 @@ impl AnalyticsRepository {
         .map_err(Into::into)
     }
 
-    pub async fn get_network_quality_over_time(
-        &self,
-    ) -> Result<Vec<SessionQualityPoint>, DbError> {
-        sqlx::query_as::<_, SessionQualityPoint>(&format!(
-            "WITH {TRACEROUTE_PINGS},
-             session_pings AS (
-                 SELECT t.session_id, AVG(p.ping_ms) as avg_latency
-                 FROM traceroute_pings p
-                 JOIN traceroutes t ON t.id = p.traceroute_id
-                 GROUP BY t.session_id
-             )
-             SELECT
-                s.id as session_id,
-                s.game_name,
-                s.started_at,
-                MAX(sp.avg_latency) as avg_latency,
-                CASE WHEN COUNT(h.id) > 0
-                    THEN CAST(SUM(CASE WHEN h.is_problem_hop = 1 THEN 1 ELSE 0 END) AS REAL) / COUNT(h.id)
-                    ELSE 0.0
-                END as problem_hop_ratio,
-                COALESCE(ip_counts.ip_count, 0) as ip_count
-             FROM sessions s
-             LEFT JOIN session_pings sp ON sp.session_id = s.id
-             LEFT JOIN traceroutes t ON t.session_id = s.id
-             LEFT JOIN hops h ON h.traceroute_id = t.id
-             LEFT JOIN (
-                 SELECT session_id, COUNT(DISTINCT ip) as ip_count
-                 FROM ip_periods
-                 GROUP BY session_id
-             ) ip_counts ON ip_counts.session_id = s.id
-             GROUP BY s.id
-             ORDER BY s.started_at ASC"
-        ))
-        .fetch_all(&self.pool)
-        .await
-        .map_err(Into::into)
-    }
-
     pub async fn get_server_stability(&self) -> Result<Vec<ServerStability>, DbError> {
         sqlx::query_as::<_, ServerStability>(&format!(
             "WITH {TRACEROUTE_PINGS},
@@ -207,36 +169,6 @@ impl AnalyticsRepository {
              ) gs ON gs.ip = t.target_ip
              GROUP BY t.target_ip
              ORDER BY problem_hop_ratio ASC, avg_latency ASC"
-        ))
-        .fetch_all(&self.pool)
-        .await
-        .map_err(Into::into)
-    }
-
-    pub async fn get_hourly_quality(&self) -> Result<Vec<HourlyQuality>, DbError> {
-        sqlx::query_as::<_, HourlyQuality>(&format!(
-            "WITH {TRACEROUTE_PINGS},
-             hour_pings AS (
-                 SELECT CAST(strftime('%H', s.started_at) AS INTEGER) as hour, AVG(p.ping_ms) as avg_latency
-                 FROM traceroute_pings p
-                 JOIN traceroutes t ON t.id = p.traceroute_id
-                 JOIN sessions s ON s.id = t.session_id
-                 GROUP BY hour
-             )
-             SELECT
-                CAST(strftime('%H', s.started_at) AS INTEGER) as hour,
-                COUNT(DISTINCT s.id) as session_count,
-                MAX(hp.avg_latency) as avg_latency,
-                CASE WHEN COUNT(h.id) > 0
-                    THEN CAST(SUM(CASE WHEN h.is_problem_hop = 1 THEN 1 ELSE 0 END) AS REAL) / COUNT(h.id)
-                    ELSE 0.0
-                END as problem_hop_ratio
-             FROM sessions s
-             LEFT JOIN hour_pings hp ON hp.hour = CAST(strftime('%H', s.started_at) AS INTEGER)
-             LEFT JOIN traceroutes t ON t.session_id = s.id
-             LEFT JOIN hops h ON h.traceroute_id = t.id
-             GROUP BY hour
-             ORDER BY hour ASC"
         ))
         .fetch_all(&self.pool)
         .await
@@ -313,28 +245,10 @@ mod tests {
     async fn every_ping_is_read_at_the_last_responding_hop() {
         let repo = repo_with_pings().await;
 
-        let sessions: Vec<Option<f64>> = repo
-            .get_network_quality_over_time()
-            .await
-            .unwrap()
-            .iter()
-            .map(|point| point.avg_latency)
-            .collect();
-        assert_eq!(sessions, vec![Some(20.0), Some(40.0)]);
-
         let servers = repo.get_server_stability().await.unwrap();
         let ping = |ip: &str| servers.iter().find(|s| s.ip == ip).unwrap().avg_latency;
         assert_eq!(ping(GAME), Some(25.0));
         assert_eq!(ping(VOICE), Some(30.0));
-
-        let hours: Vec<(i32, Option<f64>)> = repo
-            .get_hourly_quality()
-            .await
-            .unwrap()
-            .iter()
-            .map(|h| (h.hour, h.avg_latency))
-            .collect();
-        assert_eq!(hours, vec![(14, Some(20.0)), (20, Some(40.0))]);
 
         let overview = repo.get_network_overview_stats().await.unwrap();
         assert_eq!(overview.avg_latency, Some(25.0));

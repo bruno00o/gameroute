@@ -17,8 +17,8 @@ use commands::games::{
     search_games, toggle_game_monitored,
 };
 use commands::insights::{
-    get_hourly_quality, get_network_quality_over_time, get_route_changes, get_server_stability,
-    get_server_summary, get_usual_route,
+    get_route_changes, get_server_stability, get_server_summary, get_usual_route,
+    get_week_hour_grid,
 };
 use commands::live_probe::{get_live_probe_config, get_live_probe_state, set_live_probe_config};
 use commands::monitoring::{
@@ -297,12 +297,11 @@ pub fn run() {
             get_recurring_problem_hops,
             get_network_overview_stats,
             get_severity_thresholds,
-            get_network_quality_over_time,
             get_server_stability,
             get_server_summary,
             get_usual_route,
             get_route_changes,
-            get_hourly_quality,
+            get_week_hour_grid,
             check_capture_service_status,
             restart_capture_service,
             open_log_dir,
