@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   computeDurationSecs,
+  formatClock,
+  formatDay,
   formatDuration,
+  formatElapsed,
   formatMs,
   formatNumber,
   formatPercent,
@@ -43,6 +46,38 @@ describe('formatDuration', () => {
 
   it('uses the active language by default', () => {
     expect(formatDuration(2 * 86_400)).toBe(`2${NB}j 0${NB}h`)
+  })
+})
+
+describe('formatElapsed', () => {
+  it('writes match durations as m:ss', () => {
+    expect(formatElapsed(41)).toBe('0:41')
+    expect(formatElapsed(2556)).toBe('42:36')
+  })
+
+  it('adds hours past sixty minutes', () => {
+    expect(formatElapsed(3723)).toBe('1:02:03')
+  })
+
+  it('returns a dash for negative values', () => {
+    expect(formatElapsed(-5)).toBe('—')
+  })
+})
+
+describe('formatClock and formatDay', () => {
+  const at = new Date(2026, 8, 13, 16, 27).toISOString()
+
+  it('writes local clock times on 24 hours in every language', () => {
+    expect(formatClock(at, 'fr')).toBe('16:27')
+    expect(formatClock(at, 'en')).toBe('16:27')
+  })
+
+  it('names the day in the active language', () => {
+    expect(formatDay(at)).toBe('dim. 13 sept.')
+  })
+
+  it('returns a dash for invalid dates', () => {
+    expect(formatClock('nope')).toBe('—')
   })
 })
 
