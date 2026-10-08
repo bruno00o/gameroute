@@ -137,7 +137,7 @@ src-tauri/              # Rust backend
 
 ## Privacy
 
-GameRoute does not collect any personal data. All session data, game library, and network analysis are stored locally in a SQLite database. ASN and geolocation lookups are performed entirely offline using the bundled GeoLite2 database — no IP addresses or other information are sent to any external service.
+GameRoute does not collect any personal data. All session data, game library, and network analysis are stored locally in a SQLite database. ASN and geolocation lookups are performed entirely offline using the bundled GeoLite2 database. The only outbound connections are update checks (GitHub), game artwork (Steam CDN) and map tiles (CARTO).
 
 ## Attributions
 
