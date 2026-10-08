@@ -23,7 +23,6 @@ type ServerTableProps = {
   usualMinSamples: number
   loading?: boolean
   showGame?: boolean
-  riotCity?: boolean
 }
 
 function serverId(server: ServerSummaryItem): string {
@@ -40,7 +39,6 @@ function ServerTable({
   usualMinSamples,
   loading = false,
   showGame = true,
-  riotCity = true,
 }: ServerTableProps) {
   const columns = useMemo<DataTableColumn<ServerSummaryItem>[]>(
     () => [
@@ -54,11 +52,11 @@ function ServerTable({
               <>
                 <span className="font-medium">{server.gameName}</span>
                 <span className="text-label text-muted-foreground font-normal">
-                  {serverName(server, { riotCity })}
+                  {serverName(server)}
                 </span>
               </>
             ) : (
-              <span className="font-medium">{serverName(server, { riotCity })}</span>
+              <span className="font-medium">{serverName(server)}</span>
             )}
           </span>
         ),
@@ -138,7 +136,7 @@ function ServerTable({
         render: server => server.lastIncident && <IncidentCell incident={server.lastIncident} />,
       },
     ],
-    [days, usualMinSamples, showGame, riotCity]
+    [days, usualMinSamples, showGame]
   )
 
   return (

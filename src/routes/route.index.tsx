@@ -238,7 +238,6 @@ function RoutePage() {
                 usualMinSamples={summaryQuery.data?.usualMinSamples ?? 0}
                 loading={summaryQuery.isLoading}
                 showGame={false}
-                riotCity={false}
               />
             </Panel>
 

@@ -12,16 +12,12 @@ function counted(count: number, one: CountMessage, other: CountMessage): string 
   return count === 1 ? one(params) : other(params)
 }
 
-export function serverName(
-  server: ServerSummaryItem,
-  { riotCity = true }: { riotCity?: boolean } = {}
-): string {
+export function serverName(server: ServerSummaryItem): string {
   const name =
     shortOperatorName(server.operator) ??
     (server.asn != null ? `AS${server.asn}` : (server.ips[0] ?? '—'))
-  const hidden =
-    !riotCity && isRiot({ asn: server.asn, name: server.operator, city: null, country: null })
-  return server.city && !hidden ? `${name} · ${server.city}` : name
+  const riot = isRiot({ asn: server.asn, name: server.operator, city: null, country: null })
+  return server.city && !riot ? `${name} · ${server.city}` : name
 }
 
 function upToLastHop(server: ServerSummaryItem): boolean {
