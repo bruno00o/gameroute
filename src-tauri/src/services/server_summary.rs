@@ -1,5 +1,6 @@
 use crate::config::{USUAL_PING_MIN_SAMPLES, USUAL_PING_SAMPLES};
 use crate::db::analytics::AnalyticsRepository;
+use crate::db::game_pings::GamePingRepository;
 use crate::db::ip_metadata::IpMetadataRepository;
 use crate::db::ip_periods::IpPeriodRepository;
 use crate::db::traceroutes::TracerouteRepository;
@@ -10,7 +11,7 @@ use crate::models::insights::{
 use crate::models::severity::Severity;
 use crate::services::matches::median;
 use crate::services::usual::{
-    assess, assessments, match_history, parse, pools, usual_ping, Assessment, PingSample,
+    assess, assessments, match_history, parse, pools, usual_ping, Assessment, PingSample, SampleId,
     ServerMatch,
 };
 use chrono::{DateTime, FixedOffset, SecondsFormat, Utc};
@@ -36,10 +37,10 @@ fn dominant_basis(samples: &[&PingSample]) -> Option<PingBasis> {
 
 fn last_incident(
     samples: &[&PingSample],
-    assessed: &HashMap<i64, Assessment>,
+    assessed: &HashMap<SampleId, Assessment>,
 ) -> Option<ServerIncident> {
     samples.iter().rev().find_map(|sample| {
-        let assessment = assessed.get(&sample.traceroute_id)?;
+        let assessment = assessed.get(&sample.id)?;
         Some(ServerIncident {
             session_id: sample.session_id,
             match_number: sample.match_number,
@@ -58,7 +59,7 @@ fn last_incident(
 fn summarize_server(
     matches: &[&ServerMatch],
     pool: &[&PingSample],
-    assessed: &HashMap<i64, Assessment>,
+    assessed: &HashMap<SampleId, Assessment>,
     since: DateTime<FixedOffset>,
 ) -> Option<ServerSummaryItem> {
     let latest = matches.iter().max_by_key(|game| parse(&game.started_at))?;
@@ -167,10 +168,11 @@ pub async fn server_summary(
     analytics: &AnalyticsRepository,
     periods: &IpPeriodRepository,
     traceroutes: &TracerouteRepository,
+    game_pings: Option<&GamePingRepository>,
     metadata: Option<&IpMetadataRepository>,
     since: DateTime<Utc>,
 ) -> Result<ServerSummary, DbError> {
-    let history = match_history(analytics, periods, traceroutes, metadata).await?;
+    let history = match_history(analytics, periods, traceroutes, game_pings, metadata).await?;
     Ok(ServerSummary {
         since: since.to_rfc3339_opts(SecondsFormat::Secs, true),
         usual_max_samples: USUAL_PING_SAMPLES as u32,
@@ -295,6 +297,26 @@ mod tests {
     }
 
     #[test]
+    fn pings_reported_by_the_game_start_their_own_usual() {
+        let mut matches = history(10, lower_bound(5), 5.0);
+        matches.extend((0..3).map(|i| measured(day(21 + i, 20), game(), 13.0 + f64::from(i))));
+
+        let server = only(matches);
+
+        assert_eq!(server.basis, Some(game()));
+        assert_eq!(
+            server.recent,
+            Some(RecentPing {
+                median_ms: 14.0,
+                loss_pct: 0.0,
+                sample_count: 3,
+            })
+        );
+        assert_eq!(server.usual, UsualPing::default());
+        assert_eq!(server.status, Some(Severity::Ok));
+    }
+
+    #[test]
     fn last_incident_is_the_latest_measurement_past_a_threshold() {
         let mut lossy = sample(day(12, 20), lower_bound(5), 5.0);
         lossy.loss_pct = 33.3;
@@ -343,7 +365,7 @@ mod tests {
 
         let assessed = assessments(&matches);
         let incident = only(matches).last_incident.unwrap();
-        let assessment = &assessed[&day(14, 20).timestamp()];
+        let assessment = &assessed[&SampleId::Trace(day(14, 20).timestamp())];
 
         assert_eq!(incident.status, assessment.status);
         assert_eq!(incident.usual, assessment.usual);
@@ -527,6 +549,7 @@ mod tests {
             &AnalyticsRepository::new(pool.clone()),
             &IpPeriodRepository::new(pool.clone()),
             &TracerouteRepository::new(pool.clone()),
+            None,
             Some(&IpMetadataRepository::new(pool.clone())),
             Utc.with_ymd_and_hms(2026, 9, 20, 0, 0, 0).unwrap(),
         )
@@ -555,6 +578,7 @@ mod tests {
                 measured_hop: Some(3),
                 measured_asn: Some(9002),
                 server_ip: None,
+                region: None,
             })
         );
         assert_eq!(
@@ -584,6 +608,7 @@ mod tests {
             &AnalyticsRepository::new(pool.clone()),
             &IpPeriodRepository::new(pool.clone()),
             &TracerouteRepository::new(pool.clone()),
+            None,
             None,
             Utc.with_ymd_and_hms(2026, 9, 20, 0, 0, 0).unwrap(),
         )

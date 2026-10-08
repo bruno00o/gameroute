@@ -4,8 +4,8 @@ use crate::db::ip_metadata::IpMetadataRepository;
 use crate::db::sessions::SessionRepository;
 use crate::db::traceroutes::TracerouteRepository;
 use crate::db::{
-    get_analytics_repository, get_ip_metadata_repository, get_ip_period_repository,
-    get_session_repository, get_traceroute_repository, DbError,
+    get_analytics_repository, get_game_ping_repository, get_ip_metadata_repository,
+    get_ip_period_repository, get_session_repository, get_traceroute_repository, DbError,
 };
 use crate::models::session::{SessionDetail, SessionListFilter, SessionListPage, SessionMatch};
 use crate::models::traceroute_record::TracerouteWithHops;
@@ -74,9 +74,16 @@ async fn rated_history() -> Result<MatchHistory, CommandError> {
     let traceroutes = get_traceroute_repository()
         .ok_or_else(|| CommandError::repo_not_initialized("Traceroute"))?;
     let metadata = get_ip_metadata_repository();
+    let game_pings = get_game_ping_repository();
 
-    match_history(&analytics, &periods, &traceroutes, metadata.as_deref())
-        .await
+    match_history(
+        &analytics,
+        &periods,
+        &traceroutes,
+        game_pings.as_deref(),
+        metadata.as_deref(),
+    )
+    .await
         .map_err(|e| CommandError::internal(e.to_string()))
 }
 
@@ -451,6 +458,7 @@ mod tests {
                 &self.periods,
                 &self.traceroutes,
                 None,
+                None,
             )
             .await
             .unwrap()
@@ -583,6 +591,7 @@ mod tests {
             &AnalyticsRepository::new(list.pool.clone()),
             &list.periods,
             &list.traceroutes,
+            None,
             None,
             Utc.with_ymd_and_hms(2026, 9, 21, 0, 0, 0).unwrap(),
         )

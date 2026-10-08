@@ -1,8 +1,8 @@
 use crate::commands::CommandError;
 use crate::config::{ROUTE_HISTORY_DAYS, SERVER_SUMMARY_DAYS};
 use crate::db::{
-    get_analytics_repository, get_ip_metadata_repository, get_ip_period_repository,
-    get_traceroute_repository,
+    get_analytics_repository, get_game_ping_repository, get_ip_metadata_repository,
+    get_ip_period_repository, get_traceroute_repository,
 };
 use crate::models::insights::{HourlyQuality, ServerStability, ServerSummary, SessionQualityPoint};
 use crate::models::route_history::{RouteChange, UsualRoute};
@@ -46,12 +46,14 @@ pub async fn get_server_summary(days: Option<u32>) -> Result<ServerSummary, Comm
     let traceroutes = get_traceroute_repository()
         .ok_or_else(|| CommandError::repo_not_initialized("Traceroute"))?;
     let metadata = get_ip_metadata_repository();
+    let game_pings = get_game_ping_repository();
 
     let days = days.unwrap_or(SERVER_SUMMARY_DAYS).clamp(1, 3650);
     server_summary::server_summary(
         &analytics,
         &periods,
         &traceroutes,
+        game_pings.as_deref(),
         metadata.as_deref(),
         Utc::now() - Duration::days(i64::from(days)),
     )

@@ -1,18 +1,25 @@
+use crate::config::{
+    GAME_LOG_SLACK_SECS, GAME_PING_MATCH_GRACE_SECS, GAME_REGION_TRACE_TOLERANCE_MS,
+};
+use crate::db::game_pings::GamePingRepository;
 use crate::db::ip_periods::IpPeriodRepository;
 use crate::db::traceroutes::TracerouteRepository;
 use crate::db::DbError;
 use crate::models::flow_kind::FlowKind;
+use crate::models::game_ping::GamePingSample;
 use crate::models::hop::ProbedHop;
-use crate::models::ip_period::FlowPeriod;
+use crate::models::insights::PingSource;
+use crate::models::ip_period::{FlowPeriod, IpPeriod};
 use crate::models::session::{
-    FlowOperator, MatchSummary, MeasuredFlow, SessionMatch, TraceMeasure,
+    FlowOperator, GameMeasure, MatchSummary, MeasuredFlow, SessionMatch, TraceMeasure,
 };
 use crate::models::severity::Severity;
 use crate::models::traceroute_record::TracerouteWithHops;
 use crate::services::severity::{measured_hop, route_status};
 use crate::services::trace_targets::is_traceable_game_server;
 use crate::services::traceroute::persistent_loss_onset;
-use chrono::{DateTime, FixedOffset};
+use crate::services::usual::assess;
+use chrono::{DateTime, Duration, FixedOffset, Utc};
 use std::collections::HashMap;
 
 pub struct MatchedSession {
@@ -23,6 +30,7 @@ pub struct MatchedSession {
 pub async fn matched_sessions(
     periods: &IpPeriodRepository,
     traceroutes: &TracerouteRepository,
+    game_pings: Option<&GamePingRepository>,
     session_ids: &[i64],
 ) -> Result<HashMap<i64, MatchedSession>, DbError> {
     if session_ids.is_empty() {
@@ -40,29 +48,38 @@ pub async fn matched_sessions(
     {
         traces.entry(trace.session_id).or_default().push(trace);
     }
+    let mut pings: HashMap<i64, Vec<GamePingSample>> = HashMap::new();
+    if let Some(game_pings) = game_pings {
+        for sample in game_pings.get_samples_for_sessions(session_ids).await? {
+            pings.entry(sample.session_id).or_default().push(sample);
+        }
+    }
 
     Ok(session_ids
         .iter()
         .map(|&id| {
             let traces = traces.remove(&id).unwrap_or_default();
-            let matches = build_matches(flows.remove(&id).unwrap_or_default(), &traces);
+            let pings = pings.remove(&id).unwrap_or_default();
+            let matches = build_matches(flows.remove(&id).unwrap_or_default(), &traces, &pings);
             (id, MatchedSession { matches, traces })
         })
         .collect())
 }
 
 pub fn summarize(matches: &[SessionMatch]) -> MatchSummary {
-    let measured: Vec<&TraceMeasure> = matches
+    let measured: Vec<&MeasuredFlow> = matches
         .iter()
-        .filter_map(|game| game.flow.trace.as_ref())
-        .filter(|trace| trace.ping_ms.is_some())
+        .map(|game| &game.flow)
+        .filter(|flow| flow.ping_ms().is_some())
         .collect();
-    let pings: Vec<f64> = measured.iter().filter_map(|trace| trace.ping_ms).collect();
+    let pings: Vec<f64> = measured.iter().filter_map(|flow| flow.ping_ms()).collect();
 
     MatchSummary {
         match_count: matches.len() as u32,
         median_ping_ms: median(pings),
-        median_ping_at_least: measured.iter().any(|trace| !trace.at_destination),
+        median_ping_at_least: measured.iter().any(|flow| flow.ping_at_least()),
+        median_ping_by_game: !measured.is_empty()
+            && measured.iter().all(|flow| flow.game.is_some()),
         status: matches
             .iter()
             .map(|game| game.flow.status)
@@ -93,19 +110,23 @@ pub fn median(mut values: Vec<f64>) -> Option<f64> {
     })
 }
 
-fn build_matches(flows: Vec<FlowPeriod>, traces: &[TracerouteWithHops]) -> Vec<SessionMatch> {
+fn build_matches(
+    flows: Vec<FlowPeriod>,
+    traces: &[TracerouteWithHops],
+    pings: &[GamePingSample],
+) -> Vec<SessionMatch> {
     let (voice, games): (Vec<FlowPeriod>, Vec<FlowPeriod>) = flows
         .into_iter()
         .partition(|flow| flow.period.flow_kind.as_deref() == Some(FlowKind::Voice.as_str()));
     let voice: Vec<MeasuredFlow> = voice
         .into_iter()
-        .map(|flow| measure(flow, traces))
+        .map(|flow| measure(flow, traces, &[]))
         .collect();
 
     games
         .into_iter()
         .filter(is_match)
-        .map(|flow| measure(flow, traces))
+        .map(|flow| measure(flow, traces, pings))
         .zip(1u32..)
         .map(|(flow, number)| SessionMatch {
             number,
@@ -149,18 +170,118 @@ fn seconds_between(from: &str, to: &str) -> i64 {
         .map_or(0, |(from, to)| (to - from).num_seconds())
 }
 
-fn measure(flow: FlowPeriod, traces: &[TracerouteWithHops]) -> MeasuredFlow {
+fn utc(timestamp: &str) -> Option<DateTime<Utc>> {
+    parse(timestamp).map(|at| at.with_timezone(&Utc))
+}
+
+fn round(value: f64) -> f64 {
+    (value * 10.0).round() / 10.0
+}
+
+fn reported_at_server(period: &IpPeriod, pings: &[GamePingSample]) -> Option<GameMeasure> {
+    let grace = Duration::seconds(GAME_PING_MATCH_GRACE_SECS);
+    let from = utc(&period.started_at)? - grace;
+    let to = utc(&period.ended_at)? + grace;
+    let samples: Vec<&GamePingSample> = pings
+        .iter()
+        .filter(|sample| sample.source == PingSource::Game)
+        .filter(|sample| sample.has_peer(&period.ip, period.port))
+        .filter(|sample| sample.at().is_some_and(|at| from <= at && at <= to))
+        .collect();
+    let packets_lost = samples
+        .iter()
+        .filter_map(|sample| sample.packets_lost)
+        .sum();
+    let timed: Vec<&GamePingSample> = samples
+        .iter()
+        .copied()
+        .filter(|sample| sample.rtt_ms.is_some())
+        .collect();
+
+    if let Some(first) = timed.first() {
+        let sent: i64 = timed.iter().filter_map(|sample| sample.packets_sent).sum();
+        let lost: i64 = timed.iter().filter_map(|sample| sample.packets_lost).sum();
+        return Some(GameMeasure {
+            source: PingSource::Game,
+            region: None,
+            measured_at: first.measured_at.clone(),
+            sample_count: timed.len() as u32,
+            ping_ms: round(median(
+                timed.iter().filter_map(|sample| sample.rtt_ms).collect(),
+            )?),
+            jitter_ms: median(timed.iter().filter_map(|sample| sample.jitter_ms).collect())
+                .map(round),
+            loss_pct: (sent > 0).then(|| round(lost as f64 * 100.0 / sent as f64)),
+            packets_lost,
+            usual: None,
+        });
+    }
+
+    let before = utc(&period.started_at)? + Duration::seconds(GAME_LOG_SLACK_SECS);
+    let regions: Vec<&GamePingSample> = pings
+        .iter()
+        .filter(|sample| sample.source == PingSource::GameRegion && sample.rtt_ms.is_some())
+        .filter(|sample| sample.at().is_some_and(|at| at <= before))
+        .collect();
+    let latest = regions.iter().filter_map(|sample| sample.at()).max()?;
+    let best = regions
+        .iter()
+        .filter(|sample| sample.at() == Some(latest))
+        .min_by(|a, b| {
+            a.rtt_ms
+                .partial_cmp(&b.rtt_ms)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })?;
+    Some(GameMeasure {
+        source: PingSource::GameRegion,
+        region: best.region.clone(),
+        measured_at: best.measured_at.clone(),
+        sample_count: 1,
+        ping_ms: best.rtt_ms?,
+        jitter_ms: None,
+        loss_pct: None,
+        packets_lost,
+        usual: None,
+    })
+}
+
+fn measure(
+    flow: FlowPeriod,
+    traces: &[TracerouteWithHops],
+    pings: &[GamePingSample],
+) -> MeasuredFlow {
     let operator = operator(&flow);
     let period = flow.period;
     let trace = traces.iter().find(|trace| trace.target_ip == period.ip);
+    let trace_measure = trace.map(|trace| trace_measure(trace, &period.started_at));
+    let traced = trace_measure
+        .as_ref()
+        .and_then(|trace| Some((trace.ping_ms?, trace.at_destination)));
+    let game = reported_at_server(&period, pings).filter(|game| match traced {
+        _ if game.source == PingSource::Game => true,
+        Some((_, true)) => false,
+        Some((floor, false)) => floor <= game.ping_ms + GAME_REGION_TRACE_TOLERANCE_MS,
+        None => true,
+    });
+    let status = match &game {
+        Some(game) => {
+            let loss = game
+                .loss_pct
+                .or_else(|| trace_measure.as_ref()?.loss_pct)
+                .unwrap_or(0.0);
+            assess(game.ping_ms, None, loss).0
+        }
+        None => trace.map_or(Severity::Unmeasured, |trace| {
+            route_status(&trace.hops, &trace.target_ip)
+        }),
+    };
 
     MeasuredFlow {
         period_id: period.id,
         duration_secs: seconds_between(&period.started_at, &period.ended_at),
-        trace: trace.map(|trace| trace_measure(trace, &period.started_at)),
-        status: trace.map_or(Severity::Unmeasured, |trace| {
-            route_status(&trace.hops, &trace.target_ip)
-        }),
+        trace: trace_measure,
+        game,
+        status,
         ip: period.ip,
         protocol: period.protocol,
         port: period.port,
@@ -237,7 +358,7 @@ mod tests {
         traceroutes: &TracerouteRepository,
         id: i64,
     ) -> Result<Vec<SessionMatch>, DbError> {
-        Ok(matched_sessions(periods, traceroutes, &[id])
+        Ok(matched_sessions(periods, traceroutes, None, &[id])
             .await?
             .remove(&id)
             .map(|session| session.matches)
@@ -249,7 +370,7 @@ mod tests {
         traceroutes: &TracerouteRepository,
         ids: &[i64],
     ) -> Result<HashMap<i64, MatchSummary>, DbError> {
-        Ok(matched_sessions(periods, traceroutes, ids)
+        Ok(matched_sessions(periods, traceroutes, None, ids)
             .await?
             .into_iter()
             .map(|(id, session)| (id, summarize(&session.matches)))
@@ -331,16 +452,203 @@ mod tests {
                 .unwrap();
         }
 
+        async fn report(&self, samples: Vec<GamePingSample>) {
+            GamePingRepository::new(self.pool.clone())
+                .insert_samples(&samples)
+                .await
+                .unwrap();
+        }
+
         async fn matches(&self) -> Vec<SessionMatch> {
-            session_matches(&self.periods, &self.traces, 1)
+            let pings = GamePingRepository::new(self.pool.clone());
+            matched_sessions(&self.periods, &self.traces, Some(&pings), &[1])
                 .await
                 .unwrap()
+                .remove(&1)
+                .map(|session| session.matches)
+                .unwrap_or_default()
         }
     }
 
     fn at(sec: i64) -> String {
         (Utc.with_ymd_and_hms(2026, 9, 13, 14, 0, 0).unwrap() + chrono::Duration::seconds(sec))
             .to_rfc3339_opts(SecondsFormat::Secs, true)
+    }
+
+    fn reported(ip: &str, port: i32, sec: i64, rtt_ms: f64, lost: i64) -> GamePingSample {
+        let mut sample = GamePingSample::new(PingSource::Game, utc(&at(sec)).unwrap());
+        sample.session_id = 1;
+        sample.peer_ip = Some(ip.to_string());
+        sample.peer_port = Some(port);
+        sample.rtt_ms = Some(rtt_ms);
+        sample.jitter_ms = Some(2.0);
+        sample.packets_lost = Some(lost);
+        sample.packets_sent = Some(400);
+        sample
+    }
+
+    fn region(sec: i64, name: &str, rtt_ms: f64) -> GamePingSample {
+        let mut sample = GamePingSample::new(PingSource::GameRegion, utc(&at(sec)).unwrap());
+        sample.session_id = 1;
+        sample.region = Some(name.to_string());
+        sample.rtt_ms = Some(rtt_ms);
+        sample
+    }
+
+    fn burst(ip: &str, port: i32, sec: i64, lost: i64) -> GamePingSample {
+        GamePingSample {
+            rtt_ms: None,
+            jitter_ms: None,
+            packets_sent: None,
+            ..reported(ip, port, sec, 0.0, lost)
+        }
+    }
+
+    #[tokio::test]
+    async fn the_ping_reported_by_the_game_becomes_the_match_ping() {
+        let session = Session::new().await;
+        session.period(RIOT, 7318, (0, 1800), FlowKind::Game).await;
+        session
+            .period(RIOT, 7220, (1900, 3700), FlowKind::Game)
+            .await;
+        session.trace(RIOT, 40, &route_to_silent_riot()).await;
+        session
+            .report(vec![
+                reported(RIOT, 7318, 10, 13.8, 0),
+                reported(RIOT, 7318, 20, 14.6, 2),
+                reported(RIOT, 7318, 30, 14.4, 0),
+                reported(RIOT, 7318, 2500, 40.0, 0),
+                reported(RIOT, 7999, 40, 90.0, 0),
+                reported("162.249.72.9", 7318, 50, 90.0, 0),
+            ])
+            .await;
+
+        let matches = session.matches().await;
+
+        let first = &matches[0].flow;
+        assert_eq!(
+            first.game,
+            Some(GameMeasure {
+                source: PingSource::Game,
+                region: None,
+                measured_at: "2026-09-13T14:00:10.000Z".to_string(),
+                sample_count: 3,
+                ping_ms: 14.4,
+                jitter_ms: Some(2.0),
+                loss_pct: Some(0.2),
+                packets_lost: 2,
+                usual: None,
+            })
+        );
+        assert_eq!(first.trace.as_ref().unwrap().ping_ms, Some(17.6));
+        assert_eq!(first.ping_ms(), Some(14.4));
+        assert!(!first.ping_at_least());
+        assert_eq!(first.status, Severity::Ok);
+
+        let second = &matches[1].flow;
+        assert!(second.game.is_none());
+        assert_eq!(second.ping_ms(), Some(17.6));
+        assert!(second.ping_at_least());
+
+        let summary = summarize(&matches);
+        assert_eq!(summary.median_ping_ms, Some(16.0));
+        assert!(summary.median_ping_at_least);
+        assert!(!summary.median_ping_by_game);
+        assert!(summarize(&matches[..1]).median_ping_by_game);
+    }
+
+    #[tokio::test]
+    async fn game_loss_rates_the_match_like_trace_loss() {
+        let session = Session::new().await;
+        session.period(RIOT, 7318, (0, 1800), FlowKind::Game).await;
+        session
+            .report(vec![
+                reported(RIOT, 7318, 10, 13.8, 0),
+                reported(RIOT, 7318, 20, 13.1, 40),
+            ])
+            .await;
+
+        let game = &session.matches().await[0].flow;
+
+        assert_eq!(game.loss_pct(), Some(5.0));
+        assert_eq!(game.status, Severity::Critical);
+    }
+
+    #[tokio::test]
+    async fn region_pings_measured_before_the_match_stand_in_for_a_short_trace() {
+        let session = Session::new().await;
+        session
+            .period(RIOT_PARIS, 7164, (600, 2400), FlowKind::Game)
+            .await;
+        session
+            .period(RIOT_PARIS, 7251, (3000, 4800), FlowKind::Game)
+            .await;
+        session
+            .period("162.249.72.1", 7097, (5000, 6800), FlowKind::Game)
+            .await;
+        session
+            .trace(
+                RIOT_PARIS,
+                620,
+                &[hop(1, "192.168.1.254", (0.4, 0.6, 0.9), 0.0), silent(2)],
+            )
+            .await;
+        session
+            .trace("162.249.72.1", 5030, &route_to("162.249.72.1", 31.0, 0.0))
+            .await;
+        session
+            .period("162.249.72.9", 7034, (7000, 8800), FlowKind::Game)
+            .await;
+        session
+            .trace(
+                "162.249.72.9",
+                7030,
+                &[
+                    hop(1, "192.168.1.254", (0.4, 0.6, 0.9), 0.0),
+                    hop(2, "77.136.10.6", (59.0, 60.0, 61.0), 0.0),
+                    silent(3),
+                ],
+            )
+            .await;
+        session
+            .report(vec![
+                region(30, "Paris", 4.0),
+                region(30, "Frankfurt", 13.0),
+                region(2900, "Paris", 6.0),
+                region(2900, "London", 5.0),
+                region(3100, "Paris", 40.0),
+                burst(RIOT_PARIS, 7251, 3500, 15),
+                burst(RIOT_PARIS, 7251, 3600, 3),
+            ])
+            .await;
+
+        let matches = session.matches().await;
+
+        let first = matches[0].flow.game.as_ref().unwrap();
+        assert_eq!(first.source, PingSource::GameRegion);
+        assert_eq!(first.region.as_deref(), Some("Paris"));
+        assert_eq!(first.ping_ms, 4.0);
+        assert_eq!(first.packets_lost, 0);
+
+        let second = matches[1].flow.game.as_ref().unwrap();
+        assert_eq!(
+            (
+                second.region.as_deref(),
+                second.ping_ms,
+                second.packets_lost
+            ),
+            (Some("London"), 5.0, 18)
+        );
+        assert_eq!(second.loss_pct, None);
+
+        let third = &matches[2].flow;
+        assert!(third.game.is_none());
+        assert_eq!(third.ping_ms(), Some(31.0));
+
+        let far = &matches[3].flow;
+        assert!(far.game.is_none());
+        assert_eq!(far.ping_ms(), Some(60.0));
+        assert!(far.ping_at_least());
     }
 
     fn hop(n: i32, ip: &str, (min, avg, max): (f64, f64, f64), loss: f64) -> HopData {
@@ -580,6 +888,7 @@ mod tests {
                 match_count: 3,
                 median_ping_ms: Some(17.8),
                 median_ping_at_least: true,
+                median_ping_by_game: false,
                 status: Some(Severity::Critical),
             }
         );
