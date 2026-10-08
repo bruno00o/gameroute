@@ -30,6 +30,7 @@ function serverId(server: ServerSummaryItem): string {
 }
 
 function upToLastHop(server: ServerSummaryItem): string | undefined {
+  if (server.basis?.source === 'game') return m.ping_by_game()
   return server.basis && !server.basis.atDestination ? m.route_total_up_to() : undefined
 }
 
