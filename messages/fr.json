@@ -435,5 +435,10 @@
   "games_source_manual": "Manuel",
   "games_source_manual_tooltip": "Ajouté manuellement — non détecté automatiquement depuis un lanceur de jeux",
   "welcome_help_prefix": "Besoin d'aide ? Visitez la",
-  "welcome_help_link_text": "page d'aide"
+  "welcome_help_link_text": "page d'aide",
+  "status_ok": "Bon",
+  "status_watch": "À surveiller",
+  "status_degraded": "Dégradé",
+  "status_critical": "Critique",
+  "status_unmeasured": "Non mesurable"
 }
