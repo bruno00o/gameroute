@@ -61,18 +61,39 @@ impl GamePingRepository {
         .map_err(Into::into)
     }
 
-    pub async fn get_unsampled_sessions(&self) -> Result<Vec<Session>, DbError> {
-        sqlx::query_as::<_, Session>(
-            "SELECT id, game_name, started_at, ended_at
+    pub async fn get_unsampled_sessions(&self) -> Result<Vec<UnsampledSession>, DbError> {
+        sqlx::query_as::<_, UnsampledSession>(
+            "SELECT s.id, s.game_name, s.started_at, s.ended_at, c.scanned_at
              FROM sessions s
-             WHERE ended_at IS NOT NULL
+             LEFT JOIN game_log_scans c ON c.session_id = s.id
+             WHERE s.ended_at IS NOT NULL
                AND NOT EXISTS (SELECT 1 FROM game_ping_samples g WHERE g.session_id = s.id)
-             ORDER BY started_at ASC",
+             ORDER BY s.started_at ASC",
         )
         .fetch_all(&self.pool)
         .await
         .map_err(Into::into)
     }
+
+    pub async fn mark_scanned(&self, session_ids: &[i64], scanned_at: &str) -> Result<(), DbError> {
+        sqlx::query(
+            "INSERT INTO game_log_scans (session_id, scanned_at)
+             SELECT value, $2 FROM json_each($1) WHERE true
+             ON CONFLICT(session_id) DO UPDATE SET scanned_at = excluded.scanned_at",
+        )
+        .bind(serde_json::to_string(session_ids).unwrap_or_default())
+        .bind(scanned_at)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct UnsampledSession {
+    #[sqlx(flatten)]
+    pub session: Session,
+    pub scanned_at: Option<String>,
 }
 
 static GAME_PING_REPOSITORY: OnceLock<Arc<GamePingRepository>> = OnceLock::new();
@@ -207,14 +228,28 @@ mod tests {
             .await
             .unwrap();
 
-        let left: Vec<i64> = repo
+        let left: Vec<(i64, Option<String>)> = repo
             .get_unsampled_sessions()
             .await
             .unwrap()
-            .iter()
-            .map(|session| session.id)
+            .into_iter()
+            .map(|left| (left.session.id, left.scanned_at))
             .collect();
+        assert_eq!(left, vec![(missing, None)]);
 
-        assert_eq!(left, vec![missing]);
+        repo.mark_scanned(&[missing], "2026-10-08T18:00:00Z")
+            .await
+            .unwrap();
+        repo.mark_scanned(&[missing], "2026-10-09T18:00:00Z")
+            .await
+            .unwrap();
+        let scanned = repo.get_unsampled_sessions().await.unwrap();
+        assert_eq!(
+            scanned[0].scanned_at.as_deref(),
+            Some("2026-10-09T18:00:00Z")
+        );
+
+        sessions.delete_session(missing).await.unwrap();
+        assert!(repo.get_unsampled_sessions().await.unwrap().is_empty());
     }
 }
