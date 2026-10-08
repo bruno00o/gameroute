@@ -88,6 +88,12 @@ pub struct IpActivityUpsert {
     pub became_game_server: bool,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct MatchPeriodBackfill {
+    pub recognised: usize,
+    pub absorbed: usize,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

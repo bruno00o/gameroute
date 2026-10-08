@@ -4,7 +4,7 @@ use crate::config::{
 use crate::db::DbError;
 use crate::models::flow_kind::FlowKind;
 use crate::models::ip_period::{
-    IpActivityUpsert, IpPeriod, IpPeriodData, IpPeriodSummary, TraceCandidate,
+    IpActivityUpsert, IpPeriod, IpPeriodData, IpPeriodSummary, MatchPeriodBackfill, TraceCandidate,
 };
 use sqlx::sqlite::SqlitePool;
 use std::net::IpAddr;
@@ -269,6 +269,59 @@ impl IpPeriodRepository {
         Ok(())
     }
 
+    pub async fn merge_closed_match_periods(
+        &self,
+        is_known_game_server: impl Fn(&str, &str, u16) -> bool,
+    ) -> Result<MatchPeriodBackfill, DbError> {
+        let periods = sqlx::query_as::<_, IpPeriod>(
+            "SELECT p.id, p.session_id, p.ip, p.protocol, p.port, p.started_at, p.ended_at, p.packet_count, p.is_game_server, p.flow_kind
+             FROM ip_periods p
+             JOIN sessions s ON s.id = p.session_id
+             WHERE s.ended_at IS NOT NULL
+               AND EXISTS (
+                   SELECT 1 FROM ip_periods u
+                   WHERE u.session_id = p.session_id AND u.ip = p.ip AND u.protocol = 'UDP'
+               )
+             ORDER BY p.session_id, p.ip, p.started_at, p.id",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let plan = plan_match_periods(periods, is_known_game_server);
+        let mut outcome = MatchPeriodBackfill::default();
+        if plan.is_empty() {
+            return Ok(outcome);
+        }
+
+        let mut tx = self.pool.begin().await?;
+        for planned in &plan {
+            let period = &planned.period;
+            sqlx::query(
+                "UPDATE ip_periods SET ended_at = $1, packet_count = $2, is_game_server = $3, flow_kind = $4 WHERE id = $5",
+            )
+            .bind(&period.ended_at)
+            .bind(period.packet_count)
+            .bind(period.is_game_server)
+            .bind(&period.flow_kind)
+            .bind(period.id)
+            .execute(&mut *tx)
+            .await?;
+
+            for id in &planned.absorbed {
+                sqlx::query("DELETE FROM ip_periods WHERE id = $1")
+                    .bind(id)
+                    .execute(&mut *tx)
+                    .await?;
+            }
+
+            outcome.recognised += usize::from(planned.recognised);
+            outcome.absorbed += planned.absorbed.len();
+        }
+        tx.commit().await?;
+
+        Ok(outcome)
+    }
+
     pub async fn get_unique_ip_count(&self, session_id: i64) -> Result<i32, DbError> {
         let row: (i32,) =
             sqlx::query_as("SELECT COUNT(DISTINCT ip) FROM ip_periods WHERE session_id = $1")
@@ -278,6 +331,61 @@ impl IpPeriodRepository {
 
         Ok(row.0)
     }
+}
+
+struct PlannedPeriod {
+    period: IpPeriod,
+    absorbed: Vec<i64>,
+    recognised: bool,
+}
+
+fn seconds_between(from: &str, to: &str) -> Option<i64> {
+    let from = chrono::DateTime::parse_from_rfc3339(from).ok()?;
+    let to = chrono::DateTime::parse_from_rfc3339(to).ok()?;
+    Some((to - from).num_seconds())
+}
+
+fn plan_match_periods(
+    periods: Vec<IpPeriod>,
+    is_known_game_server: impl Fn(&str, &str, u16) -> bool,
+) -> Vec<PlannedPeriod> {
+    let mut plan = Vec::new();
+    let mut open: Option<PlannedPeriod> = None;
+
+    for mut period in periods {
+        if let Some(current) = open.as_mut() {
+            let kept = &mut current.period;
+            let continues_match = kept.is_game_server
+                && kept.session_id == period.session_id
+                && kept.ip == period.ip
+                && kept.protocol == period.protocol
+                && kept.port == period.port
+                && seconds_between(&kept.ended_at, &period.started_at)
+                    .is_some_and(|gap| gap < MATCH_GAP_GRACE_SECS);
+            if continues_match {
+                if seconds_between(&kept.ended_at, &period.ended_at).is_some_and(|later| later > 0) {
+                    kept.ended_at = period.ended_at;
+                }
+                kept.packet_count += period.packet_count;
+                current.absorbed.push(period.id);
+                continue;
+            }
+        }
+
+        plan.extend(open.take().filter(|p| p.recognised || !p.absorbed.is_empty()));
+
+        let port = u16::try_from(period.port).unwrap_or(0);
+        let recognised = is_known_game_server(&period.ip, &period.protocol, port)
+            && !(period.is_game_server && period.flow_kind.as_deref() == Some(FlowKind::Game.as_str()));
+        if recognised {
+            period.is_game_server = true;
+            period.flow_kind = Some(FlowKind::Game.as_str().to_string());
+        }
+        open = Some(PlannedPeriod { period, absorbed: Vec::new(), recognised });
+    }
+
+    plan.extend(open.filter(|p| p.recognised || !p.absorbed.is_empty()));
+    plan
 }
 
 static IP_PERIOD_REPOSITORY: OnceLock<Arc<IpPeriodRepository>> = OnceLock::new();
@@ -559,6 +667,113 @@ mod tests {
         assert_eq!(candidates.len(), 1);
         assert!(candidates[0].is_game_server);
         assert_eq!(candidates[0].total_secs, 600);
+    }
+
+    async fn stored_period(
+        repo: &IpPeriodRepository,
+        ip: &str,
+        port: i32,
+        (from_sec, to_sec): (u32, u32),
+        flow_kind: Option<FlowKind>,
+    ) -> i64 {
+        let ts = |sec: u32| format!("2026-01-25T10:{:02}:{:02}Z", sec / 60, sec % 60);
+        let mut data = IpPeriodData::new(1, ip.to_string(), "UDP".to_string(), port, ts(from_sec), 100);
+        data.ended_at = ts(to_sec);
+        let id = repo.insert_period(&data).await.unwrap();
+        let is_game_server = flow_kind == Some(FlowKind::Game);
+        repo.update_period(id, &data.ended_at, 100, is_game_server).await.unwrap();
+        if let Some(kind) = flow_kind {
+            repo.set_flow_kind(id, kind).await.unwrap();
+        }
+        id
+    }
+
+    async fn close_session(repo: &IpPeriodRepository) {
+        sqlx::query("UPDATE sessions SET ended_at = '2026-01-25T12:00:00Z' WHERE id = 1")
+            .execute(&repo.pool)
+            .await
+            .unwrap();
+    }
+
+    fn riot_signature(_: &str, protocol: &str, port: u16) -> bool {
+        protocol == "UDP" && (7000..=7999).contains(&port)
+    }
+
+    #[tokio::test]
+    async fn test_backfill_merges_the_fragments_of_a_known_match() {
+        let repo = create_test_repo().await;
+        let first = stored_period(&repo, "162.249.72.5", 7036, (0, 20), None).await;
+        stored_period(&repo, "162.249.72.5", 7036, (30, 200), Some(FlowKind::Game)).await;
+        stored_period(&repo, "162.249.72.5", 7036, (215, 220), None).await;
+        stored_period(&repo, "162.249.72.5", 7036, (255, 600), Some(FlowKind::Game)).await;
+        let ping = stored_period(&repo, "162.249.72.5", 8181, (610, 611), None).await;
+        close_session(&repo).await;
+
+        let outcome = repo.merge_closed_match_periods(riot_signature).await.unwrap();
+
+        assert_eq!(outcome, MatchPeriodBackfill { recognised: 1, absorbed: 3 });
+        let periods = repo.get_periods_for_session(1).await.unwrap();
+        let ids: Vec<i64> = periods.iter().map(|p| p.id).collect();
+        assert_eq!(ids, vec![first, ping]);
+        assert_eq!(periods[0].started_at, "2026-01-25T10:00:00Z");
+        assert_eq!(periods[0].ended_at, "2026-01-25T10:10:00Z");
+        assert_eq!(periods[0].packet_count, 400);
+        assert!(periods[0].is_game_server);
+        assert_eq!(periods[0].flow_kind.as_deref(), Some("game"));
+        assert!(!periods[1].is_game_server);
+    }
+
+    #[tokio::test]
+    async fn test_backfill_keeps_matches_voice_and_unknown_fragments_apart() {
+        let repo = create_test_repo().await;
+        stored_period(&repo, "162.249.72.5", 7036, (0, 600), Some(FlowKind::Game)).await;
+        stored_period(&repo, "162.249.72.5", 7108, (630, 1200), Some(FlowKind::Game)).await;
+        stored_period(&repo, "162.249.72.5", 7108, (1245, 1300), Some(FlowKind::Game)).await;
+        stored_period(&repo, "20.157.94.82", 27020, (0, 100), Some(FlowKind::Voice)).await;
+        stored_period(&repo, "20.157.94.82", 27020, (120, 130), None).await;
+        stored_period(&repo, "155.133.226.70", 27015, (0, 20), None).await;
+        stored_period(&repo, "155.133.226.70", 27015, (30, 45), None).await;
+        close_session(&repo).await;
+
+        let outcome = repo.merge_closed_match_periods(riot_signature).await.unwrap();
+
+        assert_eq!(outcome, MatchPeriodBackfill::default());
+        assert_eq!(repo.get_periods_for_session(1).await.unwrap().len(), 7);
+    }
+
+    #[tokio::test]
+    async fn test_backfill_merges_unknown_game_servers_after_thirty_seconds() {
+        let repo = create_test_repo().await;
+        let id = stored_period(&repo, "155.133.226.70", 27015, (0, 200), Some(FlowKind::Game)).await;
+        stored_period(&repo, "155.133.226.70", 27015, (220, 225), None).await;
+        close_session(&repo).await;
+
+        let outcome = repo.merge_closed_match_periods(riot_signature).await.unwrap();
+
+        assert_eq!(outcome, MatchPeriodBackfill { recognised: 0, absorbed: 1 });
+        let periods = repo.get_periods_for_session(1).await.unwrap();
+        assert_eq!(periods.len(), 1);
+        assert_eq!(periods[0].id, id);
+        assert_eq!(periods[0].ended_at, "2026-01-25T10:03:45Z");
+    }
+
+    #[tokio::test]
+    async fn test_backfill_skips_open_sessions_and_runs_once() {
+        let repo = create_test_repo().await;
+        stored_period(&repo, "162.249.72.5", 7036, (0, 20), None).await;
+        stored_period(&repo, "162.249.72.5", 7036, (30, 200), Some(FlowKind::Game)).await;
+
+        let open = repo.merge_closed_match_periods(riot_signature).await.unwrap();
+        assert_eq!(open, MatchPeriodBackfill::default());
+        assert_eq!(repo.get_periods_for_session(1).await.unwrap().len(), 2);
+
+        close_session(&repo).await;
+        let first = repo.merge_closed_match_periods(riot_signature).await.unwrap();
+        let second = repo.merge_closed_match_periods(riot_signature).await.unwrap();
+
+        assert_eq!(first, MatchPeriodBackfill { recognised: 1, absorbed: 1 });
+        assert_eq!(second, MatchPeriodBackfill::default());
+        assert_eq!(repo.get_periods_for_session(1).await.unwrap().len(), 1);
     }
 
     #[tokio::test]

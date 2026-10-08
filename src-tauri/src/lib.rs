@@ -33,7 +33,7 @@ use commands::sessions::{
 };
 use config::{CACHE_MAX_TTL_DAYS, SESSION_RETENTION_DAYS};
 use db::{get_ip_metadata_repository, get_session_repository};
-use services::asn_resolver;
+use services::{asn_resolver, flow_kind};
 use tauri::path::BaseDirectory;
 use tauri::Manager;
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -131,8 +131,6 @@ pub fn run() {
                     db::init_repositories(&pool);
                     log::info!("All repositories initialized");
 
-                    tauri::async_runtime::spawn(crate::services::flow_kind::backfill_flow_kinds());
-
                     if let Some(repo) = get_ip_metadata_repository() {
                         let prune_result = tauri::async_runtime::block_on(async {
                             repo.prune_expired(CACHE_MAX_TTL_DAYS).await
@@ -162,6 +160,11 @@ pub fn run() {
                             log::error!("Failed to clean up sessions on startup: {}", e);
                         }
                     }
+
+                    tauri::async_runtime::spawn(async {
+                        flow_kind::backfill_flow_kinds().await;
+                        flow_kind::backfill_match_periods().await;
+                    });
 
                     tauri::async_runtime::spawn(asn_resolver::backfill_ip_metadata());
 
