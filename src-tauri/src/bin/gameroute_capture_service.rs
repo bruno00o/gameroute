@@ -151,12 +151,17 @@ mod service {
         ctrlc::set_handler(move || {
             println!("\nShutting down...");
             stop_flag_clone.store(true, Ordering::SeqCst);
+            wake_pipe_server();
         })?;
 
         run_pipe_server(stop_flag);
 
         println!("Service stopped.");
         Ok(())
+    }
+
+    fn wake_pipe_server() {
+        let _ = std::fs::OpenOptions::new().read(true).write(true).open(PIPE_NAME);
     }
 
     fn redirect_stderr_to_log_file() {
@@ -188,7 +193,9 @@ mod service {
         let event_handler = move |control_event| -> ServiceControlHandlerResult {
             match control_event {
                 ServiceControl::Stop | ServiceControl::Shutdown => {
+                    slog!("Stop requested");
                     stop_flag_clone.store(true, Ordering::SeqCst);
+                    wake_pipe_server();
                     ServiceControlHandlerResult::NoError
                 }
                 ServiceControl::Interrogate => ServiceControlHandlerResult::NoError,
