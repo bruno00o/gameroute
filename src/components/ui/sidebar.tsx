@@ -3,6 +3,7 @@ import { mergeProps } from '@base-ui/react/merge-props'
 import { useRender } from '@base-ui/react/use-render'
 import { cva, type VariantProps } from 'class-variance-authority'
 
+import * as m from '@/paraglide/messages'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,9 +21,9 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { useSidebarStore } from '@/stores/sidebar-store'
 import { RiSideBarLine } from '@remixicon/react'
 
-const SIDEBAR_WIDTH = '16rem'
+const SIDEBAR_WIDTH = '236px'
 const SIDEBAR_WIDTH_MOBILE = '18rem'
-const SIDEBAR_WIDTH_ICON = '3rem'
+const SIDEBAR_WIDTH_ICON = '52px'
 const SIDEBAR_KEYBOARD_SHORTCUT = 'b'
 
 type SidebarContextProps = {
@@ -253,7 +254,7 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
       {...props}
     >
       <RiSideBarLine />
-      <span className="sr-only">Toggle Sidebar</span>
+      <span className="sr-only">{m.nav_toggle_sidebar()}</span>
     </Button>
   )
 }

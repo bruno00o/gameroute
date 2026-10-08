@@ -29,10 +29,10 @@ export function SidebarSearch() {
 
   return (
     <SidebarGroup>
-      <SidebarGroupContent className="relative group-data-[collapsible=icon]:hidden px-1.5">
+      <SidebarGroupContent className="relative group-data-[collapsible=icon]:hidden">
         <button
           onClick={() => setOpen(true)}
-          className="dark:bg-input/30 border-input h-8 w-full rounded-none border bg-transparent px-1.5 py-1 text-xs pl-8 flex items-center gap-2 text-muted-foreground cursor-pointer"
+          className="border-line-strong bg-muted text-ui text-ink-subtle hover:text-foreground flex h-8 w-full cursor-pointer items-center gap-2 rounded-sm border pr-1.5 pl-8"
         >
           <span className="flex-1 text-left">{m.search_placeholder()}</span>
           <KbdGroup>
@@ -41,11 +41,15 @@ export function SidebarSearch() {
             <Kbd>K</Kbd>
           </KbdGroup>
         </button>
-        <RiSearchLine className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 opacity-50 select-none" />
+        <RiSearchLine className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 opacity-50 select-none" />
       </SidebarGroupContent>
       <SidebarMenu className="hidden group-data-[collapsible=icon]:flex">
         <SidebarMenuItem>
-          <SidebarMenuButton tooltip={m.search_placeholder()} onClick={() => setOpen(true)}>
+          <SidebarMenuButton
+            tooltip={m.search_placeholder()}
+            onClick={() => setOpen(true)}
+            className="text-muted-foreground rounded-sm group-data-[collapsible=icon]:mx-auto"
+          >
             <RiSearchLine />
           </SidebarMenuButton>
         </SidebarMenuItem>

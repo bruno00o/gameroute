@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { useMonitoringStore } from './monitoring-store'
+import { selectLiveState, useMonitoringStore } from './monitoring-store'
 import type { MonitoringStatusResponse, ServerIpCapturedEvent } from '@/types/backend'
 
 const { getState } = useMonitoringStore
@@ -186,5 +186,49 @@ describe('reset', () => {
     expect(getState().currentSessionId).toBeNull()
     expect(getState().seenIps.size).toBe(0)
     expect(getState().serverIpCount).toBe(0)
+  })
+})
+
+describe('selectLiveState', () => {
+  const game = {
+    gameName: 'Valorant',
+    pid: 1234,
+    detectedAt: '2026-01-31T10:00:00Z',
+    exePath: null,
+    icon: null,
+    isManual: false,
+  }
+
+  it('is idle while stopped or without a game', () => {
+    expect(selectLiveState({ isMonitoring: false, currentGame: null, serverIpCount: 0 })).toBe(
+      'idle'
+    )
+    expect(selectLiveState({ isMonitoring: false, currentGame: game, serverIpCount: 2 })).toBe(
+      'idle'
+    )
+    expect(selectLiveState({ isMonitoring: true, currentGame: null, serverIpCount: 0 })).toBe(
+      'idle'
+    )
+  })
+
+  it('waits for the match until a server is captured', () => {
+    expect(selectLiveState({ isMonitoring: true, currentGame: game, serverIpCount: 0 })).toBe(
+      'measuring'
+    )
+  })
+
+  it('is live once a game server is captured', () => {
+    expect(selectLiveState({ isMonitoring: true, currentGame: game, serverIpCount: 1 })).toBe(
+      'live'
+    )
+  })
+
+  it('freezes when the capture service stops answering during a game', () => {
+    expect(
+      selectLiveState({ isMonitoring: true, currentGame: game, serverIpCount: 1 }, false)
+    ).toBe('stale')
+    expect(
+      selectLiveState({ isMonitoring: true, currentGame: null, serverIpCount: 0 }, false)
+    ).toBe('idle')
   })
 })
