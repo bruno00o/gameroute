@@ -5,7 +5,6 @@ import * as m from '@/paraglide/messages'
 import type {
   SessionDetail,
   SessionListItem,
-  RecurringProblemHop,
   ServerStability,
 } from '@/types/backend'
 import { formatDuration, computeDurationSecs } from '@/lib/format'
@@ -96,26 +95,6 @@ export async function exportSessionDetail(detail: SessionDetail) {
       `gameroute-session-${detail.id}-${safeName}.csv`,
       toCsv(headers, rows),
     )
-    if (saved) toast.success(m.export_csv_saved())
-  } catch {
-    toast.error(m.export_csv_error())
-  }
-}
-
-export async function exportProblemHops(hops: RecurringProblemHop[]) {
-  const headers = ['IP', 'ASN', 'ISP', 'Occurrences', 'Avg Latency (ms)', 'Avg Loss (%)', 'Game Server Route']
-  const rows = hops.map(h => [
-    h.ip,
-    h.asn,
-    h.isp,
-    h.occurrenceCount,
-    h.avgLatency != null ? Number(h.avgLatency.toFixed(1)) : null,
-    h.avgPacketLoss != null ? Number(h.avgPacketLoss.toFixed(0)) : null,
-    h.isGameServerRoute,
-  ])
-
-  try {
-    const saved = await saveWithDialog('gameroute-problem-hops.csv', toCsv(headers, rows))
     if (saved) toast.success(m.export_csv_saved())
   } catch {
     toast.error(m.export_csv_error())

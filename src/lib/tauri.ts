@@ -14,7 +14,6 @@ import type {
   RecurringProblemHop,
   ResolvedIpData,
   RunningApp,
-  RunningProcess,
   ServerIpCapturedEvent,
   ServerStability,
   SessionDetail,
@@ -34,7 +33,6 @@ import type {
 export const startMonitoring = () => invoke<void>('start_monitoring')
 export const stopMonitoring = () => invoke<void>('stop_monitoring')
 export const getMonitoringStatus = () => invoke<MonitoringStatusResponse>('get_monitoring_status')
-export const listRunningProcesses = () => invoke<RunningProcess[]>('list_running_processes')
 export const listRunningApps = () => invoke<RunningApp[]>('list_running_apps')
 export const startManualMonitoring = (pid: number) =>
   invoke<void>('start_manual_monitoring', { pid })
