@@ -300,6 +300,7 @@ function DataStep({ onBack, onNext }: StepProps) {
         m.onboarding_data_operators(),
         m.onboarding_data_game_logs(),
         m.settings_local_connections(),
+        m.settings_local_probes(),
       ]}
       extra={
         <>
