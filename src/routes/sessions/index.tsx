@@ -14,14 +14,7 @@ import * as m from '@/paraglide/messages'
 import type { SessionListFilter, SessionListItem } from '@/types/backend'
 import { getSessionList, openLogDir } from '@/lib/tauri'
 import { exportSessionsList } from '@/lib/export-csv'
-import {
-  computeDurationSecs,
-  formatDay,
-  formatDayTime,
-  formatDuration,
-  formatMs,
-  formatNumber,
-} from '@/lib/format'
+import { formatDay, formatNumber } from '@/lib/format'
 import { errorMessage } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -33,10 +26,10 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Segmented } from '@/components/ui/segmented'
 import { TextField } from '@/components/ui/text-field'
-import { DataTable, type DataTableColumn } from '@/components/data-table'
+import { DataTable } from '@/components/data-table'
 import { EmptyState } from '@/components/empty-state'
 import { Notice } from '@/components/notice'
-import { StatusPill } from '@/components/status/status-pill'
+import { sessionColumns } from '@/components/session/session-columns'
 
 export const Route = createFileRoute('/sessions/')({
   component: SessionsPage,
@@ -47,7 +40,6 @@ const EXPORT_PAGE_SIZE = 100
 const SEARCH_DELAY_MS = 300
 const MAX_GAME_SEGMENTS = 4
 const ALL_GAMES = '*'
-const NBSP = ' '
 
 type Quality = 'all' | 'review'
 
@@ -111,57 +103,7 @@ function SessionsPage() {
     }
   }
 
-  const columns = useMemo<DataTableColumn<SessionListItem>[]>(
-    () => [
-      {
-        key: 'gameName',
-        label: m.sessions_col_game(),
-        render: session => <span className="font-medium">{session.gameName}</span>,
-      },
-      {
-        key: 'startedAt',
-        label: m.sessions_col_started(),
-        render: session => (
-          <span className="whitespace-nowrap">{formatDayTime(session.startedAt)}</span>
-        ),
-      },
-      {
-        key: 'duration',
-        label: m.sessions_col_duration(),
-        align: 'end',
-        mono: true,
-        render: session => <SessionDuration session={session} />,
-      },
-      {
-        key: 'matchCount',
-        label: m.sessions_col_matches(),
-        align: 'end',
-        mono: true,
-        render: session => formatNumber(session.matchCount),
-      },
-      {
-        key: 'medianPingMs',
-        label: m.sessions_col_ping(),
-        align: 'end',
-        mono: true,
-        render: session =>
-          session.medianPingMs == null ? null : (
-            <span
-              className="whitespace-nowrap"
-              title={session.medianPingAtLeast ? m.route_total_up_to() : undefined}
-            >
-              {formatMs(session.medianPingMs, { digits: 0, atLeast: session.medianPingAtLeast })}
-            </span>
-          ),
-      },
-      {
-        key: 'status',
-        label: m.sessions_col_quality(),
-        render: session => session.status && <StatusPill status={session.status} size="sm" />,
-      },
-    ],
-    []
-  )
+  const columns = useMemo(() => sessionColumns(), [])
 
   const hasSessions = (data?.recorded ?? 0) > 0
   const sessions = data?.items ?? []
@@ -315,27 +257,6 @@ function SessionsPage() {
         )}
       </div>
     </div>
-  )
-}
-
-function SessionDuration({ session }: { session: SessionListItem }) {
-  const qualifier =
-    session.endedAt === null
-      ? m.sessions_duration_live()
-      : session.endEstimated
-        ? m.sessions_duration_estimated()
-        : null
-
-  return (
-    <span className="whitespace-nowrap">
-      {session.endEstimated && `≈${NBSP}`}
-      {formatDuration(computeDurationSecs(session.startedAt, session.endedAt))}
-      {qualifier && (
-        <span className="text-label text-muted-foreground font-sans font-normal">
-          {` · ${qualifier}`}
-        </span>
-      )}
-    </span>
   )
 }
 
