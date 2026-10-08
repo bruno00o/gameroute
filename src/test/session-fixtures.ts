@@ -6,9 +6,18 @@ import type {
   SessionDetail,
   SessionMatch,
   Severity,
+  SeverityThresholds,
   TraceMeasure,
   TracerouteWithHops,
 } from '@/types/backend'
+
+export function thresholds(): SeverityThresholds {
+  return {
+    watch: { lossPct: 0.5, jitterMs: 8, overBaselineMs: 20, rttMs: 60 },
+    degraded: { lossPct: 2, jitterMs: 15, overBaselineMs: 50, rttMs: 100 },
+    critical: { lossPct: 5, jitterMs: 30, overBaselineMs: 100, rttMs: 150 },
+  }
+}
 
 export const RIOT = '162.249.72.5'
 export const RIOT_PARIS = '185.40.64.1'
