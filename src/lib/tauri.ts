@@ -101,8 +101,7 @@ export const getIpMetadataStats = () => invoke<IpMetadataCacheStats>('get_ip_met
 export const pruneIpMetadataCache = () => invoke<PruneCacheResult>('prune_ip_metadata_cache')
 
 // ===== Service =====
-export const checkCaptureServiceStatus = () =>
-  invoke<ServiceStatus>('check_capture_service_status')
+export const checkCaptureServiceStatus = () => invoke<ServiceStatus>('check_capture_service_status')
 export const restartCaptureService = () => invoke<void>('restart_capture_service')
 export const openLogDir = () => invoke<void>('open_log_dir')
 
@@ -124,6 +123,8 @@ export const setLiveProbeConfig = (config: LiveProbeConfig) =>
 // ===== Export =====
 export const writeExportFile = (path: string, content: string) =>
   invoke<void>('write_export_file', { path, content })
+export const writeExportPdf = (path: string, bytes: Uint8Array) =>
+  invoke<void>('write_export_pdf', { path, bytes: Array.from(bytes) })
 
 // ===== Event listeners =====
 export const onGameDetected = (cb: (game: DetectedGame) => void): Promise<UnlistenFn> =>
