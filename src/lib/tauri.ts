@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import type {
+  AppSettings,
   DashboardData,
   DetectedGame,
   GameEndedEvent,
@@ -24,6 +25,7 @@ import type {
   SessionQualityPoint,
   ScanResult,
   SeverityThresholds,
+  StorageStats,
   TracerouteAllCompleteEvent,
   TracerouteHopEvent,
   TracerouteProgressEvent,
@@ -101,8 +103,15 @@ export const checkCaptureServiceStatus = () =>
   invoke<ServiceStatus>('check_capture_service_status')
 export const restartCaptureService = () => invoke<void>('restart_capture_service')
 export const openLogDir = () => invoke<void>('open_log_dir')
+
+// ===== Settings =====
+export const getAppSettings = () => invoke<AppSettings>('get_app_settings')
 export const setMinimizeToTray = (enabled: boolean) =>
-  invoke<void>('set_minimize_to_tray', { enabled })
+  invoke<AppSettings>('set_minimize_to_tray', { enabled })
+export const setSessionRetention = (days: number | null) =>
+  invoke<AppSettings>('set_session_retention', { days })
+export const getStorageStats = () => invoke<StorageStats>('get_storage_stats')
+export const deleteAllData = () => invoke<void>('delete_all_data')
 
 // ===== Export =====
 export const writeExportFile = (path: string, content: string) =>

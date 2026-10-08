@@ -119,6 +119,26 @@ export function formatMs(
   return `${prefix}${formatNumber(ms, digits, locale)}${NBSP}ms`
 }
 
+const BYTE_UNITS = [
+  ['gigabyte', 1e9],
+  ['megabyte', 1e6],
+  ['kilobyte', 1e3],
+] as const
+
+export function formatBytes(
+  bytes: number | null | undefined,
+  locale: string = getLocale()
+): string {
+  if (bytes == null || !Number.isFinite(bytes)) return MISSING
+  const [unit, size] = BYTE_UNITS.find(([, size]) => bytes >= size) ?? BYTE_UNITS[2]
+  const value = bytes / size
+  return new Intl.NumberFormat(locale, {
+    style: 'unit',
+    unit,
+    maximumFractionDigits: value < 10 ? 1 : 0,
+  }).format(value)
+}
+
 export function formatPercent(
   value: number | null | undefined,
   { digits = 0, locale = getLocale() }: { digits?: number; locale?: string } = {}
