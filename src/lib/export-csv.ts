@@ -38,7 +38,20 @@ async function saveWithDialog(defaultName: string, content: string): Promise<boo
 }
 
 export async function exportSessionsList(sessions: SessionListItem[]) {
-  const headers = ['ID', 'Game', 'Started', 'Ended', 'Duration', 'Unique IPs', 'Traceroutes']
+  const headers = [
+    'ID',
+    'Game',
+    'Started',
+    'Ended',
+    'Duration',
+    'Unique IPs',
+    'Traceroutes',
+    'End estimated',
+    'Matches',
+    'Median ping (ms)',
+    'Ping up to last responding hop',
+    'Quality',
+  ]
   const rows = sessions.map(s => [
     s.id,
     s.gameName,
@@ -47,6 +60,11 @@ export async function exportSessionsList(sessions: SessionListItem[]) {
     formatDuration(computeDurationSecs(s.startedAt, s.endedAt), 'en'),
     s.uniqueIpCount,
     s.tracerouteCount,
+    s.endEstimated,
+    s.matchCount,
+    s.medianPingMs != null ? Number(s.medianPingMs.toFixed(1)) : null,
+    s.medianPingMs != null ? s.medianPingAtLeast : null,
+    s.status,
   ])
 
   try {
