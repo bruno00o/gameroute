@@ -360,8 +360,8 @@
   "settings_launch_on_startup_error": "Impossible de mettre à jour ce paramètre.",
   "settings_minimize_to_tray": "Réduire dans la zone de notification",
   "settings_minimize_to_tray_description": "Garder l'application active dans la zone de notification lorsque la fenêtre est fermée.",
-  "settings_advanced_mode": "Mode avancé",
-  "settings_advanced_mode_description": "Afficher les détails techniques comme les hostnames, protocoles, ports et compteurs de paquets. Désactivez pour une vue simplifiée.",
+  "settings_detailed_view": "Vue détaillée",
+  "settings_detailed_view_description": "Afficher les détails techniques comme les hostnames, protocoles, ports et compteurs de paquets. Désactivez pour une vue simplifiée.",
 
   "session_server_location": "Localisation du serveur",
   "session_your_location": "Vous",

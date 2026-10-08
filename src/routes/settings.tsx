@@ -35,7 +35,7 @@ function SettingsPage() {
         <AutoStartSetting />
         <LaunchOnStartupSetting />
         <MinimizeToTraySetting />
-        <AdvancedModeSetting />
+        <DetailedViewSetting />
         <CheckUpdatesSetting />
         <ReplayOnboardingSetting />
         <OpenLogsSetting />
@@ -181,14 +181,14 @@ function MinimizeToTraySetting() {
   )
 }
 
-function AdvancedModeSetting() {
+function DetailedViewSetting() {
   const advancedMode = useSettingsStore(s => s.advancedMode)
   const setAdvancedMode = useSettingsStore(s => s.setAdvancedMode)
 
   return (
     <SwitchField
-      label={m.settings_advanced_mode()}
-      description={m.settings_advanced_mode_description()}
+      label={m.settings_detailed_view()}
+      description={m.settings_detailed_view_description()}
       checked={advancedMode}
       onCheckedChange={setAdvancedMode}
     />

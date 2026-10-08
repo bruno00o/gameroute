@@ -360,8 +360,8 @@
   "settings_launch_on_startup_error": "Could not update the startup setting.",
   "settings_minimize_to_tray": "Minimize to tray",
   "settings_minimize_to_tray_description": "Keep the app running in the system tray when the window is closed.",
-  "settings_advanced_mode": "Advanced mode",
-  "settings_advanced_mode_description": "Show technical details like hostnames, protocols, ports, and packet counts. Disable for a simpler view.",
+  "settings_detailed_view": "Detailed view",
+  "settings_detailed_view_description": "Show technical details like hostnames, protocols, ports, and packet counts. Disable for a simpler view.",
 
   "session_server_location": "Server Location",
   "session_your_location": "You",
