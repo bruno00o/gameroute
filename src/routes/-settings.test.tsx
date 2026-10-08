@@ -8,7 +8,9 @@ import {
   deleteAllData,
   getAppSettings,
   getIpMetadataStats,
+  getLiveProbeConfig,
   getStorageStats,
+  setLiveProbeConfig,
   setMinimizeToTray,
   setSessionRetention,
 } from '@/lib/tauri'
@@ -32,6 +34,8 @@ vi.mock('@/lib/tauri', () => ({
   pruneIpMetadataCache: vi.fn(),
   clearIpMetadataCache: vi.fn(),
   openLogDir: vi.fn(),
+  getLiveProbeConfig: vi.fn(),
+  setLiveProbeConfig: vi.fn(),
   restartCaptureService: vi.fn(),
   checkCaptureServiceStatus: vi.fn(() => Promise.resolve({ running: true, error: null })),
 }))
@@ -123,10 +127,38 @@ describe('Capture settings', () => {
   it('describes only the capture service, without a mode choice', async () => {
     renderRoute(CaptureRoute)
 
-    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Capture service')
+    expect(screen.getAllByRole('heading', { level: 2 })[0]).toHaveTextContent('Capture service')
     expect(screen.queryByRole('radio')).not.toBeInTheDocument()
     expect(await screen.findByText('Running. The service answers GameRoute.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Restart service/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('Live probe settings', () => {
+  const config = { enabled: true, floor: true, region: true, beacons: [] }
+
+  it('saves the access probe and region beacon switches', async () => {
+    vi.mocked(getLiveProbeConfig).mockResolvedValue(config)
+    vi.mocked(setLiveProbeConfig).mockImplementation(async c => c)
+    renderRoute(CaptureRoute)
+
+    const floor = await screen.findByRole('switch', { name: /Access probe/ })
+    await waitFor(() => expect(floor).toBeChecked())
+    await userEvent.click(floor)
+    await waitFor(() =>
+      expect(setLiveProbeConfig).toHaveBeenCalledWith(
+        { ...config, floor: false },
+        expect.anything()
+      )
+    )
+
+    await userEvent.click(screen.getByRole('switch', { name: /Region beacon/ }))
+    await waitFor(() =>
+      expect(setLiveProbeConfig).toHaveBeenLastCalledWith(
+        { ...config, floor: false, region: false },
+        expect.anything()
+      )
+    )
   })
 })
 
