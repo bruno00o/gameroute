@@ -58,8 +58,12 @@ pub fn loss_status(loss_pct: f64) -> Option<Severity> {
     level(loss_pct, &SEVERITY_LOSS_PCT).map(|i| LEVELS[i])
 }
 
+pub fn measured_hop<H: ProbedHop>(hops: &[H]) -> Option<&H> {
+    hops.iter().rev().find(|hop| hop.responded())
+}
+
 pub fn route_status<H: ProbedHop>(hops: &[H], target_ip: &str) -> Severity {
-    let Some(last) = hops.iter().rev().find(|hop| hop.responded()) else {
+    let Some(last) = measured_hop(hops) else {
         return Severity::Unmeasured;
     };
     let loss_persists = persistent_loss_onset(hops, target_ip).is_some();

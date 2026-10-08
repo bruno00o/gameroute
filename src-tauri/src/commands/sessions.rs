@@ -6,10 +6,10 @@ use crate::db::{
     get_ip_metadata_repository, get_ip_period_repository, get_session_repository,
     get_traceroute_repository, DbError,
 };
-use crate::models::session::{SessionDetail, SessionListItem};
+use crate::models::session::{SessionDetail, SessionListItem, SessionMatch};
 use crate::models::traceroute_record::TracerouteWithHops;
 use crate::services::trace_targets::select_session_targets;
-use crate::services::{route_model, severity};
+use crate::services::{matches, route_model, severity};
 use tauri::{AppHandle, State};
 
 async fn session_traceroutes(
@@ -107,6 +107,22 @@ pub async fn get_session_detail(id: i64) -> Result<Option<SessionDetail>, Comman
         ip_summaries,
         traceroutes,
     }))
+}
+
+#[tauri::command]
+pub async fn get_session_matches(id: i64) -> Result<Vec<SessionMatch>, CommandError> {
+    if id <= 0 {
+        return Err(CommandError::validation("Invalid session ID"));
+    }
+
+    let periods = get_ip_period_repository()
+        .ok_or_else(|| CommandError::repo_not_initialized("IpPeriod"))?;
+    let traceroutes = get_traceroute_repository()
+        .ok_or_else(|| CommandError::repo_not_initialized("Traceroute"))?;
+
+    matches::session_matches(&periods, &traceroutes, id)
+        .await
+        .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 #[tauri::command]

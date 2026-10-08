@@ -72,6 +72,16 @@ pub struct IpPeriodSummary {
 }
 
 #[derive(Debug, Clone, sqlx::FromRow)]
+pub struct FlowPeriod {
+    #[sqlx(flatten)]
+    pub period: IpPeriod,
+    pub asn: Option<String>,
+    pub operator_name: Option<String>,
+    pub city: Option<String>,
+    pub country: Option<String>,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct TraceCandidate {
     pub ip: String,
     pub protocol: String,
