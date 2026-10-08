@@ -146,6 +146,7 @@ function SessionPage() {
         )
       }
       onExportCsv={() => exportSessionDetail(detail)}
+      onPrepareReport={() => navigate({ to: '/reports', search: { session: sessionId } })}
       onRetry={ongoing ? undefined : () => retryMutation.mutate()}
       onDelete={() => setConfirmDelete(true)}
     />
@@ -182,12 +183,14 @@ function SessionActions({
   onCopyDiagnostic,
   onCopyForAi,
   onExportCsv,
+  onPrepareReport,
   onRetry,
   onDelete,
 }: {
   onCopyDiagnostic: () => void
   onCopyForAi: () => void
   onExportCsv: () => void
+  onPrepareReport: () => void
   onRetry?: () => void
   onDelete: () => void
 }) {
@@ -206,6 +209,7 @@ function SessionActions({
         <DropdownMenuContent align="end" className="w-auto min-w-48">
           <DropdownMenuItem onClick={onCopyForAi}>{m.export_llm_button()}</DropdownMenuItem>
           <DropdownMenuItem onClick={onExportCsv}>{m.export_csv_button()}</DropdownMenuItem>
+          <DropdownMenuItem onClick={onPrepareReport}>{m.report_session_action()}</DropdownMenuItem>
           {onRetry && (
             <DropdownMenuItem onClick={onRetry}>{m.session_retry_traceroutes()}</DropdownMenuItem>
           )}
