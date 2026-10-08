@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import * as m from '@/paraglide/messages'
 import { restartCaptureService } from '@/lib/tauri'
 import { checkForAppUpdatesOnStartup } from '@/lib/updater'
+import { EmptyState } from '@/components/empty-state'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { Header } from '@/components/header'
 import { Notice } from '@/components/notice'
@@ -24,6 +25,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 
 export const Route = createRootRoute({
   component: RootLayout,
+  notFoundComponent: NotFoundScreen,
 })
 
 function RootLayout() {
@@ -112,5 +114,19 @@ function MainLayout() {
       </ErrorBoundary>
       <Toaster />
     </ThemeProvider>
+  )
+}
+
+function NotFoundScreen() {
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+
+  return (
+    <div className="h-full overflow-y-auto p-4">
+      <EmptyState
+        title={m.not_found_title({ path: pathname })}
+        action={<Button onClick={() => navigate({ to: '/' })}>{m.not_found_action()}</Button>}
+      />
+    </div>
   )
 }
