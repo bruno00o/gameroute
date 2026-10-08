@@ -2,7 +2,6 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import type {
   AppSettings,
-  DashboardData,
   DetectedGame,
   GameEndedEvent,
   GameListItem,
@@ -73,9 +72,6 @@ export const toggleGameMonitored = (id: number, monitored: boolean) =>
 export const searchGames = (query: string, limit: number, offset: number) =>
   invoke<GameListItem[]>('search_games', { query, limit, offset })
 export const searchGameCount = (query: string) => invoke<number>('search_game_count', { query })
-
-// ===== Dashboard =====
-export const getDashboardData = () => invoke<DashboardData>('get_dashboard_data')
 
 // ===== Network =====
 export const getNetworkMapData = () => invoke<NetworkMapEntry[]>('get_network_map_data')

@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Mutex, OnceLock};
 use sysinfo::{Pid, ProcessRefreshKind, RefreshKind, System, UpdateKind};
 
-use crate::models::{DetectedGame, MonitoredGameEntry, RunningApp, RunningProcess};
+use crate::models::{DetectedGame, MonitoredGameEntry, RunningApp};
 
 mod windows;
 use windows as os;
@@ -88,35 +88,6 @@ pub fn is_process_running(pid: u32) -> bool {
     sys.process(Pid::from_u32(pid)).is_some()
 }
 
-pub fn list_running_processes_filtered() -> Vec<RunningProcess> {
-    let processes = enumerate_running_processes();
-    let mut filtered: Vec<RunningProcess> = processes
-        .into_iter()
-        .filter(|(pid, name)| {
-            if *pid < 100 {
-                return false;
-            }
-
-            let name_lower = name.to_lowercase();
-            for sys_proc in os::SYSTEM_PROCESSES {
-                if name_lower == sys_proc.to_lowercase() {
-                    return false;
-                }
-            }
-
-            true
-        })
-        .map(|(pid, name)| RunningProcess {
-            pid,
-            name,
-            path: None,
-        })
-        .collect();
-
-    filtered.sort_by_key(|a| a.name.to_lowercase());
-
-    filtered
-}
 
 struct GroupEntry {
     display_name: String,
@@ -299,15 +270,6 @@ mod tests {
         assert!(
             !is_process_running(u32::MAX),
             "Invalid PID should not be running"
-        );
-    }
-
-    #[test]
-    fn test_list_filtered_excludes_low_pids() {
-        let filtered = list_running_processes_filtered();
-        assert!(
-            filtered.iter().all(|p| p.pid >= 100),
-            "All filtered processes should have PID >= 100"
         );
     }
 

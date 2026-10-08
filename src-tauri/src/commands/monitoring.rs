@@ -8,7 +8,7 @@ use crate::db::{
 use crate::models::ip_metadata::IpMetadataData;
 use crate::models::{
     DetectedGame, GameEndedEvent, HopResult, IpCapacityReachedEvent, MonitoringState,
-    ResolvedIpData, RunningApp, RunningProcess, ServerIpCapturedEvent, TracerouteAllCompleteEvent,
+    ResolvedIpData, RunningApp, ServerIpCapturedEvent, TracerouteAllCompleteEvent,
     TracerouteData, TracerouteHopEvent, TracerouteProgressEvent, TracerouteServerIpCompleteEvent,
     TracerouteStartedEvent,
 };
@@ -569,14 +569,6 @@ pub struct MonitoringStatusResponse {
     pub current_game: Option<DetectedGame>,
     pub is_manual_mode: bool,
     pub current_session_id: Option<i64>,
-}
-
-#[tauri::command]
-pub async fn list_running_processes() -> Result<Vec<RunningProcess>, CommandError> {
-    log::debug!("Listing running processes for manual selection...");
-    let processes = platform::list_running_processes_filtered();
-    log::debug!("Found {} processes after filtering", processes.len());
-    Ok(processes)
 }
 
 #[tauri::command]

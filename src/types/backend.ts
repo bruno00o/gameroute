@@ -241,22 +241,6 @@ export type ScanResult = {
   gamesUpdated: number
 }
 
-// ===== Dashboard =====
-export type RecentSession = {
-  id: number
-  gameName: string
-  startedAt: string
-  endedAt: string | null
-  iconUrl: string | null
-}
-
-export type DashboardData = {
-  totalSessions: number
-  totalPlayTimeSecs: number
-  uniqueGames: number
-  recentSessions: RecentSession[]
-}
-
 // ===== Game / Monitoring =====
 export type DetectedGame = {
   gameName: string
