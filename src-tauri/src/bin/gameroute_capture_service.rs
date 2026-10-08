@@ -673,22 +673,7 @@ mod service {
         for hop in snapshot.hops() {
             let ttl = hop.ttl() as u32;
             let ip = hop.addrs().next().map(|a| a.to_string());
-            let total_recv = hop.total_recv();
-
-            let rtt_probes: Vec<Option<f64>> = if total_recv > 0 {
-                let mut probes: Vec<Option<f64>> = hop
-                    .samples()
-                    .iter()
-                    .map(|d| Some(d.as_secs_f64() * 1000.0))
-                    .collect();
-                let timeout_count = hop.total_sent().saturating_sub(total_recv);
-                for _ in 0..timeout_count {
-                    probes.push(None);
-                }
-                probes
-            } else {
-                vec![None; hop.total_sent().max(1)]
-            };
+            let rtt_probes = ServiceHop::rtt_probes_from_samples(hop.samples(), hop.total_sent());
 
             let idx = hops.len();
             if let Some(ref ip_str) = ip {

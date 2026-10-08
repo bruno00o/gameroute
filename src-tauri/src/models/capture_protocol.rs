@@ -3,6 +3,7 @@
 //! Wire format: [4 bytes: length u32 LE][N bytes: JSON payload]
 
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 /// Current protocol version for compatibility checking.
 pub const PROTOCOL_VERSION: u32 = 2;
@@ -171,4 +172,44 @@ pub struct ServiceHop {
     pub ip: Option<String>,
     /// RTT measurements for each probe (None = timeout).
     pub rtt_probes: Vec<Option<f64>>,
+}
+
+impl ServiceHop {
+    pub fn rtt_probes_from_samples(samples: &[Duration], total_sent: usize) -> Vec<Option<f64>> {
+        let mut probes: Vec<Option<f64>> = samples
+            .iter()
+            .filter(|rtt| !rtt.is_zero())
+            .map(|rtt| Some(rtt.as_secs_f64() * 1000.0))
+            .collect();
+        let len = total_sent.max(probes.len()).max(1);
+        probes.resize(len, None);
+        probes
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lost_probes_are_not_reported_as_zero_rtt() {
+        let samples = [
+            Duration::from_micros(14_500),
+            Duration::ZERO,
+            Duration::from_micros(12_000),
+        ];
+        assert_eq!(
+            ServiceHop::rtt_probes_from_samples(&samples, 3),
+            vec![Some(14.5), Some(12.0), None]
+        );
+    }
+
+    #[test]
+    fn silent_hop_keeps_one_timeout_per_probe() {
+        assert_eq!(
+            ServiceHop::rtt_probes_from_samples(&[Duration::ZERO; 3], 3),
+            vec![None, None, None]
+        );
+        assert_eq!(ServiceHop::rtt_probes_from_samples(&[], 0), vec![None]);
+    }
 }
