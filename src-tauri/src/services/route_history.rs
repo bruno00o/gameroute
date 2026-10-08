@@ -10,7 +10,7 @@ use crate::models::traceroute::{OperatorRoute, RouteSegment, RouteZone};
 use crate::models::traceroute_record::TracerouteWithHops;
 use crate::services::matches::median;
 use crate::services::route_model::attach_routes;
-use crate::services::usual::{match_history, PingSample};
+use crate::services::usual::{match_history, PingSample, SampleId};
 use chrono::{DateTime, FixedOffset, Utc};
 use std::cmp::Reverse;
 use std::collections::HashMap;
@@ -349,7 +349,7 @@ pub async fn route_history(
     metadata: Option<&IpMetadataRepository>,
     since: DateTime<Utc>,
 ) -> Result<RouteHistory, DbError> {
-    let history = match_history(analytics, periods, traceroutes, metadata).await?;
+    let history = match_history(analytics, periods, traceroutes, None, metadata).await?;
     let since = since.fixed_offset();
 
     let samples: HashMap<i64, (&str, &PingSample)> = history
@@ -357,8 +357,10 @@ pub async fn route_history(
         .iter()
         .filter_map(|game| {
             let sample = game.sample.as_ref()?;
-            (sample.measured_at >= since)
-                .then_some((sample.traceroute_id, (game.game_name.as_str(), sample)))
+            let SampleId::Trace(traceroute_id) = sample.id else {
+                return None;
+            };
+            (sample.measured_at >= since).then_some((traceroute_id, (game.game_name.as_str(), sample)))
         })
         .collect();
 
@@ -465,10 +467,11 @@ mod tests {
         let mut games = Vec::new();
         for (index, (game, hour, route)) in entries.into_iter().enumerate() {
             let mut ping = sample(day(21, hour), lower_bound(5), 10.0);
-            ping.traceroute_id = index as i64 + 1;
+            let traceroute_id = index as i64 + 1;
+            ping.id = SampleId::Trace(traceroute_id);
             ping.match_number = index as u32 + 1;
             traces.push(TracerouteWithHops {
-                id: ping.traceroute_id,
+                id: traceroute_id,
                 session_id: ping.session_id,
                 target_ip: RIOT.to_string(),
                 started_at: ping.measured_at.to_rfc3339(),
