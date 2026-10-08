@@ -4,7 +4,8 @@
 //! These ports are then sent to the capture service for packet monitoring.
 
 use netstat2::{get_sockets_info, AddressFamilyFlags, ProtocolFlags, ProtocolSocketInfo};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::net::IpAddr;
 
 /// Get all local UDP ports bound by the given PIDs.
 ///
@@ -57,9 +58,64 @@ pub fn get_udp_local_ports(target_pids: &HashSet<u32>) -> Vec<u16> {
     result
 }
 
+const DISCOVERY_PORTS: &[u16] = &[137, 138, 1900, 3702, 5353, 5355];
+
+fn is_game_candidate_socket(local_addr: IpAddr, local_port: u16) -> bool {
+    local_port > 0 && !local_addr.is_loopback() && !DISCOVERY_PORTS.contains(&local_port)
+}
+
+/// Count UDP sockets per PID, ignoring loopback and local discovery sockets.
+pub fn udp_socket_counts() -> HashMap<u32, u32> {
+    let af_flags = AddressFamilyFlags::IPV4 | AddressFamilyFlags::IPV6;
+    let sockets = match get_sockets_info(af_flags, ProtocolFlags::UDP) {
+        Ok(s) => s,
+        Err(e) => {
+            log::warn!("Failed to enumerate UDP sockets: {}", e);
+            return HashMap::new();
+        }
+    };
+
+    let mut counts: HashMap<u32, u32> = HashMap::new();
+    for socket in sockets {
+        let ProtocolSocketInfo::Udp(udp_info) = &socket.protocol_socket_info else {
+            continue;
+        };
+        if !is_game_candidate_socket(udp_info.local_addr, udp_info.local_port) {
+            continue;
+        }
+        for pid in &socket.associated_pids {
+            *counts.entry(*pid).or_default() += 1;
+        }
+    }
+    counts
+}
+
+pub fn count_for_pids(counts: &HashMap<u32, u32>, pids: &[u32]) -> u32 {
+    pids.iter().filter_map(|pid| counts.get(pid)).sum()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn discovery_and_loopback_sockets_are_not_game_candidates() {
+        let lan: IpAddr = "192.168.1.20".parse().unwrap();
+        assert!(is_game_candidate_socket(lan, 50000));
+        assert!(is_game_candidate_socket("::".parse().unwrap(), 7032));
+        assert!(!is_game_candidate_socket(lan, 5353));
+        assert!(!is_game_candidate_socket(lan, 0));
+        assert!(!is_game_candidate_socket("127.0.0.1".parse().unwrap(), 50000));
+        assert!(!is_game_candidate_socket("::1".parse().unwrap(), 50000));
+    }
+
+    #[test]
+    fn sockets_are_summed_over_every_pid_of_an_app() {
+        let counts = HashMap::from([(10, 2), (11, 1), (12, 5)]);
+        assert_eq!(count_for_pids(&counts, &[10, 11]), 3);
+        assert_eq!(count_for_pids(&counts, &[99]), 0);
+        assert_eq!(count_for_pids(&counts, &[]), 0);
+    }
 
     #[test]
     fn test_empty_pids_returns_empty() {

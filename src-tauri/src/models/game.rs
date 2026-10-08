@@ -27,6 +27,9 @@ pub struct RunningApp {
     pub pid: u32,
     pub process_count: u32,
     pub path: Option<String>,
+    #[serde(skip)]
+    pub pids: Vec<u32>,
+    pub udp_sockets: u32,
 }
 
 impl DetectedGame {
