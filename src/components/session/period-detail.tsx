@@ -1,5 +1,4 @@
-import { useMemo } from 'react'
-import { RiMapPinLine } from '@remixicon/react'
+import { useMemo, useState } from 'react'
 
 import * as m from '@/paraglide/messages'
 import type { IpPeriod, IpPeriodSummary, TracerouteWithHops } from '@/types/backend'
@@ -10,15 +9,17 @@ import {
   formatNumber,
   computeDurationSecs,
 } from '@/lib/format'
+import { shortOperatorName } from '@/lib/operators'
+import { lastRespondingHop, routeMapPoints } from '@/lib/route'
 import { useAsnResolution } from '@/hooks/use-asn-resolution'
-import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/settings-store'
-import { Map, MapMarker, MarkerContent, MarkerTooltip, MapControls } from '@/components/ui/map'
+import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/empty-state'
-import { ExpandableMap } from '@/components/expandable-map'
 import { Fact, FactRow } from '@/components/fact-row'
-import { HopTable } from '@/components/hop-table'
 import { Panel } from '@/components/panel'
+import { HopList } from '@/components/route/hop-list'
+import { RouteMap } from '@/components/route/route-map'
+import { RouteStrip } from '@/components/route/route-strip'
 import { StatusPill } from '@/components/status/status-pill'
 
 export function PeriodDetail({
@@ -31,6 +32,7 @@ export function PeriodDetail({
   traceroute: TracerouteWithHops | undefined
 }) {
   const advancedMode = useSettingsStore(s => s.advancedMode)
+  const [showMap, setShowMap] = useState(false)
   const durationSecs = computeDurationSecs(period.startedAt, period.endedAt)
 
   // Collect all IPs for ASN resolution: period IP + hop IPs
@@ -57,22 +59,34 @@ export function PeriodDetail({
 
     const hopCount = traceroute.hops.length
     const problemHops = traceroute.hops.filter(h => h.isProblemHop).length
-
-    // Latency = last responding hop's avg latency
-    let serverLatency: number | null = null
-    for (let i = traceroute.hops.length - 1; i >= 0; i--) {
-      if (traceroute.hops[i].latencyAvg != null) {
-        serverLatency = traceroute.hops[i].latencyAvg
-        break
-      }
-    }
+    const lastAnswer = lastRespondingHop(traceroute.hops)
 
     const destinationSilent = !traceroute.hops.some(
       h => h.ip === traceroute.targetIp && h.latencyAvg != null
     )
 
-    return { hopCount, problemHops, serverLatency, destinationSilent, status: traceroute.status }
+    return {
+      hopCount,
+      problemHops,
+      serverLatency: lastAnswer?.latencyAvg ?? null,
+      lastLoss: lastAnswer?.packetLoss ?? null,
+      destinationSilent,
+      status: traceroute.status,
+    }
   }, [traceroute])
+
+  const mapPoints = useMemo(
+    () => (traceroute ? routeMapPoints(traceroute.hops, traceroute.targetIp, asnData) : []),
+    [traceroute, asnData]
+  )
+
+  const destinationName = shortOperatorName(traceroute?.route?.destinationName)
+  const serviceLabel =
+    period.flowKind === 'voice'
+      ? m.route_zone_service_voice()
+      : period.isGameServer || period.flowKind === 'game'
+        ? undefined
+        : m.route_zone_service_other()
 
   const packetRate =
     summary && summary.totalDurationSecs > 0
@@ -86,41 +100,23 @@ export function PeriodDetail({
         {asnLabel && <p className="text-muted-foreground mt-0.5 text-xs">{asnLabel}</p>}
       </div>
 
-      {resolved?.geo.lat != null && resolved?.geo.lon != null && (
-        <div className="overflow-hidden rounded-lg border">
-          <ExpandableMap
-            className="h-40"
-            renderExpanded={() => (
-              <PeriodMapContent
-                lon={resolved.geo.lon!}
-                lat={resolved.geo.lat!}
-                ip={period.ip}
-                isGameServer={period.isGameServer}
-                isp={resolved.asnInfo.isp}
-                location={[resolved.geo.city, resolved.geo.country].filter(Boolean).join(', ')}
-              />
-            )}
-          >
-            <PeriodMapContent
-              lon={resolved.geo.lon!}
-              lat={resolved.geo.lat!}
-              ip={period.ip}
-              isGameServer={period.isGameServer}
-              isp={resolved.asnInfo.isp}
-              location={[resolved.geo.city, resolved.geo.country].filter(Boolean).join(', ')}
-            />
-          </ExpandableMap>
-          <div className="bg-muted/30 flex items-center gap-2 px-3 py-1.5">
-            <RiMapPinLine className="text-muted-foreground size-3.5" />
-            <span className="text-muted-foreground text-xs">
-              {[resolved.geo.city, resolved.geo.country].filter(Boolean).join(', ')}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {routeStats && (
-        <Panel level={3} label={m.session_ip_route_info()}>
+      {traceroute && routeStats && (
+        <Panel
+          level={3}
+          label={m.session_ip_route_info()}
+          action={
+            mapPoints.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-expanded={showMap}
+                onClick={() => setShowMap(open => !open)}
+              >
+                {showMap ? m.route_hide_map() : m.route_show_map()}
+              </Button>
+            )
+          }
+        >
           <FactRow>
             <Fact label={m.session_ip_hop_count()}>{routeStats.hopCount}</Fact>
             <Fact label={m.session_ip_latency()}>
@@ -138,6 +134,19 @@ export function PeriodDetail({
               {packetRate != null && `${formatNumber(packetRate, 1)}/s`}
             </Fact>
           </FactRow>
+          {traceroute.route && (
+            <RouteStrip
+              className="mt-4 border-t pt-4"
+              route={traceroute.route}
+              destination={{
+                name: destinationName ?? m.route_destination(),
+                detail: traceroute.targetIp,
+              }}
+              persistentLoss={routeStats.lastLoss}
+              serviceLabel={serviceLabel}
+            />
+          )}
+          {showMap && mapPoints.length > 0 && <RouteMap className="mt-4" points={mapPoints} />}
         </Panel>
       )}
 
@@ -181,60 +190,22 @@ export function PeriodDetail({
 
       <Panel
         level={3}
-        label={m.session_traceroute()}
+        label={m.hop_list_label()}
         title={advancedMode ? traceroute?.tracerouteMethod : undefined}
-        flush={traceroute != null}
       >
         {traceroute ? (
-          <HopTable
+          <HopList
             hops={traceroute.hops}
-            asnData={asnData}
             targetIp={traceroute.targetIp}
-            advancedMode={advancedMode}
+            route={traceroute.route}
+            mode={advancedMode ? 'detail' : 'simple'}
+            destinationName={destinationName}
+            serviceLabel={serviceLabel}
           />
         ) : (
           <EmptyState compact title={m.session_no_traceroute()} />
         )}
       </Panel>
     </div>
-  )
-}
-
-function PeriodMapContent({
-  lon,
-  lat,
-  ip,
-  isGameServer,
-  isp,
-  location,
-}: {
-  lon: number
-  lat: number
-  ip: string
-  isGameServer: boolean
-  isp: string | null
-  location: string
-}) {
-  return (
-    <Map center={[lon, lat]} zoom={4}>
-      <MapControls />
-      <MapMarker longitude={lon} latitude={lat}>
-        <MarkerContent>
-          <div
-            className={cn(
-              'size-4 rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.1)]',
-              isGameServer ? 'bg-foreground' : 'bg-route-b',
-            )}
-          />
-        </MarkerContent>
-        <MarkerTooltip>
-          <div className="space-y-0.5">
-            <div className="font-mono font-medium">{ip}</div>
-            {isp && <div className="opacity-70">{isp}</div>}
-            {location && <div className="opacity-70">{location}</div>}
-          </div>
-        </MarkerTooltip>
-      </MapMarker>
-    </Map>
   )
 }
