@@ -40,7 +40,7 @@ use commands::settings::{
 use config::{CACHE_MAX_TTL_DAYS, SETTINGS_FILE_NAME};
 use db::{get_ip_metadata_repository, get_session_repository};
 use services::app_settings::SettingsStore;
-use services::{asn_resolver, flow_kind};
+use services::{asn_resolver, flow_kind, game_logs};
 use tauri::path::BaseDirectory;
 use tauri::Manager;
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -178,6 +178,8 @@ pub fn run() {
                     });
 
                     tauri::async_runtime::spawn(asn_resolver::backfill_ip_metadata());
+
+                    tauri::async_runtime::spawn(game_logs::import::backfill_game_pings());
 
                     tauri::async_runtime::spawn(async {
                         match crate::commands::games::scan_all_games().await {
