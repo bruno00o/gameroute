@@ -54,8 +54,8 @@ const COLORS = {
   line: '#dde0e4',
   lineStrong: '#81878d',
   sunken: '#eceff2',
-  routeA: '#006ea4',
-  routeB: '#4e92b8',
+  routeA: '#5c636b',
+  routeB: '#81878d',
   white: '#ffffff',
 }
 
