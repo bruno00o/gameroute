@@ -1,14 +1,13 @@
-import { invoke } from '@tauri-apps/api/core'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+
+import { setMinimizeToTray } from '@/lib/tauri'
 
 type SettingsStore = {
   autoStartMonitoring: boolean
   setAutoStartMonitoring: (value: boolean) => void
   onboardingCompleted: boolean
   setOnboardingCompleted: (value: boolean) => void
-  minimizeToTray: boolean
-  setMinimizeToTray: (value: boolean) => void
   advancedMode: boolean
   setAdvancedMode: (value: boolean) => void
   /**
@@ -22,6 +21,19 @@ type SettingsStore = {
   bumpLocaleVersion: () => void
 }
 
+type PersistedSettings = Pick<
+  SettingsStore,
+  'autoStartMonitoring' | 'onboardingCompleted' | 'advancedMode'
+>
+
+export function migrateSettings(persisted: unknown, version: number): PersistedSettings {
+  const { minimizeToTray, ...settings } = (persisted ?? {}) as Partial<PersistedSettings> & {
+    minimizeToTray?: boolean
+  }
+  if (version < 1 && minimizeToTray === false) setMinimizeToTray(false).catch(() => {})
+  return settings as PersistedSettings
+}
+
 export const useSettingsStore = create<SettingsStore>()(
   persist(
     set => ({
@@ -29,11 +41,6 @@ export const useSettingsStore = create<SettingsStore>()(
       setAutoStartMonitoring: value => set({ autoStartMonitoring: value }),
       onboardingCompleted: false,
       setOnboardingCompleted: value => set({ onboardingCompleted: value }),
-      minimizeToTray: true,
-      setMinimizeToTray: value => {
-        set({ minimizeToTray: value })
-        invoke('set_minimize_to_tray', { enabled: value }).catch(() => {})
-      },
       advancedMode: false,
       setAdvancedMode: value => set({ advancedMode: value }),
       _localeVersion: 0,
@@ -41,10 +48,11 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: 'gameroute-settings',
-      partialize: s => ({
+      version: 1,
+      migrate: migrateSettings,
+      partialize: (s): PersistedSettings => ({
         autoStartMonitoring: s.autoStartMonitoring,
         onboardingCompleted: s.onboardingCompleted,
-        minimizeToTray: s.minimizeToTray,
         advancedMode: s.advancedMode,
       }),
     }

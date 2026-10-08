@@ -336,6 +336,19 @@ export type PruneCacheResult = {
   entriesDeleted: number
 }
 
+// ===== Settings =====
+export type AppSettings = {
+  minimizeToTray: boolean
+  sessionRetentionDays: number | null
+}
+
+export type StorageStats = {
+  databaseBytes: number
+  sessionCount: number
+  addressCount: number
+  geoliteBuiltAt: string | null
+}
+
 // ===== Events Payloads =====
 export type GameEndedEvent = {
   gameName: string

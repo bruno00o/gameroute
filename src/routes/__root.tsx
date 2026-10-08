@@ -17,7 +17,6 @@ import { UpdateDialog } from '@/components/update-dialog'
 import { Button } from '@/components/ui/button'
 import { Toaster } from '@/components/ui/sonner'
 import { useAutoStartMonitoring } from '@/hooks/use-auto-start-monitoring'
-import { useInitTraySettings } from '@/hooks/use-init-tray-settings'
 import { useMonitoringEvents } from '@/hooks/use-monitoring-events'
 import { useServiceHealthCheck } from '@/hooks/use-service-health-check'
 import { useTracerouteEvents } from '@/hooks/use-traceroute-events'
@@ -63,7 +62,6 @@ function MainLayout() {
   useMonitoringEvents()
   useTracerouteEvents()
   useAutoStartMonitoring()
-  useInitTraySettings()
 
   useEffect(() => {
     checkForAppUpdatesOnStartup()

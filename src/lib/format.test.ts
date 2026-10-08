@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   computeDurationSecs,
+  formatBytes,
   formatClock,
   formatDay,
   formatDayTime,
@@ -146,6 +147,19 @@ describe('formatNumber', () => {
   it('returns a dash for missing values', () => {
     expect(formatNumber(null)).toBe('—')
     expect(formatNumber(Number.NaN)).toBe('—')
+  })
+})
+
+describe('formatBytes', () => {
+  it('picks a unit and writes it in the language', () => {
+    expect(formatBytes(10_400_000, 'en')).toBe('10 MB')
+    expect(formatBytes(2_450_000, 'fr')).toBe('2,5 Mo')
+    expect(formatBytes(512_000, 'en')).toBe('512 kB')
+    expect(formatBytes(1_200_000_000, 'es')).toBe('1,2 GB')
+  })
+
+  it('returns a dash for missing values', () => {
+    expect(formatBytes(null)).toBe('—')
   })
 })
 
