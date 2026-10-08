@@ -28,7 +28,7 @@ pub use game_library::MonitoredGameEntry;
 pub use hop::HopResult;
 pub use server_ip::TracedServerIp;
 pub use traceroute::{
-    TracerouteAllCompleteEvent, TracerouteHopEvent, TracerouteProgressEvent,
+    TracedTarget, TracerouteAllCompleteEvent, TracerouteHopEvent, TracerouteProgressEvent,
     TracerouteServerIpCompleteEvent, TracerouteStartedEvent,
 };
 

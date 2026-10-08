@@ -8,7 +8,7 @@ use crate::db::{
 use crate::models::ip_metadata::IpMetadataData;
 use crate::models::{
     DetectedGame, GameEndedEvent, HopResult, IpCapacityReachedEvent, MonitoringState,
-    ResolvedIpData, RunningApp, ServerIpCapturedEvent, TracerouteAllCompleteEvent,
+    ResolvedIpData, RunningApp, ServerIpCapturedEvent, TracedTarget, TracerouteAllCompleteEvent,
     TracerouteData, TracerouteHopEvent, TracerouteProgressEvent, TracerouteServerIpCompleteEvent,
     TracerouteStartedEvent,
 };
@@ -18,7 +18,7 @@ use crate::services::flow_kind::{classify, is_known_game_server};
 use crate::services::game_logs::watch::follow_game_logs;
 use crate::services::live_probe::follow_live_probes;
 use crate::services::live_probe::store::LiveProbeService;
-use crate::services::severity;
+use crate::services::route_model::assessed_trace;
 use crate::services::udp_capture;
 use crate::services::trace_targets::{is_traceable_game_server, select_session_targets, TraceTarget};
 use crate::services::traceroute::{persist_traceroute_result, TracerouteJob};
@@ -315,11 +315,19 @@ pub async fn enqueue_traceroutes(
         return;
     }
 
-    let server_ips: Vec<String> = jobs.iter().map(|j| j.target_ip.clone()).collect();
+    let traced: Vec<TracedTarget> = jobs
+        .iter()
+        .map(|job| TracedTarget {
+            ip: job.target_ip.clone(),
+            kind: Some(job.kind),
+            protocol: job.protocol.clone(),
+            port: job.port,
+        })
+        .collect();
     let added = jobs.len();
     let total = traceroute_service.enqueue(jobs).await;
 
-    if let Err(e) = app_handle.emit("traceroute-started", TracerouteStartedEvent::new(total, server_ips)) {
+    if let Err(e) = app_handle.emit("traceroute-started", TracerouteStartedEvent::new(total, traced)) {
         log::warn!("Failed to emit traceroute-started: {}", e);
     }
 
@@ -328,7 +336,7 @@ pub async fn enqueue_traceroutes(
     }
 }
 
-async fn run_next_traceroute(app: AppHandle, service: Arc<TracerouteService>) {
+pub async fn run_next_traceroute(app: AppHandle, service: Arc<TracerouteService>) {
     let Ok(_permit) = service.permits().acquire_owned().await else {
         return;
     };
@@ -357,11 +365,15 @@ async fn run_next_traceroute(app: AppHandle, service: Arc<TracerouteService>) {
 
     persist_traceroute_result(&result).await;
 
+    let metadata_repo = get_ip_metadata_repository();
+    let trace = assessed_trace(&result, metadata_repo.as_deref()).await;
     let complete_event = TracerouteServerIpCompleteEvent::new(
         result.index,
         result.target_ip.clone(),
         result.success,
-        severity::route_status(&result.hops, &result.target_ip),
+        trace.status,
+        trace.hops,
+        trace.route,
     );
     if let Err(e) = app.emit("traceroute-server-ip-complete", complete_event) {
         log::warn!("Failed to emit traceroute-server-ip-complete: {}", e);
