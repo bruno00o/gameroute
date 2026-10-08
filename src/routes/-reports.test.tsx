@@ -5,7 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import type { SessionListItem, SessionMatch } from '@/types/backend'
-import { getSessionDetail, getSessionList, getSessionMatches } from '@/lib/tauri'
+import { save } from '@tauri-apps/plugin-dialog'
+import { getSessionDetail, getSessionList, getSessionMatches, writeExportPdf } from '@/lib/tauri'
 import { measure, sessionDetail, sessionMatches } from '@/test/session-fixtures'
 import { Route } from './reports'
 
@@ -14,6 +15,7 @@ vi.mock('@/lib/tauri', () => ({
   getSessionList: vi.fn(),
   getSessionMatches: vi.fn(),
   writeExportFile: vi.fn(),
+  writeExportPdf: vi.fn(),
 }))
 
 vi.mock('@tauri-apps/plugin-dialog', () => ({ save: vi.fn() }))
@@ -73,6 +75,8 @@ const preview = () => document.querySelector('[data-slot=report-preview]')!
 
 beforeEach(() => {
   vi.spyOn(Route, 'useSearch').mockReturnValue({})
+  vi.mocked(writeExportPdf).mockReset()
+  vi.mocked(save).mockReset()
   vi.mocked(toast.success).mockReset()
   vi.mocked(toast.error).mockReset()
   mockSessions()
@@ -131,6 +135,41 @@ describe('Reports', () => {
 
     expect(preview().textContent).not.toContain('Route:')
     expect(preview().textContent).not.toContain('Hops:')
+  })
+
+  it('saves the same report as a dated PDF at the chosen path', async () => {
+    const user = userEvent.setup()
+    vi.mocked(save).mockResolvedValue('C:\\Reports\\gameroute.pdf')
+    vi.mocked(writeExportPdf).mockResolvedValue()
+    renderPage()
+    await waitFor(() => expect(preview()).toHaveTextContent('Hops:'))
+
+    await user.click(screen.getByRole('button', { name: 'Create PDF' }))
+
+    await waitFor(() => expect(writeExportPdf).toHaveBeenCalledTimes(1), { timeout: 15000 })
+    const [path, bytes] = vi.mocked(writeExportPdf).mock.calls[0]
+    expect(path).toBe('C:\\Reports\\gameroute.pdf')
+    expect(new TextDecoder().decode(bytes.slice(0, 5))).toBe('%PDF-')
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        defaultPath: expect.stringMatching(/^gameroute-report-\d{4}-\d{2}-\d{2}\.pdf$/),
+        filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      })
+    )
+    expect(toast.success).toHaveBeenCalledWith('Report saved')
+  }, 20000)
+
+  it('writes nothing when the save dialog is dismissed', async () => {
+    const user = userEvent.setup()
+    vi.mocked(save).mockResolvedValue(null)
+    renderPage()
+    await waitFor(() => expect(preview()).toHaveTextContent('Hops:'))
+
+    await user.click(screen.getByRole('button', { name: 'Create PDF' }))
+
+    await waitFor(() => expect(save).toHaveBeenCalled())
+    expect(writeExportPdf).not.toHaveBeenCalled()
+    expect(toast.error).not.toHaveBeenCalled()
   })
 
   it('changes the address line with the recipient', async () => {

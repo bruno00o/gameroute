@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import { RiDownloadLine, RiFileCopyLine } from '@remixicon/react'
+import { RiDownloadLine, RiFileCopyLine, RiFilePdf2Line } from '@remixicon/react'
 import { save } from '@tauri-apps/plugin-dialog'
 import { toast } from 'sonner'
 
@@ -14,12 +14,19 @@ import {
   reportCandidateKey,
   reportIspName,
   reportPublisherName,
-  reportText,
+  reportDocument,
+  renderReportText,
   type ReportCandidate,
   type ReportRecipient,
   type ReportSource,
 } from '@/lib/report'
-import { getSessionDetail, getSessionList, getSessionMatches, writeExportFile } from '@/lib/tauri'
+import {
+  getSessionDetail,
+  getSessionList,
+  getSessionMatches,
+  writeExportFile,
+  writeExportPdf,
+} from '@/lib/tauri'
 import { cn, errorMessage } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Segmented } from '@/components/ui/segmented'
@@ -43,6 +50,12 @@ const MAX_MATCHES = 30
 const STALE_MS = 60_000
 
 type SessionRef = { id: number; gameName: string; startedAt: string }
+
+function fileStamp(date = new Date()) {
+  return [date.getFullYear(), date.getMonth() + 1, date.getDate()]
+    .map(part => String(part).padStart(2, '0'))
+    .join('-')
+}
 
 function useReportCandidates(focusSessionId?: number) {
   const queryClient = useQueryClient()
@@ -119,6 +132,7 @@ function ReportsPage() {
   const [hops, setHops] = useState(true)
   const [addresses, setAddresses] = useState(false)
   const [picked, setPicked] = useState<Set<string> | null>(null)
+  const [creatingPdf, setCreatingPdf] = useState(false)
 
   const defaults = useMemo(
     () => new Set(defaultReportSelection(candidates, focusSessionId)),
@@ -158,10 +172,11 @@ function ReportsPage() {
     })
   }, [detailsReady, chosen, sessionIds, detailResults.data, candidates])
 
-  const text = useMemo(
-    () => reportText(sources, { recipient, route, hops, addresses, locale: getLocale() }),
+  const report = useMemo(
+    () => reportDocument(sources, { recipient, route, hops, addresses, locale: getLocale() }),
     [sources, recipient, route, hops, addresses]
   )
+  const text = useMemo(() => renderReportText(report), [report])
 
   const loading = isPending || !detailsReady
   const ready = !loading && sources.length > 0
@@ -202,12 +217,8 @@ function ReportsPage() {
 
   const saveFile = async () => {
     try {
-      const date = new Date()
-      const stamp = [date.getFullYear(), date.getMonth() + 1, date.getDate()]
-        .map(part => String(part).padStart(2, '0'))
-        .join('-')
       const path = await save({
-        defaultPath: `gameroute-report-${stamp}.txt`,
+        defaultPath: `gameroute-report-${fileStamp()}.txt`,
         filters: [{ name: 'Text', extensions: ['txt'] }],
       })
       if (!path) return
@@ -215,6 +226,28 @@ function ReportsPage() {
       toast.success(m.report_saved())
     } catch (err) {
       toast.error(errorMessage(err) || m.report_save_error())
+    }
+  }
+
+  const savePdf = async () => {
+    setCreatingPdf(true)
+    try {
+      const path = await save({
+        defaultPath: `gameroute-report-${fileStamp()}.pdf`,
+        filters: [{ name: 'PDF', extensions: ['pdf'] }],
+      })
+      if (!path) return
+      const [{ renderReportPdf }, { reportPdfFonts }] = await Promise.all([
+        import('@/lib/report-pdf'),
+        import('@/lib/report-pdf-fonts'),
+      ])
+      const bytes = await renderReportPdf(report, reportPdfFonts(), { locale: getLocale() })
+      await writeExportPdf(path, bytes)
+      toast.success(m.report_saved())
+    } catch (err) {
+      toast.error(errorMessage(err) || m.report_save_error())
+    } finally {
+      setCreatingPdf(false)
     }
   }
 
@@ -231,9 +264,19 @@ function ReportsPage() {
             <RiDownloadLine data-icon="inline-start" />
             {m.report_save()}
           </Button>
-          <Button variant="primary" size="sm" disabled={!ready} onClick={copy}>
+          <Button size="sm" disabled={!ready} onClick={copy}>
             <RiFileCopyLine data-icon="inline-start" />
             {m.report_copy()}
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={!ready || creatingPdf}
+            aria-busy={creatingPdf}
+            onClick={savePdf}
+          >
+            <RiFilePdf2Line data-icon="inline-start" />
+            {m.report_save_pdf()}
           </Button>
         </div>
       </header>
