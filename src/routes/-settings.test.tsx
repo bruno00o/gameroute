@@ -135,7 +135,7 @@ describe('Capture settings', () => {
 })
 
 describe('Live probe settings', () => {
-  const config = { enabled: true, floor: true, region: true, beacons: [] }
+  const config = { enabled: true, floor: true, region: true, zones: true, beacons: [] }
 
   it('saves the access probe and region beacon switches', async () => {
     vi.mocked(getLiveProbeConfig).mockResolvedValue(config)
