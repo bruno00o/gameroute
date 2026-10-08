@@ -583,6 +583,119 @@ export type RegionEstimate = LiveSpan & {
   host: string | null
 }
 
+// ===== Live status =====
+export type LiveState = 'waiting' | 'measuring' | 'live' | 'frozen'
+
+export type FrozenReason = 'no_samples' | 'capture_service'
+
+export type LivePoint = 'gateway' | 'isp_edge' | 'floor' | 'game'
+
+export type LiveReading = {
+  point: LivePoint
+  basis: PingBasis
+  atLeast: boolean
+  zone: RouteZone | null
+  hop: number | null
+  hopIp: string | null
+  asn: number | null
+  operator: string | null
+  medianMs: number | null
+  usual: UsualPing
+  traceMs: number | null
+  jitterMs: number | null
+  lossPct: number | null
+  lossFloorPct: number | null
+  lost: number
+  sent: number
+  sampleCount: number
+  status: Severity
+  cause: IncidentCause | null
+  lastSampleAt: string
+  fresh: boolean
+}
+
+export type FaultZone =
+  'home' | 'isp' | 'transit' | 'service' | 'after_isp' | 'not_home' | 'unlocated'
+
+export type LiveFault = {
+  zone: FaultZone
+  zones: RouteZone[]
+  cause: IncidentCause
+  afterPoint: LivePoint | null
+  afterHop: number | null
+  atPoint: LivePoint
+  atHop: number | null
+  asn: number | null
+  operator: string | null
+}
+
+export type ZoneVerdict = 'clear' | 'fault' | 'suspect' | 'masked' | 'unmeasured'
+
+export type ZoneEvidence = {
+  zone: RouteZone
+  verdict: ZoneVerdict
+  status: Severity
+  point: LivePoint | null
+  firstHop: number | null
+  lastHop: number | null
+  asn: number | null
+  operator: string | null
+  silent: boolean
+}
+
+export type LiveRegion = {
+  region: string | null
+  provider: BeaconProvider | null
+  host: string | null
+  medianMs: number | null
+  sent: number
+  received: number
+}
+
+export type LiveStatus = {
+  sessionId: number
+  gameName: string
+  state: LiveState
+  stateSince: string
+  frozenReason: FrozenReason | null
+  serverIp: string | null
+  serverPort: number | null
+  matchStartedAt: string | null
+  lastSampleAt: string | null
+  status: Severity
+  statusSince: string | null
+  cause: IncidentCause | null
+  primary: LiveReading | null
+  points: LiveReading[]
+  zones: ZoneEvidence[]
+  fault: LiveFault | null
+  region: LiveRegion | null
+  updatedAt: string
+}
+
+export type MatchIncident = {
+  id: number
+  sessionId: number
+  serverIp: string
+  serverPort: number
+  matchStartedAt: string
+  startedAt: string
+  endedAt: string | null
+  status: Severity
+  cause: IncidentCause | null
+  basis: PingBasis
+  atLeast: boolean
+  pingMs: number | null
+  usualMs: number | null
+  lossPct: number | null
+  jitterMs: number | null
+  zone: FaultZone | null
+  afterHop: number | null
+  atHop: number | null
+  asn: number | null
+  operator: string | null
+}
+
 export type RecentPing = {
   medianMs: number
   lossPct: number
@@ -594,7 +707,7 @@ export type UsualPing = {
   sampleCount: number
 }
 
-export type IncidentCause = 'latency' | 'loss'
+export type IncidentCause = 'latency' | 'loss' | 'jitter'
 
 export type ServerIncident = {
   sessionId: number
