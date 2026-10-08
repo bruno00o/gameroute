@@ -16,7 +16,9 @@ import {
   formatFlowPing,
   formatLoss,
   formatUsualPing,
+  matchMeasure,
   measuredUpTo,
+  pingSourceNote,
   statusReason,
   thresholdRules,
   traceOf,
@@ -92,7 +94,7 @@ function MatchFacts({
   detailed: boolean
   pending: boolean
 }) {
-  const trace = match.trace
+  const trace = matchMeasure(match)
   const number = String(match.number)
 
   if (trace?.pingMs == null) {
@@ -113,15 +115,16 @@ function MatchFacts({
   }
 
   const worst = traceroute?.hops.find(hop => hop.hopNumber === trace.measuredHop)?.latencyMax
+  const note = detailed ? m.matches_note() : m.matches_note_simple()
 
   return (
     <Panel
       label={m.match_measures()}
-      title={timing && traceSource(timing)}
-      footer={detailed ? m.matches_note() : m.matches_note_simple()}
+      title={match.game ? null : timing && traceSource(timing)}
+      footer={match.game ? m.match_note_game() : note}
     >
       <FactRow>
-        <Fact label={m.matches_col_ping()} detail={measuredUpTo(trace, traceroute?.route)}>
+        <Fact label={m.matches_col_ping()} detail={pingSourceNote(match, traceroute?.route)}>
           {formatFlowPing(trace)}
         </Fact>
         <Fact label={m.matches_col_loss()}>{formatLoss(trace.lossPct)}</Fact>
@@ -221,7 +224,7 @@ function StatusReason({
   match: SessionMatch
   thresholds?: SeverityThresholds | null
 }) {
-  const trace = match.trace
+  const trace = matchMeasure(match)
   const usual = trace ? formatUsualPing(trace) : null
   const body =
     trace?.pingMs == null
@@ -379,7 +382,7 @@ function MatchScreen({
           traceroute={traceroute}
           timing={timing}
           detailed={detailed}
-          pending={detail.endedAt === null && !match.trace}
+          pending={detail.endedAt === null && !matchMeasure(match)}
         />
         <div className="flex flex-wrap items-start gap-4">
           <MatchRoute

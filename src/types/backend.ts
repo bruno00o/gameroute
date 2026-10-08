@@ -46,6 +46,7 @@ export type MatchSummary = {
   matchCount: number
   medianPingMs: number | null
   medianPingAtLeast: boolean
+  medianPingByGame: boolean
   status: Severity | null
 }
 
@@ -148,6 +149,18 @@ export type TraceMeasure = {
   usual: UsualPing | null
 }
 
+export type GameMeasure = {
+  source: PingSource
+  region: string | null
+  measuredAt: string
+  sampleCount: number
+  pingMs: number
+  jitterMs: number | null
+  lossPct: number | null
+  packetsLost: number
+  usual: UsualPing | null
+}
+
 export type MeasuredFlow = {
   periodId: number
   ip: string
@@ -159,6 +172,7 @@ export type MeasuredFlow = {
   packetCount: number
   operator: FlowOperator | null
   trace: TraceMeasure | null
+  game: GameMeasure | null
   status: Severity
 }
 
@@ -445,7 +459,7 @@ export type HourlyQuality = {
   problemHopRatio: number
 }
 
-export type PingSource = 'trace'
+export type PingSource = 'trace' | 'game' | 'game_region'
 
 export type PingBasis = {
   source: PingSource
@@ -453,6 +467,20 @@ export type PingBasis = {
   measuredHop: number | null
   measuredAsn: number | null
   serverIp: string | null
+  region: string | null
+}
+
+export type GamePingSample = {
+  sessionId: number
+  source: PingSource
+  measuredAt: string
+  peerIp: string | null
+  peerPort: number | null
+  region: string | null
+  rttMs: number | null
+  jitterMs: number | null
+  packetsLost: number | null
+  packetsSent: number | null
 }
 
 export type RecentPing = {

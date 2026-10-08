@@ -150,6 +150,7 @@ export function teamVoice(): MeasuredFlow {
       atDestination: true,
       pingMs: 14,
     }),
+    game: null,
     status: 'ok',
   }
 }
@@ -169,6 +170,7 @@ export function sessionMatches(): SessionMatch[] {
       packetCount: 12000,
       operator: riot,
       trace: measure(),
+      game: null,
       status: 'ok',
       voice: teamVoice(),
     },
@@ -184,6 +186,7 @@ export function sessionMatches(): SessionMatch[] {
       packetCount: 56000,
       operator: riot,
       trace: measure({ offsetSecs: -499 }),
+      game: null,
       status: 'ok',
       voice: null,
     },
@@ -199,6 +202,7 @@ export function sessionMatches(): SessionMatch[] {
       packetCount: 80000,
       operator: riot,
       trace: null,
+      game: null,
       status: 'unmeasured',
       voice: null,
     },

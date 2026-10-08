@@ -56,7 +56,13 @@ export function sessionColumns({
         session.medianPingMs == null ? null : (
           <span
             className="whitespace-nowrap"
-            title={session.medianPingAtLeast ? m.route_total_up_to() : undefined}
+            title={
+              session.medianPingByGame
+                ? m.ping_by_game()
+                : session.medianPingAtLeast
+                  ? m.route_total_up_to()
+                  : undefined
+            }
           >
             {formatMs(session.medianPingMs, { digits: 0, atLeast: session.medianPingAtLeast })}
           </span>
