@@ -108,6 +108,8 @@ describe('Help', () => {
 
     await user.click(question(/What data leaves this PC\?/))
     const data = screen.getByText(/GitHub for updates, to Steam for game images and to CARTO/)
+    expect(data).toHaveTextContent('one per second to a public measurement point')
+    expect(data).toHaveTextContent('see your public IP address')
     expect(data).toHaveTextContent('There is no telemetry.')
     expect(data).toHaveTextContent("planned for version 1.0; it doesn't exist yet")
   })
