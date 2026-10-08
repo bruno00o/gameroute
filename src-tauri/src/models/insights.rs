@@ -37,10 +37,35 @@ pub struct HourlyQuality {
     pub problem_hop_ratio: f64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum PingSource {
     Trace,
+    Game,
+    GameRegion,
+}
+
+impl PingSource {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Trace => "trace",
+            Self::Game => "game",
+            Self::GameRegion => "game_region",
+        }
+    }
+}
+
+impl TryFrom<String> for PingSource {
+    type Error = String;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match value.as_str() {
+            "trace" => Ok(Self::Trace),
+            "game" => Ok(Self::Game),
+            "game_region" => Ok(Self::GameRegion),
+            _ => Err(format!("unknown ping source {value}")),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]

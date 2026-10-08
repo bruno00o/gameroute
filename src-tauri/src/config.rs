@@ -77,6 +77,14 @@ pub const USUAL_PING_SAMPLES: usize = 20;
 
 pub const USUAL_PING_MIN_SAMPLES: usize = 5;
 
+// ── Game logs ──────────────────────────────────────────────────────────────
+
+pub const GAME_LOG_POLL_SECS: u64 = 2;
+
+pub const GAME_LOG_SLACK_SECS: i64 = 60;
+
+pub const GAME_PING_MATCH_GRACE_SECS: i64 = 120;
+
 // ── Database ──────────────────────────────────────────────────────────────
 
 /// Timeout for acquiring a connection from the SQLite pool.

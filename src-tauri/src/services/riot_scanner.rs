@@ -82,6 +82,13 @@ fn extract_install_path(yaml_content: &str) -> Option<String> {
     None
 }
 
+pub fn riot_install_path(product_id: &str) -> Option<PathBuf> {
+    let settings = get_metadata_dir()?
+        .join(product_id)
+        .join(format!("{product_id}.product_settings.yaml"));
+    extract_install_path(&std::fs::read_to_string(settings).ok()?).map(PathBuf::from)
+}
+
 pub async fn scan_riot_games() -> Result<ScanResult, RiotScanError> {
     let repo = get_game_repository().ok_or(RiotScanError::RepositoryNotInitialized)?;
 

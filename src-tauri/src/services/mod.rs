@@ -4,6 +4,7 @@ pub mod capture_client;
 pub mod epic_scanner;
 pub mod flow_kind;
 pub mod game_detection;
+pub mod game_logs;
 pub mod game_profiles;
 pub mod matches;
 pub mod network_capture;

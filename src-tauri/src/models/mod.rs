@@ -4,6 +4,7 @@ pub mod connection;
 pub mod flow_kind;
 pub mod game;
 pub mod game_library;
+pub mod game_ping;
 pub mod hop;
 pub mod insights;
 pub mod ip_metadata;
