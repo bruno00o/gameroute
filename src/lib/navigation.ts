@@ -1,6 +1,7 @@
 import type { RemixiconComponentType } from '@remixicon/react'
 import {
   RiDashboardLine,
+  RiFileTextLine,
   RiGamepadLine,
   RiHistoryLine,
   RiPulseLine,
@@ -14,7 +15,7 @@ import * as m from '@/paraglide/messages'
 import type { LiveState } from '@/lib/live-state'
 
 export type NavKey =
-  'home' | 'live' | 'sessions' | 'games' | 'route' | 'history' | 'settings' | 'help'
+  'home' | 'live' | 'sessions' | 'games' | 'route' | 'history' | 'reports' | 'settings' | 'help'
 
 export type NavItem = {
   key: NavKey
@@ -53,6 +54,7 @@ export function getNavigationGroups(liveState: LiveState = 'idle'): NavGroup[] {
       items: [
         { key: 'route', title: m.nav_route(), to: '/route', icon: RiRouteLine },
         { key: 'history', title: m.nav_history(), to: '/network', icon: RiTimeLine },
+        { key: 'reports', title: m.nav_reports(), to: '/reports', icon: RiFileTextLine },
       ],
     },
     {

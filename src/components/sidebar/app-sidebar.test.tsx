@@ -83,6 +83,7 @@ describe('AppSidebar', () => {
       'Games',
       'Route',
       'History',
+      'Reports',
       'Settings',
       'Help',
     ])
