@@ -724,6 +724,83 @@ mod tests {
         assert_eq!(identify_problem_hop(&latency_jump_route(), TARGET), Some(3));
     }
 
+    #[tokio::test]
+    async fn problem_hop_backfill_matches_rule() {
+        let pool = crate::db::create_test_pool().await;
+        let routes = [
+            rate_limited_route(),
+            persistent_loss_route(),
+            destination_loss_route(),
+            trailing_timeouts_route(),
+            unreachable_edge_loss_route(),
+            unreachable_persistent_loss_route(),
+            latency_jump_route(),
+        ];
+
+        for (id, hops) in routes.iter().enumerate() {
+            sqlx::query(
+                "INSERT INTO sessions (id, game_name, started_at) VALUES ($1, 'Test', '2026-01-25T10:00:00Z')",
+            )
+            .bind(id as i64)
+            .execute(&pool)
+            .await
+            .unwrap();
+
+            sqlx::query(
+                "INSERT INTO traceroutes (id, session_id, target_ip, started_at, completed_at, problem_hop_index)
+                 VALUES ($1, $1, $2, '2026-01-25T10:00:00Z', '2026-01-25T10:01:00Z', 1)",
+            )
+            .bind(id as i64)
+            .bind(TARGET)
+            .execute(&pool)
+            .await
+            .unwrap();
+
+            for hop in hops {
+                sqlx::query(
+                    "INSERT INTO hops (traceroute_id, hop_number, ip, latency_avg, packet_loss, is_problem_hop)
+                     VALUES ($1, $2, $3, $4, $5, $6)",
+                )
+                .bind(id as i64)
+                .bind(hop.hop_number as i32)
+                .bind(&hop.ip)
+                .bind(hop.rtt_avg)
+                .bind(hop.packet_loss())
+                .bind(hop.hop_number == 1)
+                .execute(&pool)
+                .await
+                .unwrap();
+            }
+        }
+
+        sqlx::raw_sql(include_str!(
+            "../../migrations/20261008000002_recompute_problem_hops.sql"
+        ))
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        for (id, hops) in routes.iter().enumerate() {
+            let expected = identify_problem_hop(hops, TARGET);
+            let (stored,): (Option<i32>,) =
+                sqlx::query_as("SELECT problem_hop_index FROM traceroutes WHERE id = $1")
+                    .bind(id as i64)
+                    .fetch_one(&pool)
+                    .await
+                    .unwrap();
+            assert_eq!(stored, expected, "route {id}");
+
+            let flagged: Vec<i32> = sqlx::query_scalar(
+                "SELECT hop_number FROM hops WHERE traceroute_id = $1 AND is_problem_hop = 1",
+            )
+            .bind(id as i64)
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+            assert_eq!(flagged, expected.into_iter().collect::<Vec<_>>(), "route {id}");
+        }
+    }
+
     #[test]
     fn probe_protocol_parses_hybrid_method() {
         assert_eq!(probe_protocol("ICMP (tracert) + UDP (trippy)"), Some("UDP".to_string()));
