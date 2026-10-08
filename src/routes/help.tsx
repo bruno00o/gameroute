@@ -98,10 +98,16 @@ function glossary(): GlossaryEntry[] {
       mono: true,
     },
     { id: 'asn', term: m.help_term_asn(), definition: m.help_term_asn_desc() },
+    { id: 'usual', term: m.help_term_usual(), definition: m.help_term_usual_desc() },
     {
       id: 'status',
       term: m.help_term_status({ levels: levels.join(', ') }),
-      definition: m.help_term_status_desc({ why: m.match_why_label() }),
+      definition: m.help_term_status_desc({
+        watch: m.status_watch(),
+        degraded: m.status_degraded(),
+        critical: m.status_critical(),
+        why: m.match_why_label(),
+      }),
     },
     { id: 'unmeasured', term: m.status_unmeasured(), definition: m.help_term_unmeasured_desc() },
     { id: 'session', term: m.help_term_session(), definition: m.help_term_session_desc() },
