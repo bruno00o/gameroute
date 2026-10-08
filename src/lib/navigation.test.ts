@@ -36,7 +36,7 @@ describe('getNavigationGroups', () => {
       sessions: '/sessions',
       games: '/games',
       route: '/route',
-      history: '/network',
+      history: '/history',
       reports: '/reports',
       settings: '/settings',
       help: '/help',
@@ -75,7 +75,7 @@ describe('findNavItem', () => {
   it('maps the current screens to their v2 entries', () => {
     expect(activeKey('/trace')).toBe('live')
     expect(activeKey('/route')).toBe('route')
-    expect(activeKey('/network')).toBe('history')
+    expect(activeKey('/history')).toBe('history')
     expect(activeKey('/reports')).toBe('reports')
     expect(activeKey('/settings')).toBe('settings')
     expect(activeKey('/help')).toBe('help')

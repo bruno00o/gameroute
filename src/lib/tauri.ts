@@ -6,7 +6,6 @@ import type {
   GameEndedEvent,
   GameListItem,
   GamePingSample,
-  HourlyQuality,
   IpMetadataCacheStats,
   LiveProbeConfig,
   LiveProbeSample,
@@ -25,7 +24,6 @@ import type {
   SessionListFilter,
   SessionListPage,
   SessionMatch,
-  SessionQualityPoint,
   ScanResult,
   SeverityThresholds,
   StorageStats,
@@ -36,6 +34,7 @@ import type {
   ServiceStatus,
   TracerouteStartedEvent,
   UsualRoute,
+  WeekHourGrid,
 } from '@/types/backend'
 
 // ===== Monitoring =====
@@ -86,12 +85,11 @@ export const getNetworkOverviewStats = () =>
 export const getSeverityThresholds = () => invoke<SeverityThresholds>('get_severity_thresholds')
 
 // ===== Insights =====
-export const getNetworkQualityOverTime = () =>
-  invoke<SessionQualityPoint[]>('get_network_quality_over_time')
 export const getServerStability = () => invoke<ServerStability[]>('get_server_stability')
 export const getServerSummary = (days?: number) =>
   invoke<ServerSummary>('get_server_summary', { days })
-export const getHourlyQuality = () => invoke<HourlyQuality[]>('get_hourly_quality')
+export const getWeekHourGrid = (days?: number) =>
+  invoke<WeekHourGrid>('get_week_hour_grid', { days })
 export const getUsualRoute = (days?: number) => invoke<UsualRoute[]>('get_usual_route', { days })
 export const getRouteChanges = (days?: number) =>
   invoke<RouteChange[]>('get_route_changes', { days })

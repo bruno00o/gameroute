@@ -440,15 +440,6 @@ export type NetworkOverviewStats = {
 }
 
 // ===== Insights =====
-export type SessionQualityPoint = {
-  sessionId: number
-  gameName: string
-  startedAt: string
-  avgLatency: number | null
-  problemHopRatio: number
-  ipCount: number
-}
-
 export type ServerStability = {
   ip: string
   asn: string | null
@@ -461,13 +452,6 @@ export type ServerStability = {
   tracerouteCount: number
   problemHopRatio: number
   isGameServer: boolean
-}
-
-export type HourlyQuality = {
-  hour: number
-  sessionCount: number
-  avgLatency: number | null
-  problemHopRatio: number
 }
 
 export type PingSource = 'trace' | 'game' | 'game_region' | 'floor' | 'region'
@@ -628,6 +612,35 @@ export type ServerSummary = {
   usualMaxSamples: number
   usualMinSamples: number
   servers: ServerSummaryItem[]
+}
+
+export type WeekHourCell = {
+  weekday: number
+  hour: number
+  matchCount: number
+  sampleCount: number
+  comparedCount: number
+  source: PingSource | null
+  atLeast: boolean
+  medianMs: number | null
+  usualMs: number | null
+  overUsualMs: number | null
+  lossPct: number | null
+  status: Severity
+}
+
+export type WeekHourGame = {
+  gameName: string
+  matchCount: number
+  firstPlayedAt: string
+  lastPlayedAt: string
+  cells: WeekHourCell[]
+}
+
+export type WeekHourGrid = {
+  since: string
+  usualMinSamples: number
+  games: WeekHourGame[]
 }
 
 export type RouteOperator = {
