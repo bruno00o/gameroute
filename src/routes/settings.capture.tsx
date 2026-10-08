@@ -9,6 +9,7 @@ import { restartCaptureService } from '@/lib/tauri'
 import { useServiceHealthCheck } from '@/hooks/use-service-health-check'
 import { Button } from '@/components/ui/button'
 import { SettingRow, SettingsSection } from '@/components/settings/settings-section'
+import { LiveProbeSettings } from '@/components/settings/live-probe-settings'
 
 export const Route = createFileRoute('/settings/capture')({
   component: CaptureSettings,
@@ -39,28 +40,31 @@ function CaptureSettings() {
       : m.settings_capture_stopped()
 
   return (
-    <SettingsSection
-      title={m.settings_capture_title()}
-      description={<p>{m.settings_capture_description()}</p>}
-    >
-      <div className="flex flex-col gap-1.5">
-        <h3 className="text-label text-muted-foreground font-stretch-[92%]">
-          {m.settings_capture_features()}
-        </h3>
-        <ul className="text-ui text-foreground flex list-disc flex-col gap-1 pl-[18px]">
-          <li>{m.settings_capture_feature_servers()}</li>
-          <li>{m.settings_capture_feature_voice()}</li>
-          <li>{m.settings_capture_feature_probes()}</li>
-        </ul>
-      </div>
-      <SettingRow label={m.settings_capture_status()} description={status}>
-        {!isLoading && !isServiceRunning && (
-          <Button size="sm" loading={isRestarting} onClick={handleRestart}>
-            <RiLoopLeftLine data-icon="inline-start" />
-            {m.service_warning_fix()}
-          </Button>
-        )}
-      </SettingRow>
-    </SettingsSection>
+    <>
+      <SettingsSection
+        title={m.settings_capture_title()}
+        description={<p>{m.settings_capture_description()}</p>}
+      >
+        <div className="flex flex-col gap-1.5">
+          <h3 className="text-label text-muted-foreground font-stretch-[92%]">
+            {m.settings_capture_features()}
+          </h3>
+          <ul className="text-ui text-foreground flex list-disc flex-col gap-1 pl-[18px]">
+            <li>{m.settings_capture_feature_servers()}</li>
+            <li>{m.settings_capture_feature_voice()}</li>
+            <li>{m.settings_capture_feature_probes()}</li>
+          </ul>
+        </div>
+        <SettingRow label={m.settings_capture_status()} description={status}>
+          {!isLoading && !isServiceRunning && (
+            <Button size="sm" loading={isRestarting} onClick={handleRestart}>
+              <RiLoopLeftLine data-icon="inline-start" />
+              {m.service_warning_fix()}
+            </Button>
+          )}
+        </SettingRow>
+      </SettingsSection>
+      <LiveProbeSettings />
+    </>
   )
 }
