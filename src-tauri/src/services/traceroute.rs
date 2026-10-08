@@ -1,5 +1,5 @@
 use crate::config::{
-    LATENCY_INCREASE_THRESHOLD, PACKET_LOSS_THRESHOLD, TRACEROUTE_MAX_CONCURRENT,
+    LATENCY_SPIKE_THRESHOLD, PACKET_LOSS_THRESHOLD, TRACEROUTE_MAX_CONCURRENT,
     TRACEROUTE_MAX_HOPS,
 };
 use crate::db::{get_hop_repository, get_traceroute_repository};
@@ -346,18 +346,28 @@ pub fn merge_probe_hops(
     })
 }
 
-fn persistent_loss_onset(hops: &[HopResult], target_ip: &str) -> Option<u32> {
+fn is_lossy(hop: &HopResult) -> bool {
+    hop.packet_loss() >= PACKET_LOSS_THRESHOLD
+}
+
+fn is_jittery(hop: &HopResult) -> bool {
+    hop.rtt_min
+        .zip(hop.rtt_max)
+        .is_some_and(|(min, max)| max - min >= LATENCY_SPIKE_THRESHOLD)
+}
+
+fn persistent_onset(
+    hops: &[HopResult],
+    target_ip: &str,
+    affected: fn(&HopResult) -> bool,
+) -> Option<u32> {
     let responding: Vec<&HopResult> = hops.iter().filter(|h| h.responded).collect();
-    let lossy_tail = responding
-        .iter()
-        .rev()
-        .take_while(|h| h.packet_loss() >= PACKET_LOSS_THRESHOLD)
-        .count();
+    let tail = responding.iter().rev().take_while(|h| affected(h)).count();
     let reached = responding
         .last()
         .is_some_and(|h| h.ip.as_deref() == Some(target_ip));
 
-    match lossy_tail {
+    match tail {
         0 => None,
         1 if !reached => None,
         n => Some(responding[responding.len() - n].hop_number),
@@ -365,24 +375,11 @@ fn persistent_loss_onset(hops: &[HopResult], target_ip: &str) -> Option<u32> {
 }
 
 pub fn identify_problem_hop(hops: &[HopResult], target_ip: &str) -> Option<i32> {
-    let loss_onset = persistent_loss_onset(hops, target_ip);
-    let mut prev_latency: Option<f64> = None;
-
-    for hop in hops {
-        if loss_onset == Some(hop.hop_number) {
-            return Some(hop.hop_number as i32);
-        }
-
-        if let (Some(prev), Some(current)) = (prev_latency, hop.rtt_avg) {
-            if current - prev >= LATENCY_INCREASE_THRESHOLD {
-                return Some(hop.hop_number as i32);
-            }
-        }
-
-        prev_latency = hop.rtt_avg;
-    }
-
-    None
+    [is_lossy, is_jittery]
+        .into_iter()
+        .filter_map(|affected| persistent_onset(hops, target_ip, affected))
+        .min()
+        .map(|hop| hop as i32)
 }
 
 fn probe_protocol(method: &str) -> Option<String> {
@@ -677,12 +674,55 @@ mod tests {
         ]
     }
 
-    fn latency_jump_route() -> Vec<HopResult> {
+    fn probed(ttl: u32, ip: &str, rtts: &[Option<f64>]) -> HopResult {
+        HopResult::new(ttl, Some(ip.to_string()), None, rtts.to_vec())
+    }
+
+    fn distance_jump_route() -> Vec<HopResult> {
         vec![
-            lossy(1, "192.168.1.254", 0.5, 1, 3),
-            lossy(2, "10.0.0.1", 3.0, 0, 3),
-            lossy(3, "62.115.140.105", 84.0, 0, 3),
-            lossy(4, TARGET, 85.0, 0, 3),
+            probed(1, "192.168.1.254", &[Some(0.5), Some(0.5), Some(0.5)]),
+            probed(2, "62.115.118.58", &[Some(28.0), Some(29.0), Some(32.0)]),
+            probed(3, "195.2.9.134", &[Some(139.0), Some(140.0), Some(141.0)]),
+            probed(4, "108.166.232.9", &[Some(163.0), Some(164.0), Some(165.0)]),
+            probed(5, TARGET, &[Some(160.0), Some(161.0), Some(162.0)]),
+        ]
+    }
+
+    fn transient_spike_route() -> Vec<HopResult> {
+        vec![
+            probed(1, "192.168.1.254", &[Some(0.5), Some(0.5), Some(0.5)]),
+            probed(2, "194.6.150.68", &[Some(4.0), Some(4.0), Some(4.0)]),
+            probed(3, "141.101.67.48", &[Some(22.0), Some(33.0), Some(120.0)]),
+            probed(4, "141.101.67.142", &[Some(4.0), Some(4.0), Some(5.0)]),
+            probed(5, TARGET, &[Some(3.0), Some(4.0), Some(6.0)]),
+        ]
+    }
+
+    fn persistent_jitter_route() -> Vec<HopResult> {
+        vec![
+            probed(1, "192.168.1.254", &[Some(0.5), Some(0.5), Some(0.5)]),
+            probed(2, "10.0.0.1", &[Some(3.0), Some(4.0), Some(3.5)]),
+            probed(3, "87.245.1.1", &[Some(5.0), Some(70.0), Some(6.0)]),
+            HopResult::timeout(4, 3),
+            probed(5, "104.160.1.1", &[Some(9.0), Some(95.0), Some(10.0)]),
+            probed(6, TARGET, &[Some(12.0), Some(13.0), Some(80.0)]),
+        ]
+    }
+
+    fn destination_jitter_route() -> Vec<HopResult> {
+        vec![
+            probed(1, "192.168.1.254", &[Some(0.5), Some(0.5), Some(0.5)]),
+            probed(2, "10.0.0.1", &[Some(3.0), Some(4.0), Some(3.5)]),
+            probed(3, TARGET, &[Some(6.0), Some(10.0), Some(126.0)]),
+        ]
+    }
+
+    fn jitter_before_loss_route() -> Vec<HopResult> {
+        vec![
+            probed(1, "192.168.1.254", &[Some(0.5), Some(0.5), Some(0.5)]),
+            probed(2, "10.0.0.1", &[Some(3.0), Some(60.0), Some(4.0)]),
+            probed(3, "87.245.1.1", &[Some(5.0), Some(90.0), None]),
+            probed(4, TARGET, &[Some(12.0), None, Some(75.0)]),
         ]
     }
 
@@ -720,8 +760,33 @@ mod tests {
     }
 
     #[test]
-    fn latency_jump_is_still_flagged() {
-        assert_eq!(identify_problem_hop(&latency_jump_route(), TARGET), Some(3));
+    fn distance_jump_with_stable_rtt_is_not_flagged() {
+        assert_eq!(identify_problem_hop(&distance_jump_route(), TARGET), None);
+    }
+
+    #[test]
+    fn transient_latency_spike_is_not_flagged() {
+        assert_eq!(identify_problem_hop(&transient_spike_route(), TARGET), None);
+    }
+
+    #[test]
+    fn persistent_jitter_is_flagged_where_it_starts() {
+        assert_eq!(identify_problem_hop(&persistent_jitter_route(), TARGET), Some(3));
+    }
+
+    #[test]
+    fn jitter_at_destination_only_is_flagged() {
+        assert_eq!(identify_problem_hop(&destination_jitter_route(), TARGET), Some(3));
+    }
+
+    #[test]
+    fn earliest_onset_wins() {
+        assert_eq!(identify_problem_hop(&jitter_before_loss_route(), TARGET), Some(2));
+    }
+
+    #[test]
+    fn single_answered_probe_is_never_jittery() {
+        assert!(!is_jittery(&probed(3, TARGET, &[Some(200.0), None, None])));
     }
 
     #[tokio::test]
@@ -734,7 +799,11 @@ mod tests {
             trailing_timeouts_route(),
             unreachable_edge_loss_route(),
             unreachable_persistent_loss_route(),
-            latency_jump_route(),
+            distance_jump_route(),
+            transient_spike_route(),
+            persistent_jitter_route(),
+            destination_jitter_route(),
+            jitter_before_loss_route(),
         ];
 
         for (id, hops) in routes.iter().enumerate() {
@@ -758,13 +827,15 @@ mod tests {
 
             for hop in hops {
                 sqlx::query(
-                    "INSERT INTO hops (traceroute_id, hop_number, ip, latency_avg, packet_loss, is_problem_hop)
-                     VALUES ($1, $2, $3, $4, $5, $6)",
+                    "INSERT INTO hops (traceroute_id, hop_number, ip, latency_min, latency_avg, latency_max, packet_loss, is_problem_hop)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
                 )
                 .bind(id as i64)
                 .bind(hop.hop_number as i32)
                 .bind(&hop.ip)
+                .bind(hop.rtt_min)
                 .bind(hop.rtt_avg)
+                .bind(hop.rtt_max)
                 .bind(hop.packet_loss())
                 .bind(hop.hop_number == 1)
                 .execute(&pool)
