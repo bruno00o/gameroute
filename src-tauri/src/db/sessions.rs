@@ -50,7 +50,8 @@ impl SessionRepository {
             "UPDATE sessions SET ended_at = COALESCE(
                 (SELECT MAX(ended_at) FROM ip_periods WHERE session_id = sessions.id),
                 started_at
-             )
+             ),
+             end_estimated = 1
              WHERE ended_at IS NULL",
         )
         .execute(&self.pool)
@@ -277,6 +278,8 @@ pub fn get_session_repository() -> Option<Arc<SessionRepository>> {
 mod tests {
     use super::*;
     use crate::db::create_test_pool;
+    use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
+    use std::str::FromStr;
 
     async fn create_test_repo() -> SessionRepository {
         let pool = create_test_pool().await;
@@ -364,6 +367,77 @@ mod tests {
             let session = repo.get_session(id).await.unwrap().unwrap();
             assert_eq!(session.ended_at.as_deref(), Some(expected));
         }
+
+        let estimated: Vec<(i64, bool)> =
+            sqlx::query_as("SELECT id, end_estimated FROM sessions ORDER BY id")
+                .fetch_all(&repo.pool)
+                .await
+                .unwrap();
+        assert_eq!(
+            estimated,
+            vec![
+                (with_traffic, true),
+                (without_traffic, true),
+                (ended, false)
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_migration_marks_sessions_closed_at_their_last_activity() {
+        const END_ESTIMATED: i64 = 20261008000003;
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(SqliteConnectOptions::from_str("sqlite::memory:").unwrap())
+            .await
+            .unwrap();
+        let all = sqlx::migrate!("./migrations");
+        let mut before = sqlx::migrate!("./migrations");
+        before.migrations = all
+            .iter()
+            .filter(|migration| migration.version < END_ESTIMATED)
+            .cloned()
+            .collect::<Vec<_>>()
+            .into();
+        before.run(&pool).await.unwrap();
+
+        for (id, ended) in [
+            (1, Some("2026-09-26T21:07:52.223646+00:00")),
+            (2, Some("2026-09-26T21:54:04.807289700+00:00")),
+            (3, Some("2026-09-27T10:00:00+00:00")),
+            (4, None),
+        ] {
+            sqlx::query("INSERT INTO sessions (id, game_name, started_at, ended_at) VALUES ($1, 'VALORANT', $2, $3)")
+                .bind(id)
+                .bind(if id == 3 { "2026-09-27T10:00:00+00:00" } else { "2026-09-26T19:00:00+00:00" })
+                .bind(ended)
+                .execute(&pool)
+                .await
+                .unwrap();
+        }
+        for (session, ended) in [
+            (1, "2026-09-26T21:07:52.223646+00:00"),
+            (2, "2026-09-26T21:54:02.830193200+00:00"),
+            (4, "2026-09-26T20:00:00+00:00"),
+        ] {
+            sqlx::query(
+                "INSERT INTO ip_periods (session_id, ip, started_at, ended_at) VALUES ($1, '162.249.72.5', '2026-09-26T19:00:05+00:00', $2)",
+            )
+            .bind(session)
+            .bind(ended)
+            .execute(&pool)
+            .await
+            .unwrap();
+        }
+
+        all.run(&pool).await.unwrap();
+
+        let rows: Vec<(i64, bool)> =
+            sqlx::query_as("SELECT id, end_estimated FROM sessions ORDER BY id")
+                .fetch_all(&pool)
+                .await
+                .unwrap();
+        assert_eq!(rows, vec![(1, true), (2, false), (3, true), (4, false)]);
     }
 
     #[tokio::test]
