@@ -1,8 +1,7 @@
 use serde::Serialize;
 
 pub const RIOT_ASN: u32 = 6507;
-pub const VALORANT_UDP_PORTS: (u16, u16) = (7000, 7999);
-pub const LEAGUE_UDP_PORTS: (u16, u16) = (5000, 5500);
+pub const RIOT_UDP_PORTS: (u16, u16) = (7000, 7999);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -25,7 +24,7 @@ const PROFILES: &[ProfileEntry] = &[
         profile: GameProfile {
             operator: "Riot Games",
             asn: Some(RIOT_ASN),
-            udp_ports: Some(VALORANT_UDP_PORTS),
+            udp_ports: Some(RIOT_UDP_PORTS),
             voice_separate: true,
             relay: false,
         },
@@ -35,7 +34,7 @@ const PROFILES: &[ProfileEntry] = &[
         profile: GameProfile {
             operator: "Riot Games",
             asn: Some(RIOT_ASN),
-            udp_ports: Some(LEAGUE_UDP_PORTS),
+            udp_ports: Some(RIOT_UDP_PORTS),
             voice_separate: false,
             relay: false,
         },
@@ -51,6 +50,10 @@ const PROFILES: &[ProfileEntry] = &[
         },
     },
 ];
+
+pub fn all_profiles() -> impl Iterator<Item = GameProfile> {
+    PROFILES.iter().map(|entry| entry.profile)
+}
 
 pub fn profile_for(executable_name: &str) -> Option<GameProfile> {
     let name = executable_name.trim().to_lowercase();
@@ -73,9 +76,11 @@ mod tests {
     }
 
     #[test]
-    fn league_profile_uses_its_own_port_range() {
+    fn league_shares_the_riot_range_and_has_no_separate_voice() {
         let profile = profile_for("League of Legends.exe").unwrap();
-        assert_eq!(profile.udp_ports, Some((5000, 5500)));
+        assert_eq!(profile.asn, Some(RIOT_ASN));
+        assert_eq!(profile.udp_ports, Some(RIOT_UDP_PORTS));
+        assert!(!profile.voice_separate);
         assert!(!profile.relay);
     }
 
