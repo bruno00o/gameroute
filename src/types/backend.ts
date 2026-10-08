@@ -216,6 +216,14 @@ export type OperatorRoute = {
 }
 
 // ===== Game Library =====
+export type GameProfile = {
+  operator: string
+  asn: number | null
+  udpPorts: [number, number] | null
+  voiceSeparate: boolean
+  relay: boolean
+}
+
 export type GameListItem = {
   id: number
   name: string
@@ -224,8 +232,7 @@ export type GameListItem = {
   iconUrl: string | null
   monitored: boolean
   lastPlayedAt: string | null
-  sessionCount: number
-  totalPlayTimeSecs: number
+  profile: GameProfile | null
 }
 
 export type ScanResult = {
@@ -271,6 +278,7 @@ export type RunningApp = {
   pid: number
   processCount: number
   path: string | null
+  udpSockets: number
 }
 
 export type MonitoringStatusResponse = {
