@@ -85,6 +85,8 @@ pub const ACTIVITY_PERIOD_THRESHOLD_SECS: i64 = 10;
 
 pub const MATCH_GAP_GRACE_SECS: i64 = 45;
 
+pub const MATCH_MERGE_BACKUP_SUFFIX: &str = "pre-match-merge.bak";
+
 /// Minimum duration (seconds) for a UDP period to be flagged as a likely game server.
 pub const GAME_SERVER_MIN_DURATION_SECS: i64 = 30;
 
