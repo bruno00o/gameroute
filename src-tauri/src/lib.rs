@@ -17,7 +17,8 @@ use commands::games::{
     search_games, toggle_game_monitored,
 };
 use commands::insights::{
-    get_hourly_quality, get_network_quality_over_time, get_server_stability, get_server_summary,
+    get_hourly_quality, get_network_quality_over_time, get_route_changes, get_server_stability,
+    get_server_summary, get_usual_route,
 };
 use commands::monitoring::{
     cancel_traceroute, get_monitoring_status, list_running_apps,
@@ -291,6 +292,8 @@ pub fn run() {
             get_network_quality_over_time,
             get_server_stability,
             get_server_summary,
+            get_usual_route,
+            get_route_changes,
             get_hourly_quality,
             check_capture_service_status,
             restart_capture_service,

@@ -71,6 +71,8 @@ pub const SEVERITY_RTT_MS: [f64; 3] = [60.0, 100.0, 150.0];
 
 pub const SERVER_SUMMARY_DAYS: u32 = 7;
 
+pub const ROUTE_HISTORY_DAYS: u32 = 30;
+
 pub const USUAL_PING_SAMPLES: usize = 20;
 
 pub const USUAL_PING_MIN_SAMPLES: usize = 5;

@@ -8,6 +8,7 @@ pub mod game_profiles;
 pub mod matches;
 pub mod network_capture;
 pub mod riot_scanner;
+pub mod route_history;
 pub mod route_model;
 pub mod scanner_utils;
 pub mod server_summary;
