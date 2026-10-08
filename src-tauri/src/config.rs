@@ -55,6 +55,18 @@ pub const LATENCY_SPIKE_THRESHOLD: f64 = 50.0;
 /// Minimum packet loss percentage for a hop to count as lossy.
 pub const PACKET_LOSS_THRESHOLD: f64 = 10.0;
 
+// ── Severity ────────────────────────────────────────────────────────────────
+
+/// Watch, degraded and critical thresholds, applied to the destination or the
+/// last responding hop.
+pub const SEVERITY_LOSS_PCT: [f64; 3] = [0.5, 2.0, 5.0];
+
+pub const SEVERITY_JITTER_MS: [f64; 3] = [8.0, 15.0, 30.0];
+
+pub const SEVERITY_OVER_BASELINE_MS: [f64; 3] = [20.0, 50.0, 100.0];
+
+pub const SEVERITY_RTT_MS: [f64; 3] = [60.0, 100.0, 150.0];
+
 // ── Database ──────────────────────────────────────────────────────────────
 
 /// Timeout for acquiring a connection from the SQLite pool.

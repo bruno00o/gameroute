@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+use super::hop::ProbedHop;
 use super::ip_period::{IpPeriod, IpPeriodSummary};
+use super::severity::Severity;
 use super::traceroute_record::TracerouteWithHops;
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
@@ -51,6 +53,31 @@ pub struct DbHop {
     pub packet_loss: Option<f64>,
     pub is_problem_hop: bool,
     pub source: Option<String>,
+    #[sqlx(skip)]
+    #[serde(default)]
+    pub loss_status: Option<Severity>,
+}
+
+impl ProbedHop for DbHop {
+    fn ip(&self) -> Option<&str> {
+        self.ip.as_deref()
+    }
+
+    fn responded(&self) -> bool {
+        self.latency_avg.is_some()
+    }
+
+    fn loss_pct(&self) -> f64 {
+        self.packet_loss.unwrap_or(0.0)
+    }
+
+    fn rtt_avg(&self) -> Option<f64> {
+        self.latency_avg
+    }
+
+    fn rtt_range(&self) -> Option<(f64, f64)> {
+        self.latency_min.zip(self.latency_max)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -102,6 +129,7 @@ mod tests {
             packet_loss: Some(0.0),
             is_problem_hop: false,
             source: Some("ICMP".to_string()),
+            loss_status: None,
         };
 
         let json = serde_json::to_string(&hop).unwrap();
@@ -109,6 +137,7 @@ mod tests {
         assert!(json.contains("hopNumber"));
         assert!(json.contains("latencyMin"));
         assert!(json.contains("isProblemHop"));
+        assert!(json.contains("\"lossStatus\":null"));
 
         assert!(!json.contains("serverIpId"));
     }

@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+use super::severity::Severity;
+
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkMapEntry {
@@ -35,4 +37,5 @@ pub struct NetworkOverviewStats {
     pub total_traceroutes: i64,
     pub total_problem_hops: i64,
     pub avg_latency: Option<f64>,
+    pub status: Severity,
 }

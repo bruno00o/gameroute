@@ -2,6 +2,7 @@ use crate::commands::monitoring::{trace_session_targets, AppMonitoringState};
 use crate::commands::{validate_pagination, CommandError};
 use crate::db::{get_ip_period_repository, get_session_repository, get_traceroute_repository};
 use crate::models::session::{SessionDetail, SessionListItem};
+use crate::services::severity;
 use crate::services::trace_targets::select_session_targets;
 use tauri::{AppHandle, State};
 
@@ -58,7 +59,7 @@ pub async fn get_session_detail(id: i64) -> Result<Option<SessionDetail>, Comman
         Vec::new()
     };
 
-    let traceroutes = if let Some(traceroute_repo) = get_traceroute_repository() {
+    let mut traceroutes = if let Some(traceroute_repo) = get_traceroute_repository() {
         traceroute_repo
             .get_traceroutes_with_hops_for_session(id)
             .await
@@ -69,6 +70,7 @@ pub async fn get_session_detail(id: i64) -> Result<Option<SessionDetail>, Comman
     } else {
         Vec::new()
     };
+    traceroutes.iter_mut().for_each(severity::assess_traceroute);
 
     log::debug!(
         "Session {} detail: {} IP periods, {} summaries, {} traceroutes",

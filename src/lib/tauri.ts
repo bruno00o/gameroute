@@ -21,6 +21,7 @@ import type {
   SessionListItem,
   SessionQualityPoint,
   ScanResult,
+  SeverityThresholds,
   TracerouteAllCompleteEvent,
   TracerouteHopEvent,
   TracerouteProgressEvent,
@@ -81,6 +82,7 @@ export const getRecurringProblemHops = () =>
   invoke<RecurringProblemHop[]>('get_recurring_problem_hops')
 export const getNetworkOverviewStats = () =>
   invoke<NetworkOverviewStats>('get_network_overview_stats')
+export const getSeverityThresholds = () => invoke<SeverityThresholds>('get_severity_thresholds')
 
 // ===== Insights =====
 export const getNetworkQualityOverTime = () =>

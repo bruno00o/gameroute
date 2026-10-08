@@ -1,5 +1,6 @@
 use crate::db::DbError;
 use crate::models::session::DbHop;
+use crate::models::severity::Severity;
 use crate::models::traceroute_record::{TracerouteData, TracerouteRecord, TracerouteWithHops};
 use sqlx::sqlite::SqlitePool;
 use std::collections::HashMap;
@@ -103,6 +104,7 @@ impl TracerouteRepository {
             problem_hop_index: traceroute.problem_hop_index,
             traceroute_method: traceroute.traceroute_method,
             hops,
+            status: Severity::default(),
         }))
     }
 
@@ -155,6 +157,7 @@ impl TracerouteRepository {
                     problem_hop_index: row.problem_hop_index,
                     traceroute_method: row.traceroute_method.clone(),
                     hops: Vec::new(),
+                    status: Severity::default(),
                 }
             });
 
@@ -172,6 +175,7 @@ impl TracerouteRepository {
                     packet_loss: row.packet_loss,
                     is_problem_hop: row.is_problem_hop.unwrap_or(false),
                     source: row.hop_source,
+                    loss_status: None,
                 });
             }
         }

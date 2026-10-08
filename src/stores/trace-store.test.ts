@@ -196,6 +196,7 @@ describe('setIpComplete', () => {
       index: 1,
       targetIp: '1.1.1.1',
       success: true,
+      status: 'ok',
     }
 
     getState().setIpComplete(event)
@@ -207,6 +208,7 @@ describe('setIpComplete', () => {
       index: 1,
       targetIp: '8.8.8.8',
       success: false,
+      status: 'unmeasured',
     }
 
     getState().setIpComplete(event)
@@ -214,8 +216,13 @@ describe('setIpComplete', () => {
   })
 
   it('accumulates multiple IPs', () => {
-    getState().setIpComplete({ index: 1, targetIp: '1.1.1.1', success: true })
-    getState().setIpComplete({ index: 2, targetIp: '8.8.8.8', success: false })
+    getState().setIpComplete({ index: 1, targetIp: '1.1.1.1', success: true, status: 'ok' })
+    getState().setIpComplete({
+      index: 2,
+      targetIp: '8.8.8.8',
+      success: false,
+      status: 'unmeasured',
+    })
 
     expect(getState().completedIps.size).toBe(2)
   })
@@ -271,7 +278,7 @@ describe('reset', () => {
       rttMs: 1.0,
       timeout: false,
     })
-    getState().setIpComplete({ index: 1, targetIp: '1.1.1.1', success: true })
+    getState().setIpComplete({ index: 1, targetIp: '1.1.1.1', success: true, status: 'ok' })
 
     getState().reset()
 

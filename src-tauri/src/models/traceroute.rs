@@ -1,3 +1,4 @@
+use crate::models::severity::Severity;
 use crate::models::HopResult;
 use serde::Serialize;
 
@@ -50,14 +51,16 @@ pub struct TracerouteServerIpCompleteEvent {
     pub index: u32,
     pub target_ip: String,
     pub success: bool,
+    pub status: Severity,
 }
 
 impl TracerouteServerIpCompleteEvent {
-    pub fn new(index: u32, target_ip: String, success: bool) -> Self {
+    pub fn new(index: u32, target_ip: String, success: bool, status: Severity) -> Self {
         Self {
             index,
             target_ip,
             success,
+            status,
         }
     }
 }
@@ -151,10 +154,14 @@ mod tests {
 
     #[test]
     fn test_traceroute_server_ip_complete_event() {
-        let event = TracerouteServerIpCompleteEvent::new(1, "1.1.1.1".to_string(), true);
+        let event =
+            TracerouteServerIpCompleteEvent::new(1, "1.1.1.1".to_string(), true, Severity::Watch);
         assert_eq!(event.index, 1);
         assert_eq!(event.target_ip, "1.1.1.1");
         assert!(event.success);
+        assert!(serde_json::to_string(&event)
+            .unwrap()
+            .contains("\"status\":\"watch\""));
     }
 
     #[test]

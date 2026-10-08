@@ -15,6 +15,7 @@ use crate::models::{
 use crate::platform;
 use crate::services::asn_resolver::resolve_ip;
 use crate::services::flow_kind::{classify, is_known_game_server};
+use crate::services::severity;
 use crate::services::trace_targets::{is_traceable_game_server, select_session_targets, TraceTarget};
 use crate::services::traceroute::{persist_traceroute_result, TracerouteJob};
 use crate::services::{GameDetector, TracerouteService};
@@ -311,8 +312,12 @@ async fn run_next_traceroute(app: AppHandle, service: Arc<TracerouteService>) {
 
     persist_traceroute_result(&result).await;
 
-    let complete_event =
-        TracerouteServerIpCompleteEvent::new(result.index, result.target_ip.clone(), result.success);
+    let complete_event = TracerouteServerIpCompleteEvent::new(
+        result.index,
+        result.target_ip.clone(),
+        result.success,
+        severity::route_status(&result.hops, &result.target_ip),
+    );
     if let Err(e) = app.emit("traceroute-server-ip-complete", complete_event) {
         log::warn!("Failed to emit traceroute-server-ip-complete: {}", e);
     }

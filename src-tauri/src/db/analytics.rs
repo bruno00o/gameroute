@@ -1,6 +1,7 @@
 use crate::db::DbError;
 use crate::models::insights::{HourlyQuality, ServerStability, SessionQualityPoint};
 use crate::models::network::{NetworkMapEntry, NetworkOverviewStats, RecurringProblemHop};
+use crate::models::severity::Severity;
 use sqlx::sqlite::SqlitePool;
 use std::sync::{Arc, OnceLock};
 
@@ -114,6 +115,7 @@ impl AnalyticsRepository {
             total_traceroutes: total_traceroutes.0,
             total_problem_hops: total_problem_hops.0,
             avg_latency: avg_latency.0,
+            status: Severity::default(),
         })
     }
 
