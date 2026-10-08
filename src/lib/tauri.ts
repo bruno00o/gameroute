@@ -10,6 +10,8 @@ import type {
   LiveProbeConfig,
   LiveProbeSample,
   LiveProbeState,
+  LiveStatus,
+  MatchIncident,
   MonitoringStatusResponse,
   NetworkOverviewStats,
   PruneCacheResult,
@@ -123,6 +125,11 @@ export const getLiveProbeConfig = () => invoke<LiveProbeConfig>('get_live_probe_
 export const setLiveProbeConfig = (config: LiveProbeConfig) =>
   invoke<LiveProbeConfig>('set_live_probe_config', { config })
 
+// ===== Live status =====
+export const getLiveStatus = () => invoke<LiveStatus | null>('get_live_status')
+export const getMatchIncidents = (sessionId: number) =>
+  invoke<MatchIncident[]>('get_match_incidents', { sessionId })
+
 // ===== Export =====
 export const writeExportFile = (path: string, content: string) =>
   invoke<void>('write_export_file', { path, content })
@@ -157,3 +164,5 @@ export const onGamePingSample = (cb: (sample: GamePingSample) => void): Promise<
   listen<GamePingSample>('game-ping-sample', e => cb(e.payload))
 export const onLiveProbeSample = (cb: (sample: LiveProbeSample) => void): Promise<UnlistenFn> =>
   listen<LiveProbeSample>('live-probe-sample', e => cb(e.payload))
+export const onLiveStatus = (cb: (status: LiveStatus | null) => void): Promise<UnlistenFn> =>
+  listen<LiveStatus | null>('live-status', e => cb(e.payload))
