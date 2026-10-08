@@ -360,8 +360,8 @@
   "settings_launch_on_startup_error": "No se pudo actualizar este ajuste.",
   "settings_minimize_to_tray": "Minimizar a la bandeja",
   "settings_minimize_to_tray_description": "Mantener la aplicación activa en la bandeja del sistema al cerrar la ventana.",
-  "settings_advanced_mode": "Modo avanzado",
-  "settings_advanced_mode_description": "Mostrar detalles técnicos como hostnames, protocolos, puertos y contadores de paquetes. Desactiva para una vista simplificada.",
+  "settings_detailed_view": "Vista detallada",
+  "settings_detailed_view_description": "Mostrar detalles técnicos como hostnames, protocolos, puertos y contadores de paquetes. Desactiva para una vista simplificada.",
 
   "session_server_location": "Ubicación del servidor",
   "session_your_location": "Tú",
