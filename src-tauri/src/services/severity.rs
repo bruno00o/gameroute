@@ -58,6 +58,24 @@ pub fn loss_status(loss_pct: f64) -> Option<Severity> {
     level(loss_pct, &SEVERITY_LOSS_PCT).map(|i| LEVELS[i])
 }
 
+pub fn jitter_status(jitter_ms: f64) -> Option<Severity> {
+    level(jitter_ms, &SEVERITY_JITTER_MS).map(|i| LEVELS[i])
+}
+
+pub fn latency_status(over_baseline_ms: f64) -> Option<Severity> {
+    level(over_baseline_ms, &SEVERITY_OVER_BASELINE_MS).map(|i| LEVELS[i])
+}
+
+pub fn rank(status: Severity) -> u8 {
+    match status {
+        Severity::Unmeasured => 0,
+        Severity::Ok => 1,
+        Severity::Watch => 2,
+        Severity::Degraded => 3,
+        Severity::Critical => 4,
+    }
+}
+
 pub fn measured_hop<H: ProbedHop>(hops: &[H]) -> Option<&H> {
     hops.iter().rev().find(|hop| hop.responded())
 }
@@ -216,6 +234,16 @@ mod tests {
         assert_eq!(loss_status(2.0), Some(Severity::Degraded));
         assert_eq!(loss_status(5.0), Some(Severity::Critical));
         assert_eq!(loss_status(f64::NAN), None);
+    }
+
+    #[test]
+    fn jitter_and_latency_statuses_use_the_same_steps() {
+        assert_eq!(jitter_status(7.9), None);
+        assert_eq!(jitter_status(15.0), Some(Severity::Degraded));
+        assert_eq!(latency_status(19.9), None);
+        assert_eq!(latency_status(100.0), Some(Severity::Critical));
+        assert!(rank(Severity::Unmeasured) < rank(Severity::Ok));
+        assert!(rank(Severity::Degraded) < rank(Severity::Critical));
     }
 
     #[test]

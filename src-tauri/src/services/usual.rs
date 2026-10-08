@@ -201,7 +201,7 @@ fn ping_basis(
     }
 }
 
-fn game_basis(server_ip: &str) -> PingBasis {
+pub fn game_basis(server_ip: &str) -> PingBasis {
     PingBasis {
         source: PingSource::Game,
         at_destination: true,

@@ -514,7 +514,9 @@ async fn capture_udp_connections(related_pids: &HashSet<u32>) -> Vec<CapturedCon
     }
 
     // Request capture from the privileged service
-    match capture_client::request_udp_capture(local_ports.clone()).await {
+    let captured = capture_client::request_udp_capture(local_ports.clone()).await;
+    super::capture_health::record(captured.is_ok());
+    match captured {
         Ok(endpoints) => {
             let raw_count = endpoints.len();
             let connections = group_udp_endpoints(endpoints);

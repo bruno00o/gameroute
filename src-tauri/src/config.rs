@@ -113,6 +113,36 @@ pub const LIVE_PROBE_PAYLOAD: &[u8] = b"gameroute";
 
 pub const LIVE_PROBE_PROTECTED_ASNS: &[u32] = &[6507];
 
+// ── Live status ────────────────────────────────────────────────────────────
+
+pub const LIVE_STATUS_WINDOW_SECS: i64 = 30;
+
+/// Loss needs more probes than latency: at one probe per second, 30 s only
+/// resolve 3.3 % steps, coarser than the 0.5 / 2 / 5 % thresholds.
+pub const LIVE_STATUS_LOSS_WINDOW_SECS: i64 = 120;
+
+/// Loss is rated on the lower confidence bound (Wilson, one standard error)
+/// and a single lost probe is ignored, so one drop never reads as a lossy link.
+pub const LIVE_STATUS_LOSS_CONFIDENCE_Z: f64 = 1.0;
+
+/// Share of the largest successive differences left out of the jitter, so an
+/// isolated spike does not read as a jittery link.
+pub const LIVE_STATUS_JITTER_TRIM: f64 = 0.1;
+
+pub const LIVE_STATUS_RISE_SECS: i64 = 10;
+
+pub const LIVE_STATUS_FALL_SECS: i64 = 30;
+
+pub const LIVE_STATUS_PROBE_STALE_SECS: i64 = 3;
+
+pub const LIVE_STATUS_GAME_STALE_SECS: i64 = 25;
+
+pub const LIVE_STATUS_MIN_PROBES: u32 = 10;
+
+pub const LIVE_STATUS_MATCH_REFRESH_SECS: i64 = 5;
+
+pub const LIVE_STATUS_USUAL_DAYS: i64 = 90;
+
 // ── Database ──────────────────────────────────────────────────────────────
 
 /// Timeout for acquiring a connection from the SQLite pool.

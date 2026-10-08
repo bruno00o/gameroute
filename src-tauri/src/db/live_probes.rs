@@ -65,6 +65,38 @@ impl LiveProbeRepository {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, sqlx::FromRow)]
+pub struct GameSlice {
+    pub game_name: String,
+    #[sqlx(flatten)]
+    pub slice: LiveProbeSlice,
+}
+
+impl LiveProbeRepository {
+    pub async fn get_path_slices(
+        &self,
+        since: &str,
+        except_session: i64,
+    ) -> Result<Vec<GameSlice>, DbError> {
+        sqlx::query_as::<_, GameSlice>(
+            "SELECT s.game_name, l.session_id, l.source, l.started_at, l.address, l.host, l.ttl,
+                    l.server_ip, l.reply_ip, l.at_destination, l.region, l.provider, l.sent,
+                    l.received, l.rtt_min, l.rtt_median, l.rtt_max, l.jitter_ms
+             FROM live_probe_slices l
+             JOIN sessions s ON s.id = l.session_id
+             WHERE l.source IN ('floor', 'gateway', 'isp_edge')
+               AND l.started_at >= $1
+               AND l.session_id != $2
+             ORDER BY l.started_at ASC, l.id ASC",
+        )
+        .bind(since)
+        .bind(except_session)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+}
+
 static LIVE_PROBE_REPOSITORY: OnceLock<Arc<LiveProbeRepository>> = OnceLock::new();
 
 pub fn init_live_probe_repository(pool: SqlitePool) {
@@ -116,6 +148,7 @@ mod tests {
     use super::*;
     use crate::db::create_test_pool;
     use crate::db::sessions::SessionRepository;
+    use crate::models::insights::PingSource;
 
     #[tokio::test]
     async fn slices_are_stored_once_and_go_away_with_their_session() {
@@ -148,5 +181,48 @@ mod tests {
 
         sessions.delete_session(id).await.unwrap();
         assert!(repo.get_slices_for_session(id).await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn path_slices_skip_the_current_session_and_region_beacons() {
+        let pool = create_test_pool().await;
+        let repo = LiveProbeRepository::new(pool.clone());
+        let sessions = SessionRepository::new(pool);
+        let past = sessions
+            .insert_session("VALORANT", "2026-10-07T20:00:00Z")
+            .await
+            .unwrap();
+        let current = sessions
+            .insert_session("VALORANT", "2026-10-08T20:00:00Z")
+            .await
+            .unwrap();
+        let gateway = LiveProbeSlice {
+            source: PingSource::Gateway,
+            address: "192.168.1.254".to_string(),
+            ttl: None,
+            ..floor_slice(past, "2026-10-07T20:05:00.000Z", 0.6, 10)
+        };
+        let region = LiveProbeSlice {
+            source: PingSource::Region,
+            ..floor_slice(past, "2026-10-07T20:05:00.000Z", 5.0, 10)
+        };
+        repo.insert_slices(&[
+            floor_slice(past, "2026-10-07T20:05:00.000Z", 4.6, 10),
+            gateway.clone(),
+            region,
+            floor_slice(past, "2026-10-01T20:05:00.000Z", 4.6, 10),
+            floor_slice(current, "2026-10-08T20:05:00.000Z", 9.0, 10),
+        ])
+        .await
+        .unwrap();
+
+        let slices = repo
+            .get_path_slices("2026-10-05T00:00:00Z", current)
+            .await
+            .unwrap();
+        let sources: Vec<PingSource> = slices.iter().map(|s| s.slice.source).collect();
+        assert_eq!(sources, vec![PingSource::Floor, PingSource::Gateway]);
+        assert!(slices.iter().all(|s| s.game_name == "VALORANT"));
+        assert_eq!(slices[1].slice, gateway);
     }
 }

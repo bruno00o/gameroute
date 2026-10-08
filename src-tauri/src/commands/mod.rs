@@ -3,6 +3,7 @@ pub mod export;
 pub mod games;
 pub mod insights;
 pub mod live_probe;
+pub mod live_status;
 pub mod monitoring;
 pub mod network;
 pub mod service;
