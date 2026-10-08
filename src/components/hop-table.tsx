@@ -172,7 +172,7 @@ export function HopTable({
                   <span
                     className={cn(
                       hop.packetLoss > 5 && 'text-destructive',
-                      hop.packetLoss > 0 && hop.packetLoss <= 5 && 'text-amber-500',
+                      hop.packetLoss > 0 && hop.packetLoss <= 5 && 'text-watch',
                     )}
                   >
                     {formatLoss(hop.packetLoss)}
@@ -271,7 +271,6 @@ function RouteMapContent({ points, coords }: { points: MapPoint[]; coords: [numb
       <MapControls />
       <MapRoute
         coordinates={coords}
-        color="#3b82f6"
         width={3}
         opacity={0.7}
         interactive={false}
@@ -289,15 +288,9 @@ function RouteMapContent({ points, coords }: { points: MapPoint[]; coords: [numb
             <MarkerContent>
               <div
                 className={cn(
-                  'flex items-center justify-center rounded-full text-white shadow-md',
+                  'text-background flex items-center justify-center rounded-full shadow-md',
                   isFirst || isLast ? 'size-5 text-[9px] font-bold' : 'size-4 text-[8px] font-semibold',
-                  isFirst
-                    ? 'bg-emerald-500'
-                    : isLast
-                      ? 'bg-red-500'
-                      : point.hasProblem
-                        ? 'bg-red-500'
-                        : 'bg-blue-500',
+                  point.hasProblem ? 'bg-destructive' : 'bg-foreground',
                 )}
               >
                 {label}

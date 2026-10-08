@@ -45,20 +45,20 @@ const verdictConfig = {
   good: {
     label: () => m.dashboard_network_good(),
     desc: () => m.dashboard_network_good_desc(),
-    color: 'text-emerald-500',
-    bg: 'bg-emerald-500/10 border-emerald-500/30',
+    color: 'text-ok',
+    bg: 'border-border bg-card',
   },
   fair: {
     label: () => m.dashboard_network_fair(),
     desc: () => m.dashboard_network_fair_desc(),
-    color: 'text-amber-500',
-    bg: 'bg-amber-500/10 border-amber-500/30',
+    color: 'text-watch',
+    bg: 'bg-watch-soft border-watch/30',
   },
   poor: {
     label: () => m.dashboard_network_poor(),
     desc: () => m.dashboard_network_poor_desc(),
     color: 'text-destructive',
-    bg: 'bg-destructive/10 border-destructive/30',
+    bg: 'bg-critical-soft border-destructive/30',
   },
   'no-data': {
     label: () => m.dashboard_network_no_data(),
@@ -140,7 +140,7 @@ function DashboardPage() {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger render={<div className="text-center cursor-help" />}>
-                      <div className={`text-lg font-bold ${networkStats.totalProblemHops > 0 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                      <div className={`text-lg font-bold ${networkStats.totalProblemHops > 0 ? 'text-watch' : 'text-ok'}`}>
                         {networkStats.totalProblemHops}
                       </div>
                       <div className="text-muted-foreground text-xs underline decoration-dotted">

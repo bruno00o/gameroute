@@ -92,7 +92,7 @@ function DeltaBadge({ current, previous, unit = '', invert = false }: {
   return (
     <span className={cn(
       'inline-flex items-center gap-0.5 text-[10px] font-medium',
-      isGood ? 'text-emerald-500' : 'text-destructive',
+      isGood ? 'text-ok' : 'text-destructive',
     )}>
       {isPositive
         ? <RiArrowUpSLine className="size-3" />
@@ -234,7 +234,7 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
           <CardContent>
             {stats.stability != null ? (
               <div className="flex items-baseline gap-2">
-                <p className={`text-lg font-medium ${stats.stability >= 90 ? 'text-emerald-500' : stats.stability >= 70 ? 'text-amber-500' : 'text-destructive'}`}>
+                <p className={`text-lg font-medium ${stats.stability >= 90 ? 'text-ok' : stats.stability >= 70 ? 'text-watch' : 'text-destructive'}`}>
                   {stats.stability}%
                 </p>
                 <DeltaBadge current={stats.stability} previous={prevStats?.stability ?? null} unit="%" invert />
@@ -280,7 +280,7 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
               {stats.problemHopCount > 0 ? (
                 <p className="text-destructive text-lg font-medium">{stats.problemHopCount}</p>
               ) : (
-                <p className="text-emerald-500 text-sm font-medium">{m.session_no_problems()}</p>
+                <p className="text-ok text-sm font-medium">{m.session_no_problems()}</p>
               )}
               <DeltaBadge current={stats.problemHopCount} previous={prevStats?.problemHopCount ?? null} />
             </div>

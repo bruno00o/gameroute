@@ -329,7 +329,7 @@ function OverviewTab() {
       <div className="mt-8 space-y-8">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <RiGamepadLine className="size-5 text-amber-500" />
+            <RiGamepadLine className="size-5 text-muted-foreground" />
             {m.network_game_server_hops_title()}
           </h2>
           {hopsLoading ? (
@@ -377,11 +377,11 @@ function TrendsTab() {
     () => ({
       avgLatency: {
         label: m.insights_quality_latency(),
-        color: 'oklch(0.65 0.15 250)',
+        color: 'var(--chart-1)',
       },
       problemHopPercent: {
         label: m.insights_quality_problems(),
-        color: 'oklch(0.65 0.2 25)',
+        color: 'var(--chart-2)',
       },
     }),
     [],
@@ -391,7 +391,7 @@ function TrendsTab() {
     () => ({
       avgLatency: {
         label: m.insights_hourly_latency(),
-        color: 'oklch(0.65 0.15 250)',
+        color: 'var(--chart-1)',
       },
     }),
     [],
@@ -467,6 +467,7 @@ function TrendsTab() {
                     dataKey="problemHopPercent"
                     stroke="var(--color-problemHopPercent)"
                     strokeWidth={2}
+                    strokeDasharray="4 3"
                     dot={{ r: 3 }}
                   />
                 </LineChart>
@@ -826,7 +827,7 @@ function ServerMapContent({ entries }: { entries: NetworkMapEntry[] }) {
             <div
               className={cn(
                 'size-3.5 rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.1)] transition-transform hover:scale-150',
-                entry.isGameServer ? 'bg-blue-500' : 'bg-slate-400',
+                entry.isGameServer ? 'bg-foreground' : 'bg-route-b',
               )}
             />
           </MarkerContent>
@@ -852,7 +853,7 @@ function ServerMapContent({ entries }: { entries: NetworkMapEntry[] }) {
                 {selectedEntry.ip}
               </span>
               {selectedEntry.isGameServer && (
-                <RiGamepadLine className="size-3.5 shrink-0 text-amber-500" />
+                <RiGamepadLine className="size-3.5 shrink-0 text-muted-foreground" />
               )}
             </div>
             {(selectedEntry.city || selectedEntry.country) && (
@@ -891,11 +892,11 @@ function ServerMapView({ entries }: { entries: NetworkMapEntry[] }) {
       </ExpandableMap>
       <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-full bg-blue-500" />
+          <span className="size-2.5 rounded-full bg-foreground" />
           {m.network_map_legend_game_server()}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-full bg-slate-400" />
+          <span className="size-2.5 rounded-full bg-route-b" />
           {m.network_map_legend_other()}
         </span>
       </div>
@@ -942,15 +943,15 @@ function StabilityMapSection({
           </div>
           <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-full bg-emerald-500" />
+              <span className="size-2.5 rounded-full bg-ok" />
               {m.network_map_legend_stable()}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-full bg-amber-500" />
+              <span className="size-2.5 rounded-full bg-watch" />
               {m.network_map_legend_some_issues()}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-full bg-red-500" />
+              <span className="size-2.5 rounded-full bg-critical" />
               {m.network_map_legend_problematic()}
             </span>
           </div>
@@ -983,10 +984,10 @@ function StabilityMapContent({ servers }: { servers: ServerStability[] }) {
         const ratio = server.problemHopRatio
         const color =
           ratio > 0.3
-            ? 'bg-red-500'
+            ? 'bg-critical'
             : ratio > 0.1
-              ? 'bg-amber-500'
-              : 'bg-emerald-500'
+              ? 'bg-watch'
+              : 'bg-ok'
         return (
           <MapMarker
             key={server.ip}
@@ -1023,7 +1024,7 @@ function StabilityMapContent({ servers }: { servers: ServerStability[] }) {
             <div className="flex items-center gap-2">
               <span className="truncate font-mono text-xs font-medium">{selected.ip}</span>
               {selected.isGameServer && (
-                <RiGamepadLine className="size-3.5 shrink-0 text-amber-500" />
+                <RiGamepadLine className="size-3.5 shrink-0 text-muted-foreground" />
               )}
             </div>
             {selected.country && (
