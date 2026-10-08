@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::hop::ProbedHop;
-use super::insights::{PingSource, UsualPing};
+use super::insights::UsualPing;
 use super::ip_period::{IpPeriod, IpPeriodSummary};
 use super::severity::Severity;
 use super::traceroute_record::TracerouteWithHops;
@@ -106,8 +106,6 @@ pub struct TraceMeasure {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameMeasure {
-    pub source: PingSource,
-    pub region: Option<String>,
     pub measured_at: String,
     pub sample_count: u32,
     pub ping_ms: f64,
@@ -115,6 +113,20 @@ pub struct GameMeasure {
     pub loss_pct: Option<f64>,
     pub packets_lost: i64,
     pub usual: Option<UsualPing>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegionPing {
+    pub region: String,
+    pub ping_ms: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegionPings {
+    pub measured_at: String,
+    pub pings: Vec<RegionPing>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -131,6 +143,7 @@ pub struct MeasuredFlow {
     pub operator: Option<FlowOperator>,
     pub trace: Option<TraceMeasure>,
     pub game: Option<GameMeasure>,
+    pub region_pings: Option<RegionPings>,
     pub status: Severity,
 }
 
@@ -372,8 +385,6 @@ mod tests {
                 }),
             }),
             game: Some(GameMeasure {
-                source: PingSource::Game,
-                region: None,
                 measured_at: "2026-09-13T14:27:10.000Z".to_string(),
                 sample_count: 250,
                 ping_ms: 13.3,
@@ -381,6 +392,13 @@ mod tests {
                 loss_pct: Some(0.0),
                 packets_lost: 0,
                 usual: None,
+            }),
+            region_pings: Some(RegionPings {
+                measured_at: "2026-09-13T14:20:00.000Z".to_string(),
+                pings: vec![RegionPing {
+                    region: "Paris".to_string(),
+                    ping_ms: 4.0,
+                }],
             }),
             status: Severity::Ok,
         };
@@ -400,7 +418,7 @@ mod tests {
         assert_eq!(json["trace"]["pingMs"], 17.6);
         assert_eq!(json["trace"]["usual"]["medianMs"], 17.2);
         assert_eq!(json["trace"]["usual"]["sampleCount"], 20);
-        assert_eq!(json["game"]["source"], "game");
+        assert_eq!(json["regionPings"]["pings"][0]["region"], "Paris");
         assert_eq!(json["game"]["pingMs"], 13.3);
         assert_eq!(json["status"], "ok");
         assert!(json["voice"].is_null());

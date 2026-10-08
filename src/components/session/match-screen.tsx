@@ -19,6 +19,7 @@ import {
   matchMeasure,
   measuredUpTo,
   pingSourceNote,
+  regionPingsText,
   statusReason,
   thresholdRules,
   traceOf,
@@ -87,13 +88,20 @@ function MatchFacts({
   timing,
   detailed,
   pending,
+  context,
 }: {
   match: SessionMatch
   traceroute: TracerouteWithHops | undefined
   timing: TraceTiming | null
   detailed: boolean
   pending: boolean
+  context: string | null
 }) {
+  const regions = context && (
+    <p data-slot="region-pings" className="text-label text-muted-foreground mt-3">
+      {context}
+    </p>
+  )
   const trace = matchMeasure(match)
   const number = String(match.number)
 
@@ -110,6 +118,7 @@ function MatchFacts({
         >
           {pending ? m.verdict_pending_body() : m.verdict_unmeasured_body()}
         </EmptyState>
+        {regions}
       </Panel>
     )
   }
@@ -135,6 +144,7 @@ function MatchFacts({
           </Fact>
         )}
       </FactRow>
+      {regions}
     </Panel>
   )
 }
@@ -383,6 +393,7 @@ function MatchScreen({
           timing={timing}
           detailed={detailed}
           pending={detail.endedAt === null && !matchMeasure(match)}
+          context={regionPingsText(match, detail.gameName)}
         />
         <div className="flex flex-wrap items-start gap-4">
           <MatchRoute

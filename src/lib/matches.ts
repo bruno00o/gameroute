@@ -2,7 +2,6 @@ import * as m from '@/paraglide/messages'
 import { getLocale } from '@/paraglide/runtime'
 import type {
   FlowOperator,
-  GameMeasure,
   MeasuredFlow,
   OperatorRoute,
   RouteZone,
@@ -12,12 +11,13 @@ import type {
   TraceMeasure,
   TracerouteWithHops,
 } from '@/types/backend'
-import { formatClock, formatElapsed, formatPercent } from '@/lib/format'
+import { formatClock, formatElapsed, formatMs, formatPercent } from '@/lib/format'
 import { shortOperatorName } from '@/lib/operators'
 import { formatRouteMs, segmentAt, segmentName, zoneLabel } from '@/lib/route'
 
 const RIOT_ASN = 6507
 const MISSING = '—'
+const REGION_PINGS_SHOWN = 3
 const ZONES: RouteZone[] = ['home', 'isp', 'transit', 'service']
 
 const RANK: Record<Severity, number> = {
@@ -94,10 +94,13 @@ export function matchMeasure(flow: MeasuredFlow): PingMeasure | null {
   }
 }
 
-export function gamePingSource(game: GameMeasure): string {
-  return game.source === 'game_region' && game.region
-    ? m.ping_by_game_region({ region: game.region })
-    : m.ping_by_game()
+export function regionPingsText(flow: MeasuredFlow, game: string): string | null {
+  const pings = flow.regionPings?.pings.slice(0, REGION_PINGS_SHOWN) ?? []
+  if (pings.length === 0) return null
+  const list = pings
+    .map(ping => `${ping.region} ${formatMs(ping.pingMs, { digits: 0 })}`)
+    .join(' · ')
+  return m.match_region_pings({ game, pings: list })
 }
 
 export function formatFlowPing(trace: PingMeasure | null | undefined): string {
@@ -192,7 +195,7 @@ export function pingSourceNote(
   flow: MeasuredFlow,
   route: OperatorRoute | null | undefined
 ): string | null {
-  return flow.game ? gamePingSource(flow.game) : measuredUpTo(flow.trace, route)
+  return flow.game ? m.ping_by_game() : measuredUpTo(flow.trace, route)
 }
 
 export function usualPing(trace: PingMeasure | null | undefined): number | null {
@@ -265,7 +268,7 @@ export function flowProvenance(
   sessionEndedAt: string | null,
   { withOffset = false }: { withOffset?: boolean } = {}
 ): string[] {
-  if (flow.game) return [gamePingSource(flow.game)]
+  if (flow.game) return [m.ping_by_game()]
   if (flow.trace?.pingMs == null) return []
   const timing = traceTiming(flow, matches, sessionEndedAt)
   const upTo = measuredUpTo(flow.trace, traceOf(flow, traceroutes)?.route)

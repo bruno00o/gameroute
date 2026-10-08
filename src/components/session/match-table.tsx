@@ -9,6 +9,7 @@ import {
   formatFlowPing,
   formatLoss,
   matchMeasure,
+  regionPingsText,
   severityRank,
 } from '@/lib/matches'
 import { DataTable, type DataTableColumn } from '@/components/data-table'
@@ -18,6 +19,7 @@ type MatchTableProps = {
   matches: SessionMatch[]
   traceroutes: TracerouteWithHops[]
   sessionEndedAt: string | null
+  gameName?: string
   detailed?: boolean
   selectedPeriodId?: number
   onSelect?: (match: SessionMatch) => void
@@ -41,6 +43,7 @@ function MatchTable({
   matches,
   traceroutes,
   sessionEndedAt,
+  gameName,
   detailed = false,
   selectedPeriodId,
   onSelect,
@@ -49,6 +52,11 @@ function MatchTable({
   const columns = useMemo<DataTableColumn<SessionMatch>[]>(() => {
     const provenance = (flow: MeasuredFlow) =>
       flowProvenance(flow, matches, traceroutes, sessionEndedAt, { withOffset: detailed })
+
+    const pingNotes = (match: SessionMatch) => {
+      const regions = detailed && gameName ? regionPingsText(match, gameName) : null
+      return regions ? [...provenance(match), regions] : provenance(match)
+    }
 
     const voice = (match: SessionMatch) => {
       if (!match.voice) return null
@@ -93,7 +101,7 @@ function MatchTable({
         sortValue: match => matchMeasure(match)?.pingMs,
         render: match =>
           matchMeasure(match)?.pingMs == null ? null : (
-            <Measure value={formatFlowPing(matchMeasure(match))} notes={provenance(match)} />
+            <Measure value={formatFlowPing(matchMeasure(match))} notes={pingNotes(match)} />
           ),
       },
       {
@@ -137,7 +145,7 @@ function MatchTable({
         render: match => <StatusPill status={match.status} size="sm" />,
       },
     ]
-  }, [matches, traceroutes, sessionEndedAt, detailed])
+  }, [matches, traceroutes, sessionEndedAt, gameName, detailed])
 
   return (
     <DataTable
