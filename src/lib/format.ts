@@ -17,6 +17,42 @@ export function formatDuration(seconds: number, locale: string = getLocale()): s
   return part(s, 's')
 }
 
+export function formatElapsed(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return MISSING
+  const total = Math.floor(seconds)
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const s = String(total % 60).padStart(2, '0')
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`
+}
+
+const dateFormats = new Map<string, Intl.DateTimeFormat>()
+
+function dateFormat(locale: string, kind: 'clock' | 'day') {
+  const key = `${locale}:${kind}`
+  let format = dateFormats.get(key)
+  if (!format) {
+    format = new Intl.DateTimeFormat(
+      locale,
+      kind === 'clock'
+        ? { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }
+        : { weekday: 'short', day: 'numeric', month: 'short' }
+    )
+    dateFormats.set(key, format)
+  }
+  return format
+}
+
+export function formatClock(iso: string, locale: string = getLocale()): string {
+  const date = new Date(iso)
+  return Number.isNaN(date.getTime()) ? MISSING : dateFormat(locale, 'clock').format(date)
+}
+
+export function formatDay(iso: string, locale: string = getLocale()): string {
+  const date = new Date(iso)
+  return Number.isNaN(date.getTime()) ? MISSING : dateFormat(locale, 'day').format(date)
+}
+
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
     month: 'short',
