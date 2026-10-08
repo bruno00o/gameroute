@@ -1,32 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import {
-  type SortingState,
-  createColumnHelper,
-  flexRender,
-  getCoreRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
-import {
-  RiArrowLeftSLine,
-  RiArrowRightSLine,
-  RiArrowUpSLine,
-  RiArrowDownSLine,
-  RiClipboardLine,
-  RiDownloadLine,
-  RiExpandUpDownLine,
-  RiEarthLine,
-  RiGamepadLine,
-  RiGlobalLine,
-  RiInboxLine,
-  RiRouteLine,
-  RiAlertLine,
-  RiTimeLine,
-  RiBarChartLine,
-} from '@remixicon/react'
+import { RiClipboardLine, RiDownloadLine, RiGamepadLine } from '@remixicon/react'
 import {
   Line,
   LineChart,
@@ -50,23 +25,14 @@ import {
 import { toast } from 'sonner'
 
 import { useSettingsStore } from '@/stores/settings-store'
-import { formatMs, formatPercent, formatDate } from '@/lib/format'
+import { formatMs, formatNumber, formatPercent, formatDate } from '@/lib/format'
 import { generateNetworkExport } from '@/lib/export-llm'
 import { exportServerStability } from '@/lib/export-csv'
 import { cn } from '@/lib/utils'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Map, MapMarker, MarkerContent, MarkerTooltip, MapPopup, MapControls } from '@/components/ui/map'
 import { ExpandableMap } from '@/components/expandable-map'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -78,6 +44,10 @@ import {
   ChartLegend,
   ChartLegendContent,
 } from '@/components/ui/chart'
+import { DataTable, type DataTableColumn } from '@/components/data-table'
+import { EmptyState } from '@/components/empty-state'
+import { Fact, FactRow } from '@/components/fact-row'
+import { Panel } from '@/components/panel'
 
 export const Route = createFileRoute('/network')({
   component: NetworkPage,
@@ -159,13 +129,10 @@ function NetworkPage() {
 
 /* ─── Overview Tab (former Network page) ─── */
 
-const HOPS_PAGE_SIZE = 10
-const hopColumnHelper = createColumnHelper<RecurringProblemHop>()
+const TABLE_PAGE_SIZE = 10
 
 function OverviewTab() {
   const advancedMode = useSettingsStore(s => s.advancedMode)
-  const [gsHopSorting, setGsHopSorting] = useState<SortingState>([])
-  const [otherHopSorting, setOtherHopSorting] = useState<SortingState>([])
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['network-overview-stats'],
@@ -193,174 +160,113 @@ function OverviewTab() {
     }
   }, [problemHops])
 
-  const hopColumns = useMemo(
+  const hopColumns = useMemo<DataTableColumn<RecurringProblemHop>[]>(
     () => [
-      hopColumnHelper.accessor('ip', {
-        header: () => m.network_col_ip(),
-        cell: info => <span className="font-mono text-sm">{info.getValue()}</span>,
-      }),
-      hopColumnHelper.accessor('isp', {
-        header: () => m.network_col_isp(),
-        cell: info => {
-          const isp = info.getValue()
-          const asn = info.row.original.asn
-          if (!isp && !asn) return '-'
-          if (!isp) return <span className="font-mono text-xs">{asn}</span>
-          if (!asn) return isp
+      {
+        key: 'ip',
+        label: m.network_col_ip(),
+        mono: true,
+      },
+      {
+        key: 'isp',
+        label: m.network_col_isp(),
+        sortValue: hop => hop.isp ?? hop.asn,
+        render: hop => {
+          if (!hop.isp) return hop.asn && <span className="font-mono text-xs">{hop.asn}</span>
+          if (!hop.asn) return hop.isp
           return (
             <span>
-              {isp}{' '}
-              <span className="text-muted-foreground text-xs">({asn})</span>
+              {hop.isp} <span className="text-muted-foreground text-xs">({hop.asn})</span>
             </span>
           )
         },
-      }),
-      hopColumnHelper.accessor('occurrenceCount', {
-        header: () => m.network_col_occurrences(),
-        cell: info => <Badge variant="secondary">{info.getValue()}</Badge>,
-      }),
-      hopColumnHelper.accessor('avgLatency', {
-        header: () => advancedMode ? m.network_col_avg_latency() : m.simple_latency(),
-        cell: info => (
-          <span className="font-mono tabular-nums">
-            {formatMs(info.getValue())}
-          </span>
-        ),
-      }),
-      hopColumnHelper.accessor('avgPacketLoss', {
-        header: () => advancedMode ? m.network_col_avg_loss() : m.simple_loss(),
-        cell: info => formatPercent(info.getValue()),
-      }),
+      },
+      {
+        key: 'occurrenceCount',
+        label: m.network_col_occurrences(),
+        align: 'end',
+        mono: true,
+        render: hop => formatNumber(hop.occurrenceCount),
+      },
+      {
+        key: 'avgLatency',
+        label: advancedMode ? m.network_col_avg_latency() : m.simple_latency(),
+        align: 'end',
+        mono: true,
+        render: hop => formatMs(hop.avgLatency),
+      },
+      {
+        key: 'avgPacketLoss',
+        label: advancedMode ? m.network_col_avg_loss() : m.simple_loss(),
+        align: 'end',
+        mono: true,
+        render: hop => formatPercent(hop.avgPacketLoss),
+      },
     ],
-    [advancedMode],
+    [advancedMode]
   )
-
-  const gsHopTable = useReactTable({
-    data: gsHops,
-    columns: hopColumns,
-    state: { sorting: gsHopSorting },
-    onSortingChange: setGsHopSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: HOPS_PAGE_SIZE } },
-  })
-
-  const otherHopTable = useReactTable({
-    data: otherHops,
-    columns: hopColumns,
-    state: { sorting: otherHopSorting },
-    onSortingChange: setOtherHopSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: HOPS_PAGE_SIZE } },
-  })
 
   const mappableEntries = useMemo(
     () => (mapData ?? []).filter(e => e.lat != null && e.lon != null),
-    [mapData],
+    [mapData]
   )
 
   if (isEmpty) {
     return (
-      <div className="mt-16 flex flex-col items-center gap-3 text-center">
-        <RiGlobalLine className="text-muted-foreground size-10" />
-        <h2 className="text-lg font-medium">{m.network_empty_title()}</h2>
-        <p className="text-muted-foreground text-sm">{m.network_empty_description()}</p>
-      </div>
+      <EmptyState className="mt-6" title={m.network_empty_title()}>
+        {m.network_empty_description()}
+      </EmptyState>
     )
   }
 
+  const statValue = (value: string | number | undefined) =>
+    statsLoading ? <Skeleton className="h-5 w-16" /> : value
+
   return (
-    <>
-      {/* Stats */}
-      <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard
-          title={m.network_unique_ips()}
-          value={stats?.uniqueServerIps}
-          icon={<RiGlobalLine className="text-muted-foreground size-4" />}
-          isLoading={statsLoading}
-        />
-        <StatCard
-          title={m.network_total_traceroutes()}
-          value={stats?.totalTraceroutes}
-          icon={<RiRouteLine className="text-muted-foreground size-4" />}
-          isLoading={statsLoading}
-        />
-        <StatCard
-          title={advancedMode ? m.network_total_problem_hops() : m.simple_total_problem_hops()}
-          value={stats?.totalProblemHops}
-          icon={<RiAlertLine className="text-muted-foreground size-4" />}
-          isLoading={statsLoading}
-        />
-        <StatCard
-          title={advancedMode ? m.network_avg_latency() : m.simple_avg_latency()}
-          value={formatMs(stats?.avgLatency)}
-          icon={<RiTimeLine className="text-muted-foreground size-4" />}
-          isLoading={statsLoading}
-        />
-      </div>
+    <div className="mt-4 flex flex-col gap-6">
+      <FactRow>
+        <Fact label={m.network_unique_ips()}>{statValue(stats?.uniqueServerIps)}</Fact>
+        <Fact label={m.network_total_traceroutes()}>{statValue(stats?.totalTraceroutes)}</Fact>
+        <Fact label={advancedMode ? m.network_total_problem_hops() : m.simple_total_problem_hops()}>
+          {statValue(stats?.totalProblemHops)}
+        </Fact>
+        <Fact label={advancedMode ? m.network_avg_latency() : m.simple_avg_latency()}>
+          {statValue(stats ? formatMs(stats.avgLatency) : undefined)}
+        </Fact>
+      </FactRow>
 
-      {/* Server Map */}
-      <div className="mt-6">
-        <h2 className="text-lg font-semibold">{m.network_map_title()}</h2>
+      <Panel label={m.network_map_title()}>
         {mapLoading ? (
-          <Skeleton className="mt-3 h-80" />
+          <Skeleton className="h-80" />
         ) : mappableEntries.length === 0 ? (
-          <div className="mt-6 flex flex-col items-center gap-3 text-center">
-            <RiEarthLine className="text-muted-foreground size-8" />
-            <p className="text-muted-foreground text-sm">{m.network_map_empty()}</p>
-          </div>
+          <EmptyState compact title={m.network_map_empty()} />
         ) : (
-          <div className="mt-3 overflow-hidden rounded-lg border">
-            <ServerMapView entries={mappableEntries} />
-          </div>
+          <ServerMapView entries={mappableEntries} />
         )}
-      </div>
+      </Panel>
 
-      {/* Problem Hops split */}
-      <div className="mt-8 space-y-8">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <RiGamepadLine className="size-5 text-muted-foreground" />
-            {m.network_game_server_hops_title()}
-          </h2>
-          {hopsLoading ? (
-            <div className="mt-3">
-              <Skeleton className="h-40" />
-            </div>
-          ) : gsHops.length === 0 ? (
-            <div className="mt-4 flex flex-col items-center gap-2 text-center">
-              <RiInboxLine className="text-muted-foreground size-6" />
-              <p className="text-muted-foreground text-xs">
-                {m.network_no_game_server_issues()}
-              </p>
-            </div>
-          ) : (
-            <HopTable table={gsHopTable} />
-          )}
-        </div>
+      <Panel label={m.network_game_server_hops_title()} flush>
+        <DataTable
+          columns={hopColumns}
+          rows={gsHops}
+          getRowId={hop => hop.ip}
+          pageSize={TABLE_PAGE_SIZE}
+          loading={hopsLoading}
+          empty={<EmptyState compact title={m.network_no_game_server_issues()} />}
+        />
+      </Panel>
 
-        <div>
-          <h2 className="text-lg font-semibold">{m.network_other_hops_title()}</h2>
-          {hopsLoading ? (
-            <div className="mt-3">
-              <Skeleton className="h-40" />
-            </div>
-          ) : otherHops.length === 0 ? (
-            <div className="mt-4 flex flex-col items-center gap-2 text-center">
-              <RiInboxLine className="text-muted-foreground size-6" />
-              <p className="text-muted-foreground text-xs">
-                {m.network_problem_hops_empty()}
-              </p>
-            </div>
-          ) : (
-            <HopTable table={otherHopTable} />
-          )}
-        </div>
-      </div>
-    </>
+      <Panel label={m.network_other_hops_title()} flush>
+        <DataTable
+          columns={hopColumns}
+          rows={otherHops}
+          getRowId={hop => hop.ip}
+          pageSize={TABLE_PAGE_SIZE}
+          loading={hopsLoading}
+          empty={<EmptyState compact title={m.network_problem_hops_empty()} />}
+        />
+      </Panel>
+    </div>
   )
 }
 
@@ -378,7 +284,7 @@ function TrendsTab() {
         color: 'var(--chart-2)',
       },
     }),
-    [],
+    []
   )
 
   const hourlyChartConfig = useMemo<ChartConfig>(
@@ -388,7 +294,7 @@ function TrendsTab() {
         color: 'var(--chart-1)',
       },
     }),
-    [],
+    []
   )
 
   const { data: qualityData, isLoading: qualityLoading } = useQuery({
@@ -409,388 +315,170 @@ function TrendsTab() {
 
   if (isEmpty) {
     return (
-      <div className="mt-16 flex flex-col items-center gap-3 text-center">
-        <RiBarChartLine className="text-muted-foreground size-10" />
-        <h2 className="text-lg font-medium">{m.insights_empty_title()}</h2>
-        <p className="text-muted-foreground text-sm">{m.insights_empty_description()}</p>
-      </div>
+      <EmptyState className="mt-6" title={m.insights_empty_title()}>
+        {m.insights_empty_description()}
+      </EmptyState>
     )
   }
 
   return (
-    <>
-      <div className="mt-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>{m.insights_quality_title()}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {qualityLoading ? (
-              <Skeleton className="h-64" />
-            ) : !qualityData || qualityData.length === 0 ? (
-              <EmptyChart message={m.insights_quality_empty()} />
-            ) : (
-              <ChartContainer config={qualityChartConfig} className="h-64 w-full">
-                <LineChart
-                  data={qualityData.map(p => ({
-                    date: formatDate(p.startedAt),
-                    avgLatency: p.avgLatency != null ? Number(p.avgLatency.toFixed(1)) : null,
-                    problemHopPercent: Number((p.problemHopRatio * 100).toFixed(1)),
-                    gameName: p.gameName,
-                  }))}
-                  margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis yAxisId="latency" tick={{ fontSize: 11 }} />
-                  <YAxis yAxisId="percent" orientation="right" tick={{ fontSize: 11 }} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <ChartLegend content={<ChartLegendContent />} />
-                  <Line
-                    yAxisId="latency"
-                    type="monotone"
-                    dataKey="avgLatency"
-                    stroke="var(--color-avgLatency)"
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                    connectNulls
-                  />
-                  <Line
-                    yAxisId="percent"
-                    type="monotone"
-                    dataKey="problemHopPercent"
-                    stroke="var(--color-problemHopPercent)"
-                    strokeWidth={2}
-                    strokeDasharray="4 3"
-                    dot={{ r: 3 }}
-                  />
-                </LineChart>
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+    <div className="mt-4 flex flex-col gap-6">
+      <Panel label={m.insights_quality_title()}>
+        {qualityLoading ? (
+          <Skeleton className="h-64" />
+        ) : !qualityData || qualityData.length === 0 ? (
+          <EmptyState compact title={m.insights_quality_empty()} />
+        ) : (
+          <ChartContainer config={qualityChartConfig} className="h-64 w-full">
+            <LineChart
+              data={qualityData.map(p => ({
+                date: formatDate(p.startedAt),
+                avgLatency: p.avgLatency != null ? Number(p.avgLatency.toFixed(1)) : null,
+                problemHopPercent: Number((p.problemHopRatio * 100).toFixed(1)),
+                gameName: p.gameName,
+              }))}
+              margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+              <YAxis yAxisId="latency" tick={{ fontSize: 11 }} />
+              <YAxis yAxisId="percent" orientation="right" tick={{ fontSize: 11 }} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Line
+                yAxisId="latency"
+                type="monotone"
+                dataKey="avgLatency"
+                stroke="var(--color-avgLatency)"
+                strokeWidth={2}
+                dot={{ r: 3 }}
+                connectNulls
+              />
+              <Line
+                yAxisId="percent"
+                type="monotone"
+                dataKey="problemHopPercent"
+                stroke="var(--color-problemHopPercent)"
+                strokeWidth={2}
+                strokeDasharray="4 3"
+                dot={{ r: 3 }}
+              />
+            </LineChart>
+          </ChartContainer>
+        )}
+      </Panel>
 
-      <div className="mt-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>{m.insights_hourly_title()}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {hourlyLoading ? (
-              <Skeleton className="h-56" />
-            ) : !hourlyData || hourlyData.length === 0 ? (
-              <EmptyChart message={m.insights_hourly_empty()} />
-            ) : (
-              <ChartContainer config={hourlyChartConfig} className="h-56 w-full">
-                <BarChart
-                  data={hourlyData.map(h => ({
-                    hour: `${String(h.hour).padStart(2, '0')}h`,
-                    avgLatency:
-                      h.avgLatency != null ? Number(h.avgLatency.toFixed(1)) : 0,
-                    sessionCount: h.sessionCount,
-                  }))}
-                  margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="hour" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar
-                    dataKey="avgLatency"
-                    fill="var(--color-avgLatency)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </>
+      <Panel label={m.insights_hourly_title()}>
+        {hourlyLoading ? (
+          <Skeleton className="h-56" />
+        ) : !hourlyData || hourlyData.length === 0 ? (
+          <EmptyState compact title={m.insights_hourly_empty()} />
+        ) : (
+          <ChartContainer config={hourlyChartConfig} className="h-56 w-full">
+            <BarChart
+              data={hourlyData.map(h => ({
+                hour: `${String(h.hour).padStart(2, '0')}h`,
+                avgLatency: h.avgLatency != null ? Number(h.avgLatency.toFixed(1)) : 0,
+                sessionCount: h.sessionCount,
+              }))}
+              margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="hour" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="avgLatency" fill="var(--color-avgLatency)" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ChartContainer>
+        )}
+      </Panel>
+    </div>
   )
 }
 
 /* ─── Servers Tab (stability table + map from Insights) ─── */
 
-const STABILITY_PAGE_SIZE = 10
-const stabilityColumnHelper = createColumnHelper<ServerStability>()
-
 function ServersTab() {
-  const [stabilitySorting, setStabilitySorting] = useState<SortingState>([])
-
   const { data: stabilityData, isLoading: stabilityLoading } = useQuery({
     queryKey: ['insights-stability'],
     queryFn: getServerStability,
   })
 
-  const stabilityColumns = useMemo(
+  const stabilityColumns = useMemo<DataTableColumn<ServerStability>[]>(
     () => [
-      stabilityColumnHelper.accessor('ip', {
-        header: () => m.insights_col_ip(),
-        cell: info => <span className="font-mono text-xs">{info.getValue()}</span>,
-      }),
-      stabilityColumnHelper.accessor('isp', {
-        header: () => m.insights_col_isp(),
-        cell: info => (
-          <span className="text-xs">{info.getValue() ?? '-'}</span>
-        ),
-      }),
-      stabilityColumnHelper.accessor('country', {
-        header: () => m.insights_col_country(),
-        cell: info => (
-          <span className="text-xs">{info.getValue() ?? '-'}</span>
-        ),
-      }),
-      stabilityColumnHelper.accessor('avgLatency', {
-        header: () => m.insights_col_avg_latency(),
-        cell: info => (
-          <span className="font-mono tabular-nums">
-            {formatMs(info.getValue())}
-          </span>
-        ),
-      }),
-      stabilityColumnHelper.accessor('avgPacketLoss', {
-        header: () => m.insights_col_avg_loss(),
-        cell: info => formatPercent(info.getValue()),
-      }),
-      stabilityColumnHelper.accessor('tracerouteCount', {
-        header: () => m.insights_col_traceroutes(),
-        cell: info => <Badge variant="secondary">{info.getValue()}</Badge>,
-      }),
-      stabilityColumnHelper.accessor('problemHopRatio', {
-        header: () => m.insights_col_problems(),
-        cell: info => formatPercent(info.getValue() * 100),
-      }),
+      {
+        key: 'ip',
+        label: m.insights_col_ip(),
+        mono: true,
+      },
+      {
+        key: 'isp',
+        label: m.insights_col_isp(),
+      },
+      {
+        key: 'country',
+        label: m.insights_col_country(),
+      },
+      {
+        key: 'avgLatency',
+        label: m.insights_col_avg_latency(),
+        align: 'end',
+        mono: true,
+        render: server => formatMs(server.avgLatency),
+      },
+      {
+        key: 'avgPacketLoss',
+        label: m.insights_col_avg_loss(),
+        align: 'end',
+        mono: true,
+        render: server => formatPercent(server.avgPacketLoss),
+      },
+      {
+        key: 'tracerouteCount',
+        label: m.insights_col_traceroutes(),
+        align: 'end',
+        mono: true,
+        render: server => formatNumber(server.tracerouteCount),
+      },
+      {
+        key: 'problemHopRatio',
+        label: m.insights_col_problems(),
+        align: 'end',
+        mono: true,
+        render: server => formatPercent(server.problemHopRatio * 100),
+      },
     ],
-    [],
+    []
   )
-
-  const stabilityTable = useReactTable({
-    data: stabilityData ?? [],
-    columns: stabilityColumns,
-    state: { sorting: stabilitySorting },
-    onSortingChange: setStabilitySorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: STABILITY_PAGE_SIZE } },
-  })
 
   const isEmpty = !stabilityLoading && (!stabilityData || stabilityData.length === 0)
 
   if (isEmpty) {
     return (
-      <div className="mt-16 flex flex-col items-center gap-3 text-center">
-        <RiInboxLine className="text-muted-foreground size-10" />
-        <h2 className="text-lg font-medium">{m.insights_stability_empty()}</h2>
-        <p className="text-muted-foreground text-sm">{m.insights_empty_description()}</p>
-      </div>
+      <EmptyState className="mt-6" title={m.insights_stability_empty()}>
+        {m.network_empty_description()}
+      </EmptyState>
     )
   }
 
   return (
-    <>
+    <div className="mt-4 flex flex-col gap-6">
       <StabilityMapSection data={stabilityData} isLoading={stabilityLoading} />
 
-      <div className="mt-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>{m.insights_stability_title()}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {stabilityLoading ? (
-              <Skeleton className="h-56" />
-            ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    {stabilityTable.getHeaderGroups().map(headerGroup => (
-                      <TableRow key={headerGroup.id}>
-                        {headerGroup.headers.map(header => (
-                          <TableHead
-                            key={header.id}
-                            className={header.column.getCanSort() ? 'cursor-pointer select-none' : ''}
-                            onClick={header.column.getToggleSortingHandler()}
-                          >
-                            <div className="flex items-center gap-1">
-                              {header.isPlaceholder
-                                ? null
-                                : flexRender(header.column.columnDef.header, header.getContext())}
-                              {header.column.getCanSort() && <SortIndicator sorted={header.column.getIsSorted()} />}
-                            </div>
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableHeader>
-                  <TableBody>
-                    {stabilityTable.getRowModel().rows.map(row => (
-                      <TableRow key={row.id}>
-                        {row.getVisibleCells().map(cell => (
-                          <TableCell key={cell.id}>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                {stabilityTable.getPageCount() > 1 && (
-                  <PaginationControls
-                    page={stabilityTable.getState().pagination.pageIndex}
-                    totalPages={stabilityTable.getPageCount()}
-                    onPrev={() => stabilityTable.previousPage()}
-                    onNext={() => stabilityTable.nextPage()}
-                    canPrev={stabilityTable.getCanPreviousPage()}
-                    canNext={stabilityTable.getCanNextPage()}
-                  />
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </>
+      <Panel label={m.insights_stability_title()} flush>
+        <DataTable
+          columns={stabilityColumns}
+          rows={stabilityData ?? []}
+          getRowId={server => server.ip}
+          pageSize={TABLE_PAGE_SIZE}
+          loading={stabilityLoading}
+        />
+      </Panel>
+    </div>
   )
 }
 
 /* ─── Shared Components ─── */
-
-function PaginationControls({
-  page,
-  totalPages,
-  onPrev,
-  onNext,
-  canPrev,
-  canNext,
-}: {
-  page: number
-  totalPages: number
-  onPrev: () => void
-  onNext: () => void
-  canPrev: boolean
-  canNext: boolean
-}) {
-  return (
-    <div className="mt-3 flex items-center justify-between">
-      <span className="text-muted-foreground text-xs">
-        {page + 1} / {totalPages}
-      </span>
-      <div className="flex gap-1">
-        <Button size="sm" disabled={!canPrev} onClick={onPrev}>
-          <RiArrowLeftSLine className="size-4" data-icon="inline-start" />
-          {m.sessions_prev()}
-        </Button>
-        <Button size="sm" disabled={!canNext} onClick={onNext}>
-          {m.sessions_next()}
-          <RiArrowRightSLine className="size-4" data-icon="inline-end" />
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function HopTable({
-  table,
-}: {
-  table: ReturnType<typeof useReactTable<RecurringProblemHop>>
-}) {
-  return (
-    <div className="mt-3">
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map(headerGroup => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map(header => (
-                <TableHead
-                  key={header.id}
-                  className={header.column.getCanSort() ? 'cursor-pointer select-none' : ''}
-                  onClick={header.column.getToggleSortingHandler()}
-                >
-                  <div className="flex items-center gap-1">
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                    {header.column.getCanSort() && (
-                      <SortIndicator sorted={header.column.getIsSorted()} />
-                    )}
-                  </div>
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.map(row => (
-            <TableRow key={row.id}>
-              {row.getVisibleCells().map(cell => (
-                <TableCell key={cell.id}>
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-      {table.getPageCount() > 1 && (
-        <PaginationControls
-          page={table.getState().pagination.pageIndex}
-          totalPages={table.getPageCount()}
-          onPrev={() => table.previousPage()}
-          onNext={() => table.nextPage()}
-          canPrev={table.getCanPreviousPage()}
-          canNext={table.getCanNextPage()}
-        />
-      )}
-    </div>
-  )
-}
-
-function StatCard({
-  title,
-  value,
-  icon,
-  isLoading,
-}: {
-  title: string
-  value: string | number | undefined
-  icon: React.ReactNode
-  isLoading: boolean
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>{title}</CardTitle>
-          {icon}
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <Skeleton className="h-7 w-20" />
-        ) : (
-          <span className="text-2xl font-bold">{value ?? '-'}</span>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function SortIndicator({ sorted }: { sorted: false | 'asc' | 'desc' }) {
-  if (sorted === 'asc') return <RiArrowUpSLine className="size-4" />
-  if (sorted === 'desc') return <RiArrowDownSLine className="size-4" />
-  return <RiExpandUpDownLine className="text-muted-foreground size-3.5" />
-}
-
-function EmptyChart({ message }: { message: string }) {
-  return (
-    <div className="flex h-32 flex-col items-center justify-center gap-2">
-      <RiInboxLine className="text-muted-foreground size-6" />
-      <p className="text-muted-foreground text-sm">{message}</p>
-    </div>
-  )
-}
 
 function ServerMapContent({ entries }: { entries: NetworkMapEntry[] }) {
   const [selectedIp, setSelectedIp] = useState<string | null>(null)
@@ -878,12 +566,14 @@ function ServerMapContent({ entries }: { entries: NetworkMapEntry[] }) {
 function ServerMapView({ entries }: { entries: NetworkMapEntry[] }) {
   return (
     <>
-      <ExpandableMap
-        className="h-80"
-        renderExpanded={() => <ServerMapContent entries={entries} />}
-      >
-        <ServerMapContent entries={entries} />
-      </ExpandableMap>
+      <div className="overflow-hidden rounded-sm border">
+        <ExpandableMap
+          className="h-80"
+          renderExpanded={() => <ServerMapContent entries={entries} />}
+        >
+          <ServerMapContent entries={entries} />
+        </ExpandableMap>
+      </div>
       <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span className="size-2.5 rounded-full bg-foreground" />
@@ -905,49 +595,33 @@ function StabilityMapSection({
   data: ServerStability[] | undefined
   isLoading: boolean
 }) {
-  const mappable = useMemo(
-    () => (data ?? []).filter(s => s.lat != null && s.lon != null),
-    [data],
-  )
+  const mappable = useMemo(() => (data ?? []).filter(s => s.lat != null && s.lon != null), [data])
 
-  if (isLoading) {
-    return (
-      <div className="mt-4">
-        <Skeleton className="h-64" />
-      </div>
-    )
-  }
+  if (isLoading) return <Skeleton className="h-64" />
 
   if (mappable.length === 0) return null
 
   return (
-    <div className="mt-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>{m.insights_stability_map_title()}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-hidden rounded-lg border">
-            <ExpandableMap
-              className="h-64"
-              renderExpanded={() => <StabilityMapContent servers={mappable} />}
-            >
-              <StabilityMapContent servers={mappable} />
-            </ExpandableMap>
-          </div>
-          <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-full bg-foreground" />
-              {m.network_map_legend_game_server()}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-full bg-route-b" />
-              {m.network_map_legend_other()}
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <Panel label={m.insights_stability_map_title()}>
+      <div className="overflow-hidden rounded-sm border">
+        <ExpandableMap
+          className="h-64"
+          renderExpanded={() => <StabilityMapContent servers={mappable} />}
+        >
+          <StabilityMapContent servers={mappable} />
+        </ExpandableMap>
+      </div>
+      <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="size-2.5 rounded-full bg-foreground" />
+          {m.network_map_legend_game_server()}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-2.5 rounded-full bg-route-b" />
+          {m.network_map_legend_other()}
+        </span>
+      </div>
+    </Panel>
   )
 }
 

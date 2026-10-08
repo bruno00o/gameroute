@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { TextField } from '@/components/ui/text-field'
+import { EmptyState } from '@/components/empty-state'
 
 export function ProcessSelector({
   open,
@@ -73,9 +74,7 @@ export function ProcessSelector({
               {m.monitoring_scanning()}
             </div>
           ) : filtered.length === 0 ? (
-            <div className="text-muted-foreground p-4 text-center text-xs">
-              {m.process_selector_empty()}
-            </div>
+            <EmptyState compact className="p-4" title={m.process_selector_empty()} />
           ) : (
             <div className="space-y-0.5">
               {filtered.map(app => (

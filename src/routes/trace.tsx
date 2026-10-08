@@ -5,7 +5,6 @@ import {
   RiCheckLine,
   RiCloseLine,
   RiLoader4Line,
-  RiRouteLine,
   RiStopLine,
   RiTimeLine,
 } from '@remixicon/react'
@@ -15,6 +14,7 @@ import * as m from '@/paraglide/messages'
 import { cancelTraceroute } from '@/lib/tauri'
 import { useSettingsStore } from '@/stores/settings-store'
 import { useTraceStore } from '@/stores/trace-store'
+import { EmptyState } from '@/components/empty-state'
 import { LiveHopTable } from '@/components/live-hop-table'
 import { StatusPill } from '@/components/status/status-pill'
 import type { TracerouteHopEvent } from '@/types/backend'
@@ -41,11 +41,9 @@ function TraceIdleState() {
     <div className="h-full overflow-y-auto p-4">
       <h1 className="text-2xl font-bold">{m.page_trace_title()}</h1>
       <p className="text-muted-foreground mt-2">{m.page_trace_description()}</p>
-      <div className="mt-16 flex flex-col items-center gap-3 text-center">
-        <RiRouteLine className="text-muted-foreground size-10" />
-        <h2 className="text-lg font-medium">{m.trace_idle_title()}</h2>
-        <p className="text-muted-foreground max-w-sm text-sm">{m.trace_idle_description()}</p>
-      </div>
+      <EmptyState className="mt-6" title={m.trace_idle_title()}>
+        {m.trace_idle_description()}
+      </EmptyState>
     </div>
   )
 }
