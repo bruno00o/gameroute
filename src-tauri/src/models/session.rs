@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::hop::ProbedHop;
-use super::insights::UsualPing;
+use super::insights::{PingSource, UsualPing};
 use super::ip_period::{IpPeriod, IpPeriodSummary};
 use super::severity::Severity;
 use super::traceroute_record::TracerouteWithHops;
@@ -21,6 +21,7 @@ pub struct MatchSummary {
     pub match_count: u32,
     pub median_ping_ms: Option<f64>,
     pub median_ping_at_least: bool,
+    pub median_ping_by_game: bool,
     pub status: Option<Severity>,
 }
 
@@ -104,6 +105,20 @@ pub struct TraceMeasure {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GameMeasure {
+    pub source: PingSource,
+    pub region: Option<String>,
+    pub measured_at: String,
+    pub sample_count: u32,
+    pub ping_ms: f64,
+    pub jitter_ms: Option<f64>,
+    pub loss_pct: Option<f64>,
+    pub packets_lost: i64,
+    pub usual: Option<UsualPing>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MeasuredFlow {
     pub period_id: i64,
     pub ip: String,
@@ -115,7 +130,32 @@ pub struct MeasuredFlow {
     pub packet_count: i64,
     pub operator: Option<FlowOperator>,
     pub trace: Option<TraceMeasure>,
+    pub game: Option<GameMeasure>,
     pub status: Severity,
+}
+
+impl MeasuredFlow {
+    pub fn ping_ms(&self) -> Option<f64> {
+        match &self.game {
+            Some(game) => Some(game.ping_ms),
+            None => self.trace.as_ref()?.ping_ms,
+        }
+    }
+
+    pub fn ping_at_least(&self) -> bool {
+        self.game.is_none()
+            && self
+                .trace
+                .as_ref()
+                .is_some_and(|trace| !trace.at_destination)
+    }
+
+    pub fn loss_pct(&self) -> Option<f64> {
+        self.game
+            .as_ref()
+            .and_then(|game| game.loss_pct)
+            .or_else(|| self.trace.as_ref()?.loss_pct)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -244,6 +284,7 @@ mod tests {
                 match_count: 4,
                 median_ping_ms: Some(17.6),
                 median_ping_at_least: true,
+                median_ping_by_game: false,
                 status: Some(Severity::Watch),
             },
         };
@@ -255,6 +296,7 @@ mod tests {
         assert_eq!(json["matchCount"], 4);
         assert_eq!(json["medianPingMs"], 17.6);
         assert_eq!(json["medianPingAtLeast"], true);
+        assert_eq!(json["medianPingByGame"], false);
         assert_eq!(json["status"], "watch");
         assert!(json.get("matches").is_none());
     }
@@ -329,6 +371,17 @@ mod tests {
                     sample_count: 20,
                 }),
             }),
+            game: Some(GameMeasure {
+                source: PingSource::Game,
+                region: None,
+                measured_at: "2026-09-13T14:27:10.000Z".to_string(),
+                sample_count: 250,
+                ping_ms: 13.3,
+                jitter_ms: Some(2.3),
+                loss_pct: Some(0.0),
+                packets_lost: 0,
+                usual: None,
+            }),
             status: Severity::Ok,
         };
         let item = SessionMatch {
@@ -347,8 +400,13 @@ mod tests {
         assert_eq!(json["trace"]["pingMs"], 17.6);
         assert_eq!(json["trace"]["usual"]["medianMs"], 17.2);
         assert_eq!(json["trace"]["usual"]["sampleCount"], 20);
+        assert_eq!(json["game"]["source"], "game");
+        assert_eq!(json["game"]["pingMs"], 13.3);
         assert_eq!(json["status"], "ok");
         assert!(json["voice"].is_null());
         assert!(json.get("flow").is_none());
+        assert_eq!(item.flow.ping_ms(), Some(13.3));
+        assert!(!item.flow.ping_at_least());
+        assert_eq!(item.flow.loss_pct(), Some(0.0));
     }
 }

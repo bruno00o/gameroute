@@ -1,5 +1,6 @@
 use crate::config::{USUAL_PING_MIN_SAMPLES, USUAL_PING_SAMPLES};
 use crate::db::analytics::AnalyticsRepository;
+use crate::db::game_pings::GamePingRepository;
 use crate::db::ip_metadata::IpMetadataRepository;
 use crate::db::ip_periods::IpPeriodRepository;
 use crate::db::traceroutes::TracerouteRepository;
@@ -7,7 +8,7 @@ use crate::db::DbError;
 use crate::models::hop::ProbedHop;
 use crate::models::insights::{IncidentCause, PingBasis, PingSource, UsualPing};
 use crate::models::ip_metadata::IpMetadataData;
-use crate::models::session::{SessionMatch, TraceMeasure};
+use crate::models::session::{GameMeasure, MeasuredFlow, SessionMatch, TraceMeasure};
 use crate::models::severity::Severity;
 use crate::models::traceroute_record::TracerouteWithHops;
 use crate::services::asn_resolver::lookup_metadata;
@@ -16,9 +17,23 @@ use crate::services::severity::{loss_status, severity, Measurement};
 use chrono::{DateTime, FixedOffset};
 use std::collections::HashMap;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SampleId {
+    Trace(i64),
+    Match(i64),
+}
+
+pub fn sample_id(flow: &MeasuredFlow) -> Option<SampleId> {
+    match (&flow.game, &flow.trace) {
+        (Some(_), _) => Some(SampleId::Match(flow.period_id)),
+        (None, Some(trace)) => Some(SampleId::Trace(trace.traceroute_id)),
+        (None, None) => None,
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct PingSample {
-    pub traceroute_id: i64,
+    pub id: SampleId,
     pub measured_at: DateTime<FixedOffset>,
     pub cutoff: DateTime<FixedOffset>,
     pub basis: PingBasis,
@@ -122,7 +137,7 @@ pub fn pools(matches: &[ServerMatch]) -> HashMap<PoolKey<'_>, Vec<&PingSample>> 
     pools
 }
 
-pub fn assessments(matches: &[ServerMatch]) -> HashMap<i64, Assessment> {
+pub fn assessments(matches: &[ServerMatch]) -> HashMap<SampleId, Assessment> {
     pools(matches)
         .values()
         .flat_map(|pool| {
@@ -134,7 +149,7 @@ pub fn assessments(matches: &[ServerMatch]) -> HashMap<i64, Assessment> {
                     cause,
                     usual,
                 };
-                (sample.traceroute_id, assessment)
+                (sample.id, assessment)
             })
         })
         .collect()
@@ -167,6 +182,7 @@ fn ping_basis(
             measured_hop: None,
             measured_asn: None,
             server_ip: Some(server_ip.to_string()),
+            region: None,
         };
     }
     let hop_ip = trace
@@ -183,6 +199,18 @@ fn ping_basis(
         measured_hop: measure.measured_hop,
         measured_asn: hop_ip.and_then(|ip| places.get(ip)).and_then(asn_number),
         server_ip: None,
+        region: None,
+    }
+}
+
+fn game_basis(measure: &GameMeasure, server_ip: &str) -> PingBasis {
+    PingBasis {
+        source: measure.source,
+        at_destination: true,
+        measured_hop: None,
+        measured_asn: None,
+        server_ip: (measure.source == PingSource::Game).then(|| server_ip.to_string()),
+        region: measure.region.clone(),
     }
 }
 
@@ -230,7 +258,7 @@ async fn server_matches(
     let mut owners: HashMap<i64, (i64, u32, i64)> = HashMap::new();
     let mut first_starts: HashMap<i64, DateTime<FixedOffset>> = HashMap::new();
     for (session_id, _, matches) in &played {
-        for game in matches.iter() {
+        for game in matches.iter().filter(|game| game.flow.game.is_none()) {
             let Some(measure) = &game.flow.trace else {
                 continue;
             };
@@ -249,6 +277,20 @@ async fn server_matches(
     }
 
     let sample = |session_id: i64, game: &SessionMatch| -> Option<PingSample> {
+        if let Some(reported) = &game.flow.game {
+            let started = parse(&game.flow.started_at)?;
+            return Some(PingSample {
+                id: SampleId::Match(game.flow.period_id),
+                measured_at: started,
+                cutoff: started,
+                basis: game_basis(reported, &game.flow.ip),
+                ping_ms: reported.ping_ms,
+                loss_pct: game.flow.loss_pct().unwrap_or(0.0),
+                session_id,
+                match_number: game.number,
+                match_started_at: game.flow.started_at.clone(),
+            });
+        }
         let measure = game.flow.trace.as_ref()?;
         let &(owner, number, _) = owners.get(&measure.traceroute_id)?;
         if (owner, number) != (session_id, game.number) {
@@ -256,7 +298,7 @@ async fn server_matches(
         }
         let measured_at = parse(&measure.started_at)?;
         Some(PingSample {
-            traceroute_id: measure.traceroute_id,
+            id: SampleId::Trace(measure.traceroute_id),
             measured_at,
             cutoff: first_starts
                 .get(&measure.traceroute_id)
@@ -303,22 +345,26 @@ pub async fn match_history(
     analytics: &AnalyticsRepository,
     periods: &IpPeriodRepository,
     traceroutes: &TracerouteRepository,
+    game_pings: Option<&GamePingRepository>,
     metadata: Option<&IpMetadataRepository>,
 ) -> Result<MatchHistory, DbError> {
     let sessions = analytics.get_game_sessions().await?;
     let ids: Vec<i64> = sessions.iter().map(|(id, _)| *id).collect();
-    let mut matched = matched_sessions(periods, traceroutes, &ids).await?;
+    let mut matched = matched_sessions(periods, traceroutes, game_pings, &ids).await?;
     let matches = server_matches(&sessions, &matched, metadata).await;
 
     let assessed = assessments(&matches);
     for session in matched.values_mut() {
         for game in &mut session.matches {
-            let Some(measure) = game.flow.trace.as_mut() else {
+            let Some(assessment) = sample_id(&game.flow).and_then(|id| assessed.get(&id)) else {
                 continue;
             };
-            if let Some(assessment) = assessed.get(&measure.traceroute_id) {
-                game.flow.status = assessment.status;
-                measure.usual = Some(assessment.usual.clone());
+            game.flow.status = assessment.status;
+            let usual = Some(assessment.usual.clone());
+            match (game.flow.game.as_mut(), game.flow.trace.as_mut()) {
+                (Some(reported), _) => reported.usual = usual,
+                (None, Some(measure)) => measure.usual = usual,
+                (None, None) => {}
             }
         }
     }
@@ -334,6 +380,7 @@ pub mod fixtures {
     use super::*;
     use crate::db::hops::HopRepository;
     use crate::models::flow_kind::FlowKind;
+    use crate::models::game_ping::GamePingSample;
     use crate::models::ip_period::IpPeriodData;
     use crate::models::session::HopData;
     use crate::models::TracerouteData;
@@ -360,6 +407,7 @@ pub mod fixtures {
             measured_hop: Some(hop),
             measured_asn: Some(15557),
             server_ip: None,
+            region: None,
         }
     }
 
@@ -370,12 +418,13 @@ pub mod fixtures {
             measured_hop: None,
             measured_asn: None,
             server_ip: Some(RIOT_PARIS.to_string()),
+            region: None,
         }
     }
 
     pub fn sample(at: DateTime<FixedOffset>, basis: PingBasis, ping_ms: f64) -> PingSample {
         PingSample {
-            traceroute_id: at.timestamp(),
+            id: SampleId::Trace(at.timestamp()),
             measured_at: at,
             cutoff: at,
             basis,
@@ -523,6 +572,62 @@ pub mod fixtures {
         )
         .await;
     }
+
+    pub fn game() -> PingBasis {
+        PingBasis {
+            source: PingSource::Game,
+            at_destination: true,
+            measured_hop: None,
+            measured_asn: None,
+            server_ip: Some(RIOT.to_string()),
+            region: None,
+        }
+    }
+
+    pub fn region(name: &str) -> PingBasis {
+        PingBasis {
+            source: PingSource::GameRegion,
+            at_destination: true,
+            measured_hop: None,
+            measured_asn: None,
+            server_ip: None,
+            region: Some(name.to_string()),
+        }
+    }
+
+    pub async fn reported_by_league(pool: &SqlitePool, id: i64, day: i64, ping_ms: f64) {
+        let start = day * 86_400;
+        session(pool, id, "League of Legends", start).await;
+        let port = 7000 + id as i32;
+        period(pool, id, RIOT, port, (start, start + 1800)).await;
+        trace(
+            pool,
+            id,
+            RIOT,
+            start + 40,
+            &[
+                hop(1, "192.168.1.254", 0.6),
+                hop(2, "77.136.10.6", 5.0),
+                silent(3),
+            ],
+        )
+        .await;
+        let samples: Vec<GamePingSample> = (1..=3)
+            .map(|n| {
+                let at = parse(&at(start + n * 10)).unwrap().with_timezone(&Utc);
+                let mut sample = GamePingSample::new(PingSource::Game, at);
+                sample.session_id = id;
+                sample.peer_ip = Some(RIOT.to_string());
+                sample.peer_port = Some(port);
+                sample.rtt_ms = Some(ping_ms);
+                sample
+            })
+            .collect();
+        GamePingRepository::new(pool.clone())
+            .insert_samples(&samples)
+            .await
+            .unwrap();
+    }
 }
 
 #[cfg(test)]
@@ -642,11 +747,11 @@ mod tests {
         let spike = day(12, 20);
         let mut matches = history(6, lower_bound(5), 5.0);
         matches.push(measured(spike, lower_bound(5), 44.0));
-        let before = assessments(&matches)[&spike.timestamp()].clone();
+        let before = assessments(&matches)[&SampleId::Trace(spike.timestamp())].clone();
 
         matches.extend((1..=12).map(|n| measured(day(13, n), lower_bound(5), 44.0)));
         matches.push(measured(day(14, 20), lower_bound(5), 150.0));
-        let after = assessments(&matches)[&spike.timestamp()].clone();
+        let after = assessments(&matches)[&SampleId::Trace(spike.timestamp())].clone();
 
         assert_eq!(
             before,
@@ -680,8 +785,8 @@ mod tests {
         matches.push(late(day(12, 14), 37, 4.3));
 
         let assessed = assessments(&matches);
-        let spike = &assessed[&(day(12, 15) + Duration::minutes(38)).timestamp()];
-        let quiet = &assessed[&(day(12, 15) + Duration::minutes(37)).timestamp()];
+        let spike = &assessed[&SampleId::Trace((day(12, 15) + Duration::minutes(38)).timestamp())];
+        let quiet = &assessed[&SampleId::Trace((day(12, 15) + Duration::minutes(37)).timestamp())];
 
         assert_eq!(spike.usual.sample_count, 6);
         assert_eq!(spike.status, Severity::Watch);
@@ -701,7 +806,7 @@ mod tests {
         let assessed = assessments(&matches);
         for at in [day(12, 20), day(12, 21)] {
             assert_eq!(
-                assessed[&at.timestamp()],
+                assessed[&SampleId::Trace(at.timestamp())],
                 Assessment {
                     status: Severity::Ok,
                     cause: None,
@@ -721,13 +826,14 @@ mod tests {
         let periods = IpPeriodRepository::new(pool.clone());
         let traceroutes = TracerouteRepository::new(pool.clone());
 
-        let fixed = matched_sessions(&periods, &traceroutes, &[7])
+        let fixed = matched_sessions(&periods, &traceroutes, None, &[7])
             .await
             .unwrap();
         let history = match_history(
             &AnalyticsRepository::new(pool.clone()),
             &periods,
             &traceroutes,
+            None,
             None,
         )
         .await
@@ -759,7 +865,11 @@ mod tests {
             1,
             RIOT,
             1940,
-            &[hop(1, "192.168.1.254", 0.6), hop(2, "77.136.10.6", 5.0), silent(3)],
+            &[
+                hop(1, "192.168.1.254", 0.6),
+                hop(2, "77.136.10.6", 5.0),
+                silent(3),
+            ],
         )
         .await;
 
@@ -767,6 +877,7 @@ mod tests {
             &AnalyticsRepository::new(pool.clone()),
             &IpPeriodRepository::new(pool.clone()),
             &TracerouteRepository::new(pool.clone()),
+            None,
             None,
         )
         .await
@@ -786,5 +897,91 @@ mod tests {
             .map(|game| (game.flow.status, game.flow.trace.clone().unwrap().usual))
             .collect();
         assert_eq!(rated[0], rated[1]);
+    }
+
+    #[test]
+    fn each_game_source_builds_its_own_usual_from_five_matches() {
+        let mut matches = history(10, lower_bound(5), 5.0);
+        matches.extend((1..=4).map(|n| measured(day(11, n), game(), 13.0)));
+        matches.push(measured(day(11, 5), game(), 14.0));
+        matches.push(measured(day(11, 6), game(), 40.0));
+        matches.extend((1..=6).map(|n| measured(day(12, n), region("Paris"), 4.0)));
+
+        let assessed = assessments(&matches);
+        let rated = |at: DateTime<FixedOffset>| assessed[&SampleId::Trace(at.timestamp())].clone();
+
+        assert_eq!(
+            rated(day(11, 5)).usual,
+            UsualPing {
+                median_ms: None,
+                sample_count: 4,
+            }
+        );
+        assert_eq!(rated(day(11, 5)).status, Severity::Ok);
+        assert_eq!(
+            rated(day(11, 6)).usual,
+            UsualPing {
+                median_ms: Some(13.0),
+                sample_count: 5,
+            }
+        );
+        assert_eq!(rated(day(11, 6)).status, Severity::Watch);
+        assert_eq!(rated(day(12, 6)).usual.median_ms, Some(4.0));
+        assert_eq!(rated(day(10, 10)).usual.median_ms, Some(5.0));
+        assert_eq!(
+            usual_ping(
+                matches.iter().filter_map(|m| m.sample.as_ref()),
+                &region("London"),
+                since()
+            )
+            .sample_count,
+            0
+        );
+    }
+
+    #[tokio::test]
+    async fn matches_measured_by_the_game_are_rated_against_the_game_usual() {
+        let pool = create_test_pool().await;
+        for id in 1..=6 {
+            reported_by_league(&pool, id, id - 7, 13.0).await;
+        }
+        reported_by_league(&pool, 7, 0, 40.0).await;
+        behind_isp(&pool, 8, 1, 5.0).await;
+
+        let history = match_history(
+            &AnalyticsRepository::new(pool.clone()),
+            &IpPeriodRepository::new(pool.clone()),
+            &TracerouteRepository::new(pool.clone()),
+            Some(&GamePingRepository::new(pool.clone())),
+            None,
+        )
+        .await
+        .unwrap();
+        let rated = |id: i64| history.sessions[&id].matches[0].flow.clone();
+
+        let spike = rated(7);
+        assert_eq!(spike.status, Severity::Watch);
+        let reported = spike.game.unwrap();
+        assert_eq!(reported.ping_ms, 40.0);
+        assert_eq!(
+            reported.usual,
+            Some(UsualPing {
+                median_ms: Some(13.0),
+                sample_count: 6,
+            })
+        );
+        assert_eq!(spike.trace.unwrap().usual, None);
+        assert_eq!(rated(1).game.unwrap().usual, Some(UsualPing::default()));
+        let isp = rated(8);
+        assert!(isp.game.is_none());
+        assert_eq!(isp.trace.unwrap().usual, Some(UsualPing::default()));
+
+        let sample = history
+            .matches
+            .iter()
+            .find_map(|game| game.sample.as_ref().filter(|s| s.session_id == 7))
+            .unwrap();
+        assert_eq!(sample.basis, game());
+        assert_eq!(sample.id, SampleId::Match(spike.period_id));
     }
 }
