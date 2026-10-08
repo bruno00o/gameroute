@@ -78,6 +78,15 @@ pub fn select_session_targets(candidates: &[TraceCandidate]) -> Vec<TraceTarget>
     select_targets(candidates, is_cdn)
 }
 
+pub fn ignored_count(
+    candidates: &[TraceCandidate],
+    is_cdn: impl Fn(&str) -> bool,
+) -> usize {
+    candidates
+        .len()
+        .saturating_sub(select_targets(candidates, is_cdn).len())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -120,6 +129,19 @@ mod tests {
                 kind: FlowKind::Game
             }]
         );
+    }
+
+    #[test]
+    fn counts_the_connections_that_are_not_traced() {
+        let candidates = vec![
+            candidate("104.18.41.183", "TCP", 443, false, 5000),
+            candidate("3.5.1.1", "UDP", 443, false, 4000),
+            candidate("162.249.72.5", "UDP", 7032, true, 1500),
+            voice("20.157.94.82", 27020),
+        ];
+
+        assert_eq!(ignored_count(&candidates, cloudflare), 2);
+        assert_eq!(ignored_count(&[], cloudflare), 0);
     }
 
     #[test]

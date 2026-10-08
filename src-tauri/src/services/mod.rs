@@ -16,6 +16,7 @@ pub mod scanner_utils;
 pub mod server_summary;
 pub mod severity;
 pub mod steam_scanner;
+pub mod trace_address;
 pub mod trace_targets;
 pub mod traceroute;
 pub mod tracert_parser;

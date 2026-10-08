@@ -26,8 +26,8 @@ use commands::monitoring::{
     start_manual_monitoring, start_monitoring, stop_monitoring, AppMonitoringState,
 };
 use commands::network::{
-    get_network_map_data, get_network_overview_stats, get_recurring_problem_hops,
-    get_severity_thresholds,
+    get_ignored_connection_count, get_network_map_data, get_network_overview_stats,
+    get_recurring_problem_hops, get_severity_thresholds, trace_address,
 };
 use commands::service::{check_capture_service_status, open_log_dir, restart_capture_service};
 use commands::sessions::{
@@ -297,6 +297,8 @@ pub fn run() {
             get_recurring_problem_hops,
             get_network_overview_stats,
             get_severity_thresholds,
+            trace_address,
+            get_ignored_connection_count,
             get_server_stability,
             get_server_summary,
             get_usual_route,
