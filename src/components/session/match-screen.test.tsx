@@ -68,8 +68,6 @@ describe('MatchScreen', () => {
     matches[0] = {
       ...matches[0],
       game: {
-        source: 'game',
-        region: null,
         measuredAt: matches[0].startedAt,
         sampleCount: 38,
         pingMs: 13.2,
@@ -89,6 +87,28 @@ describe('MatchScreen', () => {
     expect(measures).not.toHaveTextContent('From the trace')
     expect(measures).toHaveTextContent('The ping comes from the game itself')
     expect(region('Route')).toHaveTextContent("Riot Games · Doesn't answer pings")
+  })
+
+  it('shows the region pings of the game as context only', () => {
+    const matches = sessionMatches()
+    matches[0] = {
+      ...matches[0],
+      regionPings: {
+        measuredAt: matches[0].startedAt,
+        pings: [
+          { region: 'Paris', pingMs: 4 },
+          { region: 'Frankfurt', pingMs: 13 },
+        ],
+      },
+    }
+    renderMatch(1, { matches })
+
+    const measures = region('This match')
+    expect(fact(measures, 'Ping')).toHaveTextContent('≥ 18 ms')
+    expect(measures).toHaveTextContent(
+      'Ping measured by VALORANT before the match: Paris 4 ms · Frankfurt 13 ms'
+    )
+    expect(headerStatus()).toHaveAttribute('data-status', 'ok')
   })
 
   it('adds jitter and the worst value in the detailed view, without colour', () => {

@@ -8,7 +8,7 @@ use crate::db::DbError;
 use crate::models::hop::ProbedHop;
 use crate::models::insights::{IncidentCause, PingBasis, PingSource, UsualPing};
 use crate::models::ip_metadata::IpMetadataData;
-use crate::models::session::{GameMeasure, MeasuredFlow, SessionMatch, TraceMeasure};
+use crate::models::session::{MeasuredFlow, SessionMatch, TraceMeasure};
 use crate::models::severity::Severity;
 use crate::models::traceroute_record::TracerouteWithHops;
 use crate::services::asn_resolver::lookup_metadata;
@@ -182,7 +182,6 @@ fn ping_basis(
             measured_hop: None,
             measured_asn: None,
             server_ip: Some(server_ip.to_string()),
-            region: None,
         };
     }
     let hop_ip = trace
@@ -199,18 +198,16 @@ fn ping_basis(
         measured_hop: measure.measured_hop,
         measured_asn: hop_ip.and_then(|ip| places.get(ip)).and_then(asn_number),
         server_ip: None,
-        region: None,
     }
 }
 
-fn game_basis(measure: &GameMeasure, server_ip: &str) -> PingBasis {
+fn game_basis(server_ip: &str) -> PingBasis {
     PingBasis {
-        source: measure.source,
+        source: PingSource::Game,
         at_destination: true,
         measured_hop: None,
         measured_asn: None,
-        server_ip: (measure.source == PingSource::Game).then(|| server_ip.to_string()),
-        region: measure.region.clone(),
+        server_ip: Some(server_ip.to_string()),
     }
 }
 
@@ -283,7 +280,7 @@ async fn server_matches(
                 id: SampleId::Match(game.flow.period_id),
                 measured_at: started,
                 cutoff: started,
-                basis: game_basis(reported, &game.flow.ip),
+                basis: game_basis(&game.flow.ip),
                 ping_ms: reported.ping_ms,
                 loss_pct: game.flow.loss_pct().unwrap_or(0.0),
                 session_id,
@@ -407,7 +404,6 @@ pub mod fixtures {
             measured_hop: Some(hop),
             measured_asn: Some(15557),
             server_ip: None,
-            region: None,
         }
     }
 
@@ -418,7 +414,6 @@ pub mod fixtures {
             measured_hop: None,
             measured_asn: None,
             server_ip: Some(RIOT_PARIS.to_string()),
-            region: None,
         }
     }
 
@@ -580,18 +575,6 @@ pub mod fixtures {
             measured_hop: None,
             measured_asn: None,
             server_ip: Some(RIOT.to_string()),
-            region: None,
-        }
-    }
-
-    pub fn region(name: &str) -> PingBasis {
-        PingBasis {
-            source: PingSource::GameRegion,
-            at_destination: true,
-            measured_hop: None,
-            measured_asn: None,
-            server_ip: None,
-            region: Some(name.to_string()),
         }
     }
 
@@ -635,7 +618,8 @@ mod tests {
     use super::fixtures::*;
     use super::*;
     use crate::db::create_test_pool;
-    use chrono::Duration;
+    use crate::models::game_ping::GamePingSample;
+    use chrono::{Duration, Utc};
 
     #[test]
     fn usual_is_the_median_of_the_twenty_previous_comparable_samples() {
@@ -900,12 +884,11 @@ mod tests {
     }
 
     #[test]
-    fn each_game_source_builds_its_own_usual_from_five_matches() {
+    fn game_pings_build_their_own_usual_from_five_matches() {
         let mut matches = history(10, lower_bound(5), 5.0);
         matches.extend((1..=4).map(|n| measured(day(11, n), game(), 13.0)));
         matches.push(measured(day(11, 5), game(), 14.0));
         matches.push(measured(day(11, 6), game(), 40.0));
-        matches.extend((1..=6).map(|n| measured(day(12, n), region("Paris"), 4.0)));
 
         let assessed = assessments(&matches);
         let rated = |at: DateTime<FixedOffset>| assessed[&SampleId::Trace(at.timestamp())].clone();
@@ -926,17 +909,75 @@ mod tests {
             }
         );
         assert_eq!(rated(day(11, 6)).status, Severity::Watch);
-        assert_eq!(rated(day(12, 6)).usual.median_ms, Some(4.0));
         assert_eq!(rated(day(10, 10)).usual.median_ms, Some(5.0));
+    }
+
+    #[tokio::test]
+    async fn region_pings_stay_context_and_never_rate_the_match() {
+        let pool = create_test_pool().await;
+        for id in 1..=6 {
+            behind_isp(&pool, id, id - 7, 5.0).await;
+        }
+        behind_isp(&pool, 7, 0, 44.0).await;
+        let region = |id: i64, sec: i64, name: &str, ms: f64| {
+            let at = parse(&at(sec)).unwrap().with_timezone(&Utc);
+            let mut sample = GamePingSample::new(PingSource::GameRegion, at);
+            sample.session_id = id;
+            sample.region = Some(name.to_string());
+            sample.rtt_ms = Some(ms);
+            sample
+        };
+        let samples: Vec<GamePingSample> = (1..=7)
+            .flat_map(|id| {
+                let start = (id - 7) * 86_400;
+                [
+                    region(id, start - 30, "Paris", 4.0),
+                    region(id, start - 30, "London", 14.0),
+                    region(id, start - 30, "Frankfurt", 13.0),
+                ]
+            })
+            .collect();
+        GamePingRepository::new(pool.clone())
+            .insert_samples(&samples)
+            .await
+            .unwrap();
+
+        let history = match_history(
+            &AnalyticsRepository::new(pool.clone()),
+            &IpPeriodRepository::new(pool.clone()),
+            &TracerouteRepository::new(pool.clone()),
+            Some(&GamePingRepository::new(pool.clone())),
+            None,
+        )
+        .await
+        .unwrap();
+
+        let spike = history.sessions[&7].matches[0].flow.clone();
+        assert!(spike.game.is_none());
+        assert_eq!(spike.ping_ms(), Some(44.0));
+        assert!(spike.ping_at_least());
+        assert_eq!(spike.status, Severity::Watch);
+        assert_eq!(spike.trace.unwrap().usual.unwrap().median_ms, Some(5.0));
+        let regions: Vec<(String, f64)> = spike
+            .region_pings
+            .unwrap()
+            .pings
+            .into_iter()
+            .map(|ping| (ping.region, ping.ping_ms))
+            .collect();
         assert_eq!(
-            usual_ping(
-                matches.iter().filter_map(|m| m.sample.as_ref()),
-                &region("London"),
-                since()
-            )
-            .sample_count,
-            0
+            regions,
+            vec![
+                ("Paris".to_string(), 4.0),
+                ("Frankfurt".to_string(), 13.0),
+                ("London".to_string(), 14.0),
+            ]
         );
+        assert!(history
+            .matches
+            .iter()
+            .filter_map(|game| game.sample.as_ref())
+            .all(|sample| sample.basis.source == PingSource::Trace));
     }
 
     #[tokio::test]

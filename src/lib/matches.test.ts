@@ -21,6 +21,7 @@ import {
   formatLoss,
   matchMeasure,
   pingSourceNote,
+  regionPingsText,
   sessionVerdict,
   traceTiming,
 } from './matches'
@@ -43,8 +44,6 @@ describe('flowServerLabel', () => {
 
 describe('ping measured by the game', () => {
   const game: GameMeasure = {
-    source: 'game',
-    region: null,
     measuredAt: at(15, 45, 10),
     sampleCount: 38,
     pingMs: 13.2,
@@ -65,23 +64,42 @@ describe('ping measured by the game', () => {
     ).toEqual(['measured by the game'])
   })
 
-  it('says which region the game measured before the match', () => {
-    const region = {
-      ...measured,
-      game: { ...game, source: 'game_region' as const, region: 'Paris' },
-    }
-    expect(pingSourceNote(region, null)).toBe('measured by the game (Paris, before the match)')
+  it('names where the match ping comes from', () => {
+    expect(pingSourceNote(measured, null)).toBe('measured by the game')
     expect(pingSourceNote(matches[0], riotRoute())).toBe('measured up to hop 3 (RETN)')
   })
 
   it('keeps the trace loss when the game does not report any', () => {
-    const region = {
+    const lossless = {
       ...measured,
       trace: measure({ lossPct: 1.5 }),
-      game: { ...game, source: 'game_region' as const, lossPct: null },
+      game: { ...game, lossPct: null },
     }
-    expect(matchMeasure(region)?.lossPct).toBe(1.5)
-    expect(sessionVerdict([region], [])?.title).toBe(`13${NB}ms to the server, up to 1.5% loss`)
+    expect(matchMeasure(lossless)?.lossPct).toBe(1.5)
+    expect(sessionVerdict([lossless], [])?.title).toBe(`13${NB}ms to the server, up to 1.5% loss`)
+  })
+})
+
+describe('ping measured by the game before the match', () => {
+  const matches = sessionMatches()
+  const regionPings = {
+    measuredAt: at(15, 40),
+    pings: [
+      { region: 'Paris', pingMs: 4 },
+      { region: 'Frankfurt', pingMs: 13 },
+      { region: 'London', pingMs: 14 },
+      { region: 'Warsaw', pingMs: 31 },
+    ],
+  }
+  const valorant = { ...matches[0], regionPings }
+
+  it('stays context and never replaces the lower bound of the trace', () => {
+    expect(formatFlowPing(matchMeasure(valorant))).toBe(`≥${NB}18${NB}ms`)
+    expect(pingSourceNote(valorant, riotRoute())).toBe('measured up to hop 3 (RETN)')
+    expect(regionPingsText(valorant, 'VALORANT')).toBe(
+      `Ping measured by VALORANT before the match: Paris 4${NB}ms · Frankfurt 13${NB}ms · London 14${NB}ms`
+    )
+    expect(regionPingsText(matches[0], 'VALORANT')).toBeNull()
   })
 })
 

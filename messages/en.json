@@ -182,7 +182,7 @@
   "measured_up_to": "measured up to hop {hop} ({operator})",
   "measured_up_to_hop": "measured up to hop {hop}",
   "ping_by_game": "measured by the game",
-  "ping_by_game_region": "measured by the game ({region}, before the match)",
+  "match_region_pings": "Ping measured by {game} before the match: {pings}",
   "match_note_game": "The ping comes from the game itself; the trace still shows the route.",
   "trace_at": "trace at {offset}",
   "trace_of_match": "trace from match {number}",

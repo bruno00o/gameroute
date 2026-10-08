@@ -151,6 +151,7 @@ export function teamVoice(): MeasuredFlow {
       pingMs: 14,
     }),
     game: null,
+    regionPings: null,
     status: 'ok',
   }
 }
@@ -171,6 +172,7 @@ export function sessionMatches(): SessionMatch[] {
       operator: riot,
       trace: measure(),
       game: null,
+      regionPings: null,
       status: 'ok',
       voice: teamVoice(),
     },
@@ -187,6 +189,7 @@ export function sessionMatches(): SessionMatch[] {
       operator: riot,
       trace: measure({ offsetSecs: -499 }),
       game: null,
+      regionPings: null,
       status: 'ok',
       voice: null,
     },
@@ -203,6 +206,7 @@ export function sessionMatches(): SessionMatch[] {
       operator: riot,
       trace: null,
       game: null,
+      regionPings: null,
       status: 'unmeasured',
       voice: null,
     },

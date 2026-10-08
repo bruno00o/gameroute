@@ -150,8 +150,6 @@ export type TraceMeasure = {
 }
 
 export type GameMeasure = {
-  source: PingSource
-  region: string | null
   measuredAt: string
   sampleCount: number
   pingMs: number
@@ -159,6 +157,16 @@ export type GameMeasure = {
   lossPct: number | null
   packetsLost: number
   usual: UsualPing | null
+}
+
+export type RegionPing = {
+  region: string
+  pingMs: number
+}
+
+export type RegionPings = {
+  measuredAt: string
+  pings: RegionPing[]
 }
 
 export type MeasuredFlow = {
@@ -173,6 +181,7 @@ export type MeasuredFlow = {
   operator: FlowOperator | null
   trace: TraceMeasure | null
   game: GameMeasure | null
+  regionPings: RegionPings | null
   status: Severity
 }
 
@@ -467,7 +476,6 @@ export type PingBasis = {
   measuredHop: number | null
   measuredAsn: number | null
   serverIp: string | null
-  region: string | null
 }
 
 export type GamePingSample = {

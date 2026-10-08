@@ -76,7 +76,6 @@ pub struct PingBasis {
     pub measured_hop: Option<i32>,
     pub measured_asn: Option<u32>,
     pub server_ip: Option<String>,
-    pub region: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

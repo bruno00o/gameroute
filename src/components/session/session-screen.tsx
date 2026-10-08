@@ -158,6 +158,7 @@ function SessionScreen({
               matches={matches}
               traceroutes={detail.traceroutes}
               sessionEndedAt={detail.endedAt}
+              gameName={detail.gameName}
               detailed={detailed}
               onSelect={onSelectMatch}
             />

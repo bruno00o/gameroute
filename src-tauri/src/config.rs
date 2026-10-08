@@ -85,10 +85,6 @@ pub const GAME_LOG_SLACK_SECS: i64 = 60;
 
 pub const GAME_PING_MATCH_GRACE_SECS: i64 = 120;
 
-/// A region ping is dropped when the trace already proves the server is
-/// further away than this.
-pub const GAME_REGION_TRACE_TOLERANCE_MS: f64 = 5.0;
-
 // ── Database ──────────────────────────────────────────────────────────────
 
 /// Timeout for acquiring a connection from the SQLite pool.

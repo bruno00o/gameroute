@@ -578,7 +578,6 @@ mod tests {
                 measured_hop: Some(3),
                 measured_asn: Some(9002),
                 server_ip: None,
-                region: None,
             })
         );
         assert_eq!(
