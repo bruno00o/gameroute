@@ -121,7 +121,8 @@ export function DetailSidebar({
         <Button
           className="self-start pl-0"
           variant="ghost"
-          size="xs"
+          size="sm"
+          nativeButton={false}
           render={<Link to="/sessions" />}
         >
           <RiArrowLeftLine className="size-3.5" />
@@ -234,8 +235,8 @@ export function DetailSidebar({
         <AlertDialog>
           <AlertDialogTrigger
             render={
-              <Button variant="destructive" size="sm" className="w-full">
-                <RiDeleteBinLine className="size-3.5" data-icon="inline-start" />
+              <Button variant="danger" size="sm" className="w-full">
+                <RiDeleteBinLine data-icon="inline-start" />
                 {m.session_delete()}
               </Button>
             }
@@ -247,7 +248,7 @@ export function DetailSidebar({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>{m.session_delete_cancel()}</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={onDelete}>
+              <AlertDialogAction variant="danger" onClick={onDelete}>
                 {m.session_delete_confirm()}
               </AlertDialogAction>
             </AlertDialogFooter>

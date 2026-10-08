@@ -121,18 +121,12 @@ function NetworkPage() {
         </div>
         {exportStats && exportStats.totalTraceroutes > 0 && (
           <div className="flex gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => exportServerStability(exportStability ?? [])}
-            >
+            <Button size="sm" onClick={() => exportServerStability(exportStability ?? [])}>
               <RiDownloadLine data-icon="inline-start" />
               {m.export_csv_button()}
             </Button>
             <Tooltip>
-              <TooltipTrigger render={
-                <Button variant="outline" size="sm" onClick={handleExportLlm} />
-              }>
+              <TooltipTrigger render={<Button size="sm" onClick={handleExportLlm} />}>
                 <RiClipboardLine data-icon="inline-start" />
                 {m.export_llm_button()}
               </TooltipTrigger>
@@ -684,11 +678,11 @@ function PaginationControls({
         {page + 1} / {totalPages}
       </span>
       <div className="flex gap-1">
-        <Button variant="outline" size="sm" disabled={!canPrev} onClick={onPrev}>
+        <Button size="sm" disabled={!canPrev} onClick={onPrev}>
           <RiArrowLeftSLine className="size-4" data-icon="inline-start" />
           {m.sessions_prev()}
         </Button>
-        <Button variant="outline" size="sm" disabled={!canNext} onClick={onNext}>
+        <Button size="sm" disabled={!canNext} onClick={onNext}>
           {m.sessions_next()}
           <RiArrowRightSLine className="size-4" data-icon="inline-end" />
         </Button>

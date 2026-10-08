@@ -28,7 +28,7 @@ import { exportSessionsList } from '@/lib/export-csv'
 import { formatDate, formatDuration, computeDurationSecs } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { TextField } from '@/components/ui/text-field'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -138,9 +138,8 @@ function SessionsPage() {
         </div>
         {hasData && (
           <Button
-            variant="outline"
             size="sm"
-            disabled={isExporting}
+            loading={isExporting}
             onClick={async () => {
               setIsExporting(true)
               try {
@@ -165,15 +164,14 @@ function SessionsPage() {
       </div>
 
       {hasData && (
-        <div className="relative mt-4">
-          <RiSearchLine className="text-muted-foreground pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2" />
-          <Input
-            className="pl-8"
-            placeholder={m.sessions_search_placeholder()}
-            value={search}
-            onChange={e => handleSearchChange(e.target.value)}
-          />
-        </div>
+        <TextField
+          className="mt-4"
+          prefix={<RiSearchLine />}
+          aria-label={m.sessions_search_placeholder()}
+          placeholder={m.sessions_search_placeholder()}
+          value={search}
+          onChange={e => handleSearchChange(e.target.value)}
+        />
       )}
 
       {isError && <div className="text-destructive mt-6 text-sm">{m.sessions_loading_error()}</div>}
@@ -333,11 +331,11 @@ function Pagination({
         })}
       </span>
       <div className="flex gap-1">
-        <Button variant="outline" size="sm" disabled={page === 0} onClick={onPrev}>
+        <Button size="sm" disabled={page === 0} onClick={onPrev}>
           <RiArrowLeftSLine className="size-4" data-icon="inline-start" />
           {m.sessions_prev()}
         </Button>
-        <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={onNext}>
+        <Button size="sm" disabled={page >= totalPages - 1} onClick={onNext}>
           {m.sessions_next()}
           <RiArrowRightSLine className="size-4" data-icon="inline-end" />
         </Button>

@@ -44,9 +44,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
+import { TextField } from '@/components/ui/text-field'
 import {
   Table,
   TableBody,
@@ -241,7 +241,7 @@ function GamesPage() {
           const game = info.row.original
           return (
             <Switch
-              size="sm"
+              aria-label={m.games_col_monitored()}
               checked={info.getValue()}
               onCheckedChange={checked => handleToggleMonitored(game.id, checked)}
               onClick={e => e.stopPropagation()}
@@ -281,7 +281,7 @@ function GamesPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>{m.games_delete_cancel()}</AlertDialogCancel>
-                  <AlertDialogAction variant="destructive" onClick={() => handleDeleteGame(game.id)}>
+                  <AlertDialogAction variant="danger" onClick={() => handleDeleteGame(game.id)}>
                     {m.games_delete_confirm()}
                   </AlertDialogAction>
                 </AlertDialogFooter>
@@ -310,7 +310,6 @@ function GamesPage() {
         <div className="flex gap-2">
           <div className="flex">
             <Button
-              variant="outline"
               size="sm"
               className="rounded-r-none"
               onClick={() => handleScan(scanAllGames)}
@@ -322,12 +321,7 @@ function GamesPage() {
               <DropdownMenuTrigger
                 disabled={isScanning}
                 render={
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="-ml-px rounded-l-none px-1.5"
-                    disabled={isScanning}
-                  >
+                  <Button size="sm" className="-ml-px rounded-l-none px-1.5" disabled={isScanning}>
                     <RiArrowDownSLine className="size-4" />
                   </Button>
                 }
@@ -347,23 +341,22 @@ function GamesPage() {
             </DropdownMenu>
           </div>
           <AddGameDialog>
-            <Button size="sm">
-              <RiAddLine className="size-4" data-icon="inline-start" />
+            <Button variant="primary" size="sm">
+              <RiAddLine data-icon="inline-start" />
               {m.games_add_game()}
             </Button>
           </AddGameDialog>
         </div>
       </div>
 
-      <div className="relative mt-4 max-w-xs">
-        <RiSearchLine className="text-muted-foreground absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
-        <Input
-          className="pl-8"
-          placeholder={m.games_search_placeholder()}
-          value={search}
-          onChange={e => handleSearchChange(e.target.value)}
-        />
-      </div>
+      <TextField
+        className="mt-4 max-w-xs"
+        prefix={<RiSearchLine />}
+        aria-label={m.games_search_placeholder()}
+        placeholder={m.games_search_placeholder()}
+        value={search}
+        onChange={e => handleSearchChange(e.target.value)}
+      />
 
       {isError && <div className="text-destructive mt-6 text-sm">{m.games_loading_error()}</div>}
 
@@ -501,11 +494,11 @@ function Pagination({
         })}
       </span>
       <div className="flex gap-1">
-        <Button variant="outline" size="sm" disabled={page === 0} onClick={onPrev}>
+        <Button size="sm" disabled={page === 0} onClick={onPrev}>
           <RiArrowLeftSLine className="size-4" data-icon="inline-start" />
           {m.sessions_prev()}
         </Button>
-        <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={onNext}>
+        <Button size="sm" disabled={page >= totalPages - 1} onClick={onNext}>
           {m.sessions_next()}
           <RiArrowRightSLine className="size-4" data-icon="inline-end" />
         </Button>

@@ -149,14 +149,12 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
           </Badge>
         </div>
         <div className="flex gap-1">
-          <Button variant="outline" size="sm" onClick={() => exportSessionDetail(detail)}>
+          <Button size="sm" onClick={() => exportSessionDetail(detail)}>
             <RiDownloadLine data-icon="inline-start" />
             {m.export_csv_button()}
           </Button>
           <Tooltip>
-            <TooltipTrigger render={
-              <Button variant="outline" size="sm" onClick={handleExportLlm} />
-            }>
+            <TooltipTrigger render={<Button size="sm" onClick={handleExportLlm} />}>
               <RiClipboardLine data-icon="inline-start" />
               {m.export_llm_button()}
             </TooltipTrigger>
@@ -207,13 +205,8 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
             <div className="flex items-center justify-between">
               <p className="text-lg font-medium">{detail.traceroutes.length}</p>
               {!isActive && onRetry && (
-                <Button
-                  variant="outline"
-                  size="xs"
-                  onClick={onRetry}
-                  disabled={isRetrying}
-                >
-                  <RiLoopLeftLine data-icon="inline-start" className={isRetrying ? 'animate-spin' : ''} />
+                <Button size="sm" onClick={onRetry} loading={isRetrying}>
+                  <RiLoopLeftLine data-icon="inline-start" />
                   {m.session_retry_traceroutes()}
                 </Button>
               )}

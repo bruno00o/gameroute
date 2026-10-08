@@ -14,7 +14,7 @@ import { useSettingsStore } from '@/stores/settings-store'
 import { LogoMark } from '@/components/logo-mark'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Switch } from '@/components/ui/switch'
+import { SwitchField } from '@/components/ui/switch'
 
 export const Route = createFileRoute('/welcome')({
   component: WelcomePage,
@@ -103,31 +103,25 @@ function WelcomePage() {
         </div>
 
         <div className="space-y-3">
-          <div className="flex items-center justify-between rounded-lg border px-4 py-3">
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium">{m.welcome_launch_on_startup()}</p>
-              <p className="text-muted-foreground text-xs">
-                {m.welcome_launch_on_startup_description()}
-              </p>
-            </div>
-            <Switch
-              checked={launchOnStartup}
-              onCheckedChange={handleLaunchOnStartup}
-              disabled={launchOnStartupLoading}
-            />
-          </div>
-
-          <div className="flex items-center justify-between rounded-lg border px-4 py-3">
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium">{m.welcome_advanced_mode()}</p>
-              <p className="text-muted-foreground text-xs">{m.welcome_advanced_mode_description()}</p>
-            </div>
-            <Switch checked={advancedMode} onCheckedChange={setAdvancedMode} />
-          </div>
+          <SwitchField
+            className="rounded-sm border bg-card px-4 py-3"
+            label={m.welcome_launch_on_startup()}
+            description={m.welcome_launch_on_startup_description()}
+            checked={launchOnStartup}
+            onCheckedChange={handleLaunchOnStartup}
+            disabled={launchOnStartupLoading}
+          />
+          <SwitchField
+            className="rounded-sm border bg-card px-4 py-3"
+            label={m.welcome_advanced_mode()}
+            description={m.welcome_advanced_mode_description()}
+            checked={advancedMode}
+            onCheckedChange={setAdvancedMode}
+          />
         </div>
 
         <div className="text-center space-y-3">
-          <Button size="lg" onClick={handleLaunch}>
+          <Button variant="primary" size="lg" onClick={handleLaunch}>
             {m.welcome_launch_button()}
           </Button>
           <p className="text-muted-foreground text-xs">
