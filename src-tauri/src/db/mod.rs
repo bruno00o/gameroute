@@ -5,6 +5,7 @@ use std::str::FromStr;
 use thiserror::Error;
 
 pub mod analytics;
+pub mod game_pings;
 pub mod games;
 pub mod hops;
 pub mod ip_metadata;
@@ -14,6 +15,7 @@ pub mod storage;
 pub mod traceroutes;
 
 pub use analytics::get_analytics_repository;
+pub use game_pings::get_game_ping_repository;
 pub use games::get_game_repository;
 pub use hops::get_hop_repository;
 pub use ip_metadata::get_ip_metadata_repository;
@@ -70,6 +72,7 @@ pub fn init_repositories(pool: &SqlitePool) {
     games::init_game_repository(pool.clone());
     analytics::init_analytics_repository(pool.clone());
     storage::init_storage_repository(pool.clone());
+    game_pings::init_game_ping_repository(pool.clone());
 }
 
 #[cfg(test)]

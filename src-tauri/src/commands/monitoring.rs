@@ -15,6 +15,7 @@ use crate::models::{
 use crate::platform;
 use crate::services::asn_resolver::resolve_ip;
 use crate::services::flow_kind::{classify, is_known_game_server};
+use crate::services::game_logs::watch::follow_game_logs;
 use crate::services::severity;
 use crate::services::udp_capture;
 use crate::services::trace_targets::{is_traceable_game_server, select_session_targets, TraceTarget};
@@ -80,6 +81,25 @@ fn make_on_game_ended(
             });
         }
     }
+}
+
+fn follow_game_pings(
+    app: AppHandle,
+    monitoring_state: Arc<RwLock<MonitoringState>>,
+    session_id: i64,
+    game: &DetectedGame,
+) {
+    follow_game_logs(
+        monitoring_state,
+        session_id,
+        &game.game_name,
+        &game.detected_at,
+        move |sample| {
+            if let Err(e) = app.emit("game-ping-sample", sample) {
+                log::warn!("Failed to emit game-ping-sample: {}", e);
+            }
+        },
+    );
 }
 
 /// Build the `on_ip_captured` callback shared by both auto and manual monitoring.
@@ -413,19 +433,22 @@ pub async fn start_monitoring(
                 log::info!("Emitting game-detected event for: {}", game.game_name);
 
                 let state_clone = monitoring_state_for_detected.clone();
-                let game_name = game.game_name.clone();
-                let detected_at = game.detected_at.clone();
+                let detected = game.clone();
+                let app_for_pings = app_handle_detected.clone();
                 tokio::spawn(async move {
                     if let Some(session_repo) = get_session_repository() {
-                        match session_repo.insert_session(&game_name, &detected_at).await {
+                        match session_repo
+                            .insert_session(&detected.game_name, &detected.detected_at)
+                            .await
+                        {
                             Ok(session_id) => {
                                 log::info!(
                                     "Session {} created in DB for {}",
                                     session_id,
-                                    game_name
+                                    detected.game_name
                                 );
-                                let mut state_guard = state_clone.write().await;
-                                state_guard.current_session_id = Some(session_id);
+                                state_clone.write().await.current_session_id = Some(session_id);
+                                follow_game_pings(app_for_pings, state_clone, session_id, &detected);
                             }
                             Err(e) => log::error!("Failed to create session in DB: {}", e),
                         }
@@ -689,8 +712,8 @@ pub async fn start_manual_monitoring(
                     session_id,
                     display_name
                 );
-                let mut monitoring_state = state.monitoring_state.write().await;
-                monitoring_state.current_session_id = Some(session_id);
+                state.monitoring_state.write().await.current_session_id = Some(session_id);
+                follow_game_pings(app.clone(), state.monitoring_state.clone(), session_id, &game);
             }
             Err(e) => log::error!("Failed to create session in DB: {}", e),
         }

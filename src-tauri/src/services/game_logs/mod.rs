@@ -1,6 +1,8 @@
+pub mod import;
 pub mod netstats;
 pub mod shooter;
 pub mod tail;
+pub mod watch;
 
 use crate::config::GAME_LOG_SLACK_SECS;
 use crate::models::game_ping::GamePingSample;
