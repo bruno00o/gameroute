@@ -396,20 +396,6 @@ export type TracerouteAllCompleteEvent = {
 }
 
 // ===== Network =====
-export type NetworkMapEntry = {
-  ip: string
-  country: string | null
-  city: string | null
-  lat: number | null
-  lon: number | null
-  asn: string | null
-  isp: string | null
-  sessionCount: number
-  totalDurationSecs: number
-  totalPackets: number
-  isGameServer: boolean
-}
-
 export type RecurringProblemHop = {
   ip: string
   asn: string | null
@@ -515,6 +501,45 @@ export type ServerSummary = {
   usualMaxSamples: number
   usualMinSamples: number
   servers: ServerSummaryItem[]
+}
+
+export type RouteOperator = {
+  asn: number | null
+  name: string | null
+}
+
+export type LatestRouteTrace = {
+  tracerouteId: number
+  sessionId: number
+  matchNumber: number
+  startedAt: string
+  targetIp: string
+  hops: DbHop[]
+}
+
+export type UsualRoute = {
+  gameName: string
+  route: OperatorRoute
+  traceCount: number
+  totalTraces: number
+  persistentLoss: number | null
+  latest: LatestRouteTrace
+}
+
+export type RouteChange = {
+  gameName: string
+  startedAt: string
+  endedAt: string
+  sessionId: number
+  matchNumber: number
+  traceCount: number
+  path: RouteOperator[]
+  via: RouteOperator[]
+  insteadOf: RouteOperator[]
+  totalMs: number
+  usualTotalMs: number
+  lossPct: number
+  returned: boolean
 }
 
 // ===== Service =====

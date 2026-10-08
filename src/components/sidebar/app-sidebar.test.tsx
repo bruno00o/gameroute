@@ -18,6 +18,7 @@ vi.mock('@/lib/tauri', () => ({
   stopMonitoring: vi.fn().mockResolvedValue(undefined),
   listRunningApps: vi.fn().mockResolvedValue([]),
   startManualMonitoring: vi.fn().mockResolvedValue(undefined),
+  getUsualRoute: vi.fn().mockResolvedValue([]),
 }))
 
 beforeAll(() => {
@@ -81,6 +82,7 @@ describe('AppSidebar', () => {
       'Sessions',
       'Games',
       'Route',
+      'History',
       'Settings',
       'Help',
     ])

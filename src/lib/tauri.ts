@@ -8,11 +8,11 @@ import type {
   HourlyQuality,
   IpMetadataCacheStats,
   MonitoringStatusResponse,
-  NetworkMapEntry,
   NetworkOverviewStats,
   PruneCacheResult,
   RecurringProblemHop,
   ResolvedIpData,
+  RouteChange,
   RunningApp,
   ServerIpCapturedEvent,
   ServerStability,
@@ -31,6 +31,7 @@ import type {
   TracerouteServerIpCompleteEvent,
   ServiceStatus,
   TracerouteStartedEvent,
+  UsualRoute,
 } from '@/types/backend'
 
 // ===== Monitoring =====
@@ -74,7 +75,6 @@ export const searchGames = (query: string, limit: number, offset: number) =>
 export const searchGameCount = (query: string) => invoke<number>('search_game_count', { query })
 
 // ===== Network =====
-export const getNetworkMapData = () => invoke<NetworkMapEntry[]>('get_network_map_data')
 export const getRecurringProblemHops = () =>
   invoke<RecurringProblemHop[]>('get_recurring_problem_hops')
 export const getNetworkOverviewStats = () =>
@@ -88,6 +88,9 @@ export const getServerStability = () => invoke<ServerStability[]>('get_server_st
 export const getServerSummary = (days?: number) =>
   invoke<ServerSummary>('get_server_summary', { days })
 export const getHourlyQuality = () => invoke<HourlyQuality[]>('get_hourly_quality')
+export const getUsualRoute = (days?: number) => invoke<UsualRoute[]>('get_usual_route', { days })
+export const getRouteChanges = (days?: number) =>
+  invoke<RouteChange[]>('get_route_changes', { days })
 
 // ===== ASN / Cache =====
 export const resolveAsn = (ips: string[]) => invoke<ResolvedIpData[]>('resolve_asn', { ips })
