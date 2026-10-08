@@ -1,10 +1,14 @@
 import type {
+  MeasuredFlow,
   SessionDetail,
+  SessionMatch,
   NetworkOverviewStats,
+  OperatorRoute,
   RecurringProblemHop,
   ServerStability,
 } from '@/types/backend'
 import { formatDuration, formatMs, computeDurationSecs } from '@/lib/format'
+import { isRiot } from '@/lib/matches'
 import { getLocale } from '@/paraglide/runtime'
 
 const EN = 'en'
@@ -13,7 +17,53 @@ function formatIsoShort(iso: string): string {
   return new Date(iso).toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC')
 }
 
-export function generateSessionExport(detail: SessionDetail): string {
+function flowLine(flow: MeasuredFlow): string {
+  const operator = flow.operator
+  const server = [
+    operator?.name,
+    operator?.asn != null ? `AS${operator.asn}` : null,
+    isRiot(operator) ? null : operator?.city,
+  ]
+    .filter(Boolean)
+    .join(', ')
+  const trace = flow.trace
+  const ping =
+    trace?.pingMs == null
+      ? 'not measured'
+      : trace.atDestination
+        ? `${formatMs(trace.pingMs, { locale: EN })} at the server`
+        : `>= ${formatMs(trace.pingMs, { locale: EN })} up to hop ${trace.measuredHop} (server silent)`
+  const parts = [
+    `${flow.ip} ${flow.protocol}:${flow.port}${server ? ` (${server})` : ''}`,
+    formatDuration(flow.durationSecs, EN),
+    `ping ${ping}`,
+  ]
+  if (trace?.lossPct != null) parts.push(`persistent loss ${trace.lossPct}%`)
+  if (trace?.jitterMs != null) {
+    parts.push(`spread of 3 probes ${formatMs(trace.jitterMs, { locale: EN })}`)
+  }
+  if (trace) parts.push(`trace started ${formatIsoShort(trace.startedAt)}`)
+  parts.push(`status ${flow.status}`)
+  return parts.join(', ')
+}
+
+function routeLine(route: OperatorRoute): string {
+  const segments = route.segments.map(segment => {
+    const name = [segment.name, segment.asn != null ? `AS${segment.asn}` : null]
+      .filter(Boolean)
+      .join(' ')
+    const loss = segment.status ? `, persistent loss starts here (${segment.status})` : ''
+    const hops = `hops ${segment.firstHop}-${segment.lastHop}${loss}`
+    return `${segment.zone}${name ? ` ${name}` : ''} +${segment.addedMs.toFixed(1)} ms (${hops})`
+  })
+  const total = `${route.destinationSilent ? '>= ' : ''}${route.totalMs.toFixed(1)} ms`
+  const destination = route.destinationSilent
+    ? 'destination does not answer pings'
+    : 'destination answers'
+  return `${segments.join(' -> ')}; total ${total}, ${destination}`
+}
+
+export function generateSessionExport(detail: SessionDetail, matches: SessionMatch[] = []): string {
   const durationSecs = computeDurationSecs(detail.startedAt, detail.endedAt)
 
   const gameServerIps = new Set(
@@ -38,6 +88,29 @@ export function generateSessionExport(detail: SessionDetail): string {
   lines.push(`Server IPs: ${detail.ipSummaries.length} unique (${detail.ipPeriods.length} connection periods)`)
   lines.push('</session>')
   lines.push('')
+
+  if (matches.length > 0) {
+    lines.push('<matches>')
+    lines.push(
+      'One line per match. Figures come from one traceroute per server (3 probes per hop), not from continuous measurement.'
+    )
+    for (const match of matches) {
+      lines.push(
+        `- Match ${match.number}, started ${formatIsoShort(match.startedAt)}: ${flowLine(match)}`
+      )
+      if (match.voice) lines.push(`  Voice: ${flowLine(match.voice)}`)
+    }
+    lines.push('</matches>')
+    lines.push('')
+  }
+
+  const routes = detail.traceroutes.filter(tr => tr.route)
+  if (routes.length > 0) {
+    lines.push('<routes-by-operator>')
+    for (const tr of routes) lines.push(`- ${tr.targetIp}: ${routeLine(tr.route!)}`)
+    lines.push('</routes-by-operator>')
+    lines.push('')
+  }
 
   // Game server connections
   const gsServers = detail.ipSummaries.filter(s => s.isGameServer)
