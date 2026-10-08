@@ -182,6 +182,8 @@ export type MeasuredFlow = {
   trace: TraceMeasure | null
   game: GameMeasure | null
   regionPings: RegionPings | null
+  access: AccessMeasure | null
+  regionEstimate: RegionEstimate | null
   status: Severity
 }
 
@@ -468,7 +470,7 @@ export type HourlyQuality = {
   problemHopRatio: number
 }
 
-export type PingSource = 'trace' | 'game' | 'game_region'
+export type PingSource = 'trace' | 'game' | 'game_region' | 'floor' | 'region'
 
 export type PingBasis = {
   source: PingSource
@@ -489,6 +491,95 @@ export type GamePingSample = {
   jitterMs: number | null
   packetsLost: number | null
   packetsSent: number | null
+}
+
+export type BeaconProvider = 'gamelift' | 'valve_sdr' | 'epic'
+
+export type ProbeProtocol = 'icmp' | 'udp'
+
+export type Beacon = {
+  id: string
+  provider: BeaconProvider
+  region: string
+  host: string
+  protocol: ProbeProtocol
+  port: number | null
+  places: string[]
+  enabled: boolean
+}
+
+export type LiveProbeConfig = {
+  enabled: boolean
+  floor: boolean
+  region: boolean
+  beacons: Beacon[]
+}
+
+export type ProbeTarget = {
+  source: PingSource
+  address: string
+  host: string | null
+  protocol: ProbeProtocol
+  port: number | null
+  ttl: number | null
+  serverIp: string | null
+  hopIp: string | null
+  region: string | null
+  provider: BeaconProvider | null
+}
+
+export type LiveStats = {
+  sent: number
+  received: number
+  lossPct: number
+  medianMs: number | null
+  jitterMs: number | null
+}
+
+export type LiveProbeSample = ProbeTarget & {
+  sessionId: number
+  measuredAt: string
+  rttMs: number | null
+  replyIp: string | null
+  atDestination: boolean
+  recent: LiveStats
+}
+
+export type LiveTrack = {
+  target: ProbeTarget
+  samples: LiveProbeSample[]
+  stats: LiveStats
+}
+
+export type LiveProbeState = {
+  sessionId: number | null
+  packetsSent: number
+  floor: LiveTrack | null
+  region: LiveTrack | null
+}
+
+export type LiveSpan = {
+  startedAt: string
+  endedAt: string
+  sliceCount: number
+  sent: number
+  received: number
+  lossPct: number | null
+  pingMs: number | null
+  minMs: number | null
+  maxMs: number | null
+  jitterMs: number | null
+}
+
+export type AccessMeasure = LiveSpan & {
+  basis: PingBasis
+  hopIp: string | null
+}
+
+export type RegionEstimate = LiveSpan & {
+  region: string
+  provider: BeaconProvider | null
+  host: string | null
 }
 
 export type RecentPing = {

@@ -8,6 +8,9 @@ import type {
   GamePingSample,
   HourlyQuality,
   IpMetadataCacheStats,
+  LiveProbeConfig,
+  LiveProbeSample,
+  LiveProbeState,
   MonitoringStatusResponse,
   NetworkOverviewStats,
   PruneCacheResult,
@@ -114,6 +117,12 @@ export const setSessionRetention = (days: number | null) =>
 export const getStorageStats = () => invoke<StorageStats>('get_storage_stats')
 export const deleteAllData = () => invoke<void>('delete_all_data')
 
+// ===== Live probe =====
+export const getLiveProbeState = () => invoke<LiveProbeState>('get_live_probe_state')
+export const getLiveProbeConfig = () => invoke<LiveProbeConfig>('get_live_probe_config')
+export const setLiveProbeConfig = (config: LiveProbeConfig) =>
+  invoke<LiveProbeConfig>('set_live_probe_config', { config })
+
 // ===== Export =====
 export const writeExportFile = (path: string, content: string) =>
   invoke<void>('write_export_file', { path, content })
@@ -144,3 +153,5 @@ export const onTracerouteAllComplete = (
   listen<TracerouteAllCompleteEvent>('traceroute-all-complete', e => cb(e.payload))
 export const onGamePingSample = (cb: (sample: GamePingSample) => void): Promise<UnlistenFn> =>
   listen<GamePingSample>('game-ping-sample', e => cb(e.payload))
+export const onLiveProbeSample = (cb: (sample: LiveProbeSample) => void): Promise<UnlistenFn> =>
+  listen<LiveProbeSample>('live-probe-sample', e => cb(e.payload))
