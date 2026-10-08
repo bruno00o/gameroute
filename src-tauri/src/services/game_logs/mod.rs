@@ -3,6 +3,7 @@ pub mod netstats;
 pub mod shooter;
 pub mod tail;
 pub mod watch;
+pub mod zone;
 
 use crate::config::GAME_LOG_SLACK_SECS;
 use crate::models::game_ping::GamePingSample;
@@ -13,6 +14,7 @@ use shooter::ShooterParser;
 use std::io;
 use std::path::{Path, PathBuf};
 use tail::LogTail;
+pub use zone::LogZone;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GameLogKind {
@@ -70,8 +72,8 @@ pub fn netstats_files(dir: &Path) -> Vec<PathBuf> {
     files
 }
 
-pub fn read_netstats(path: &Path) -> io::Result<Vec<GamePingSample>> {
-    let start = log_start(path)
+pub fn read_netstats(path: &Path, zone: LogZone) -> io::Result<Vec<GamePingSample>> {
+    let start = log_start(path, zone)
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "no start time in name"))?;
     let mut parser = NetstatsParser::new(start);
     let lines = LogTail::new(path.to_path_buf()).read(true)?.lines;
@@ -91,8 +93,8 @@ struct NetstatsFile {
 }
 
 impl NetstatsFile {
-    fn open(path: PathBuf) -> Option<Self> {
-        let start = log_start(&path)?;
+    fn open(path: PathBuf, zone: LogZone) -> Option<Self> {
+        let start = log_start(&path, zone)?;
         Some(Self {
             tail: LogTail::new(path),
             start,
@@ -127,11 +129,18 @@ enum Following {
 pub struct GameLogFollower {
     session_id: i64,
     since: DateTime<Utc>,
+    zone: LogZone,
     following: Following,
 }
 
 impl GameLogFollower {
-    pub fn new(kind: GameLogKind, dir: PathBuf, session_id: i64, since: DateTime<Utc>) -> Self {
+    pub fn new(
+        kind: GameLogKind,
+        dir: PathBuf,
+        session_id: i64,
+        since: DateTime<Utc>,
+        zone: LogZone,
+    ) -> Self {
         let following = match kind {
             GameLogKind::League => Following::League { dir, current: None },
             GameLogKind::Valorant => Following::Valorant {
@@ -142,23 +151,25 @@ impl GameLogFollower {
         Self {
             session_id,
             since,
+            zone,
             following,
         }
     }
 
     pub fn poll(&mut self, finish: bool) -> io::Result<Vec<GamePingSample>> {
         let since = self.since - slack();
+        let zone = self.zone;
         let mut samples = match &mut self.following {
             Following::League { dir, current } => {
                 let latest = netstats_files(dir)
                     .pop()
-                    .filter(|path| log_start(path).is_some_and(|start| start >= since));
+                    .filter(|path| log_start(path, zone).is_some_and(|start| start >= since));
                 let mut samples = Vec::new();
                 if latest.as_deref() != current.as_ref().map(|file| file.tail.path()) {
                     if let Some(previous) = current.as_mut() {
                         samples.extend(previous.read(true).unwrap_or_default());
                     }
-                    *current = latest.and_then(NetstatsFile::open);
+                    *current = latest.and_then(|path| NetstatsFile::open(path, zone));
                 }
                 if let Some(file) = current.as_mut() {
                     samples.extend(file.read(finish)?);
@@ -188,18 +199,24 @@ impl GameLogFollower {
 mod tests {
     use super::*;
     use crate::models::insights::PingSource;
-    use chrono::{Local, TimeZone};
+    use chrono::{NaiveDate, TimeZone};
     use std::io::Write;
+    use zone::offset;
 
     const NETSTATS: &str =
         include_str!("../../../tests/fixtures/game_logs/2026-10-08T19-35-06_netstats.csv");
     const SHOOTER: &str = include_str!("../../../tests/fixtures/game_logs/ShooterGame.txt");
 
-    fn local(h: u32, m: u32, s: u32) -> DateTime<Utc> {
-        Local
-            .with_ymd_and_hms(2026, 10, 8, h, m, s)
+    fn zones() -> [LogZone; 3] {
+        [offset(0), offset(2), offset(-7)]
+    }
+
+    fn local(zone: LogZone, h: u32, m: u32, s: u32) -> DateTime<Utc> {
+        let stamp = NaiveDate::from_ymd_opt(2026, 10, 8)
             .unwrap()
-            .with_timezone(&Utc)
+            .and_hms_opt(h, m, s)
+            .unwrap();
+        zone.to_utc(stamp).unwrap()
     }
 
     fn write_match(dir: &Path, stamp: &str, text: &str) -> PathBuf {
@@ -239,6 +256,12 @@ mod tests {
 
     #[test]
     fn league_follower_tails_the_current_match_then_the_next_one() {
+        for zone in zones() {
+            follow_league_matches(zone);
+        }
+    }
+
+    fn follow_league_matches(zone: LogZone) {
         let dir = tempfile::tempdir().unwrap();
         let lines: Vec<&str> = NETSTATS.lines().collect();
         write_match(
@@ -255,7 +278,8 @@ mod tests {
             GameLogKind::League,
             dir.path().into(),
             191,
-            local(19, 30, 0),
+            local(zone, 19, 30, 0),
+            zone,
         );
 
         let first = follower.poll(false).unwrap();
@@ -275,7 +299,7 @@ mod tests {
         );
         let switched = follower.poll(false).unwrap();
         assert_eq!(switched.len(), 2);
-        assert!(switched[1].at().unwrap() > local(20, 10, 0));
+        assert!(switched[1].at().unwrap() > local(zone, 20, 10, 0));
 
         append(&next, &format!("{}\n{}\n", lines[6], lines[9]));
         assert_eq!(follower.poll(true).unwrap().len(), 1);
@@ -285,10 +309,13 @@ mod tests {
     fn league_follower_ignores_matches_older_than_the_session() {
         let dir = tempfile::tempdir().unwrap();
         write_match(dir.path(), "2026-10-08T19-35-06", NETSTATS);
-        let mut follower =
-            GameLogFollower::new(GameLogKind::League, dir.path().into(), 1, local(20, 0, 0));
+        for zone in zones() {
+            let since = local(zone, 20, 0, 0);
+            let mut follower =
+                GameLogFollower::new(GameLogKind::League, dir.path().into(), 1, since, zone);
 
-        assert!(follower.poll(true).unwrap().is_empty());
+            assert!(follower.poll(true).unwrap().is_empty());
+        }
     }
 
     #[test]
@@ -298,7 +325,13 @@ mod tests {
         let (head, rest) = SHOOTER.split_at(SHOOTER.find("[2026.10.04-13.15.56").unwrap());
         std::fs::write(&path, head).unwrap();
         let since = Utc.with_ymd_and_hms(2026, 10, 4, 13, 2, 14).unwrap();
-        let mut follower = GameLogFollower::new(GameLogKind::Valorant, dir.path().into(), 7, since);
+        let mut follower = GameLogFollower::new(
+            GameLogKind::Valorant,
+            dir.path().into(),
+            7,
+            since,
+            offset(0),
+        );
 
         let regions = follower.poll(false).unwrap();
         assert_eq!(regions.len(), 3);
@@ -318,10 +351,16 @@ mod tests {
     fn whole_files_read_the_same_samples_as_the_live_follower() {
         let dir = tempfile::tempdir().unwrap();
         let path = write_match(dir.path(), "2026-10-08T19-35-06", NETSTATS);
-        let mut follower =
-            GameLogFollower::new(GameLogKind::League, dir.path().into(), 0, local(19, 35, 0));
+        for zone in zones() {
+            let since = local(zone, 19, 35, 0);
+            let mut follower =
+                GameLogFollower::new(GameLogKind::League, dir.path().into(), 0, since, zone);
 
-        assert_eq!(read_netstats(&path).unwrap(), follower.poll(true).unwrap());
+            assert_eq!(
+                read_netstats(&path, zone).unwrap(),
+                follower.poll(true).unwrap()
+            );
+        }
         assert_eq!(netstats_files(dir.path()), vec![path]);
 
         let shooter = dir.path().join("ShooterGame.log");

@@ -1,7 +1,7 @@
 use super::netstats::log_start;
 use super::shooter::log_opened_at;
 use super::tail::first_line;
-use super::{netstats_files, read_netstats, read_shooter_log, slack, GameLogKind};
+use super::{netstats_files, read_netstats, read_shooter_log, slack, GameLogKind, LogZone};
 use crate::db::game_pings::UnsampledSession;
 use crate::db::get_game_ping_repository;
 use crate::models::game_ping::GamePingSample;
@@ -69,12 +69,17 @@ fn shooter_logs(dir: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
-fn written_between(path: &Path) -> Option<(DateTime<Utc>, DateTime<Utc>)> {
-    let opened = log_opened_at(&first_line(path).ok()?)?;
+fn written_between(path: &Path, zone: LogZone) -> Option<(DateTime<Utc>, DateTime<Utc>)> {
+    let opened = log_opened_at(&first_line(path).ok()?, zone)?;
     Some((opened, modified(path)?))
 }
 
-pub fn collect(kind: GameLogKind, dir: &Path, spans: &[Span]) -> Vec<GamePingSample> {
+pub fn collect(
+    kind: GameLogKind,
+    dir: &Path,
+    spans: &[Span],
+    zone: LogZone,
+) -> Vec<GamePingSample> {
     let spans: Vec<&Span> = spans.iter().filter(|span| span.kind == kind).collect();
     let wanted = |from: DateTime<Utc>, to: DateTime<Utc>, modified: DateTime<Utc>| {
         spans.iter().any(|span| span.wants(from, to, modified))
@@ -83,15 +88,17 @@ pub fn collect(kind: GameLogKind, dir: &Path, spans: &[Span]) -> Vec<GamePingSam
         GameLogKind::League => netstats_files(dir)
             .into_iter()
             .filter(|path| {
-                log_start(path)
+                log_start(path, zone)
                     .zip(modified(path))
                     .is_some_and(|(start, at)| wanted(start, start, at))
             })
-            .flat_map(|path| read_netstats(&path).unwrap_or_default())
+            .flat_map(|path| read_netstats(&path, zone).unwrap_or_default())
             .collect(),
         GameLogKind::Valorant => shooter_logs(dir)
             .into_iter()
-            .filter(|path| written_between(path).is_some_and(|(from, to)| wanted(from, to, to)))
+            .filter(|path| {
+                written_between(path, zone).is_some_and(|(from, to)| wanted(from, to, to))
+            })
             .flat_map(|path| read_shooter_log(&path).unwrap_or_default())
             .collect(),
     };
@@ -131,7 +138,7 @@ pub async fn backfill_game_pings() {
         [GameLogKind::League, GameLogKind::Valorant]
             .into_iter()
             .filter_map(|kind| Some((kind, kind.logs_dir()?)))
-            .flat_map(|(kind, dir)| collect(kind, &dir, &spans))
+            .flat_map(|(kind, dir)| collect(kind, &dir, &spans, LogZone::LOCAL))
             .collect::<Vec<GamePingSample>>()
     })
     .await;
@@ -162,14 +169,19 @@ pub async fn backfill_game_pings() {
 
 #[cfg(test)]
 mod tests {
+    use super::super::zone::offset;
     use super::*;
     use crate::models::insights::PingSource;
     use crate::models::session::Session;
-    use chrono::{Duration, Local, TimeZone};
+    use chrono::{Duration, NaiveDate, TimeZone};
 
     const NETSTATS: &str =
         include_str!("../../../tests/fixtures/game_logs/2026-10-08T19-35-06_netstats.csv");
     const SHOOTER: &str = include_str!("../../../tests/fixtures/game_logs/ShooterGame.txt");
+
+    fn zones() -> [LogZone; 3] {
+        [offset(0), offset(2), offset(-7)]
+    }
 
     fn session(id: i64, game: &str, from: DateTime<Utc>, minutes: i64) -> UnsampledSession {
         UnsampledSession {
@@ -196,93 +208,132 @@ mod tests {
         }
     }
 
-    fn lol_started() -> DateTime<Utc> {
-        Local
-            .with_ymd_and_hms(2026, 10, 8, 17, 56, 20)
+    fn lol_started(zone: LogZone) -> DateTime<Utc> {
+        let stamp = NaiveDate::from_ymd_opt(2026, 10, 8)
             .unwrap()
-            .with_timezone(&Utc)
+            .and_hms_opt(17, 56, 20)
+            .unwrap();
+        zone.to_utc(stamp).unwrap()
+    }
+
+    fn valorant_log(dir: &Path, zone: LogZone) {
+        let opened = Utc.with_ymd_and_hms(2026, 10, 4, 13, 2, 14).unwrap();
+        let shift = zone.offset().unwrap();
+        let header = opened
+            .with_timezone(&shift)
+            .format("Log file open, %m/%d/%y %H:%M:%S");
+        let body = SHOOTER.split_once('\n').unwrap().1;
+        std::fs::write(dir.join("ShooterGame.log"), format!("{header}\n{body}")).unwrap();
+    }
+
+    fn valorant_at(h: u32, m: u32) -> DateTime<Utc> {
+        Utc.with_ymd_and_hms(2026, 10, 4, h, m, 0).unwrap()
     }
 
     #[test]
     fn league_matches_land_in_the_session_that_was_running() {
         let dir = tempfile::tempdir().unwrap();
         league_logs(dir.path());
-        let mut live = session(192, "League of Legends", lol_started(), 0);
-        live.session.ended_at = None;
-        let sessions = vec![
-            session(191, "League of Legends", lol_started(), 122),
-            session(190, "VALORANT", lol_started(), 122),
-            live,
-        ];
+        for zone in zones() {
+            let mut live = session(192, "League of Legends", lol_started(zone), 0);
+            live.session.ended_at = None;
+            let sessions = vec![
+                session(191, "League of Legends", lol_started(zone), 122),
+                session(190, "VALORANT", lol_started(zone), 122),
+                live,
+            ];
 
-        let samples = collect(GameLogKind::League, dir.path(), &spans(&sessions));
+            let samples = collect(GameLogKind::League, dir.path(), &spans(&sessions), zone);
 
-        assert_eq!(samples.len(), 8);
-        assert!(samples
-            .iter()
-            .all(|s| s.session_id == 191 && s.source == PingSource::Game));
+            assert_eq!(samples.len(), 8, "{zone:?}");
+            assert!(samples
+                .iter()
+                .all(|s| s.session_id == 191 && s.source == PingSource::Game));
+        }
     }
 
     #[test]
     fn logs_unchanged_since_the_last_scan_are_not_read_again() {
-        let dir = tempfile::tempdir().unwrap();
-        league_logs(dir.path());
-        std::fs::write(dir.path().join("ShooterGame.log"), SHOOTER).unwrap();
-        let later = Utc::now() + Duration::minutes(1);
-        let earlier = Utc::now() - Duration::days(1);
-        let valorant = Utc.with_ymd_and_hms(2026, 10, 4, 13, 2, 0).unwrap();
+        for zone in zones() {
+            let dir = tempfile::tempdir().unwrap();
+            league_logs(dir.path());
+            valorant_log(dir.path(), zone);
+            let later = Utc::now() + Duration::minutes(1);
+            let earlier = Utc::now() - Duration::days(1);
+            let both = |at: DateTime<Utc>| {
+                spans(&[
+                    scanned(
+                        session(191, "League of Legends", lol_started(zone), 122),
+                        at,
+                    ),
+                    scanned(session(1, "VALORANT", valorant_at(13, 2), 60), at),
+                ])
+            };
+            let read = |kind: GameLogKind, at: DateTime<Utc>| {
+                collect(kind, dir.path(), &both(at), zone).len()
+            };
 
-        let done = vec![
-            scanned(session(191, "League of Legends", lol_started(), 122), later),
-            scanned(session(1, "VALORANT", valorant, 60), later),
-        ];
-        assert!(collect(GameLogKind::League, dir.path(), &spans(&done)).is_empty());
-        assert!(collect(GameLogKind::Valorant, dir.path(), &spans(&done)).is_empty());
-
-        let stale = vec![
-            scanned(
-                session(191, "League of Legends", lol_started(), 122),
-                earlier,
-            ),
-            scanned(session(1, "VALORANT", valorant, 60), earlier),
-        ];
-        assert_eq!(
-            collect(GameLogKind::League, dir.path(), &spans(&stale)).len(),
-            8
-        );
-        assert_eq!(
-            collect(GameLogKind::Valorant, dir.path(), &spans(&stale)).len(),
-            5
-        );
+            assert_eq!(read(GameLogKind::League, later), 0, "{zone:?}");
+            assert_eq!(read(GameLogKind::Valorant, later), 0, "{zone:?}");
+            assert_eq!(read(GameLogKind::League, earlier), 8, "{zone:?}");
+            assert_eq!(read(GameLogKind::Valorant, earlier), 5, "{zone:?}");
+        }
     }
 
     #[test]
     fn valorant_events_are_split_between_sessions_by_time() {
+        for zone in zones() {
+            let dir = tempfile::tempdir().unwrap();
+            valorant_log(dir.path(), zone);
+            std::fs::write(dir.path().join("cef3.log"), "ignored").unwrap();
+            let sessions = vec![
+                session(1, "VALORANT", valorant_at(13, 2), 13),
+                session(2, "VALORANT", valorant_at(13, 15), 30),
+                session(3, "League of Legends", valorant_at(13, 0), 60),
+            ];
+
+            let samples: Vec<(i64, PingSource)> =
+                collect(GameLogKind::Valorant, dir.path(), &spans(&sessions), zone)
+                    .iter()
+                    .map(|s| (s.session_id, s.source))
+                    .collect();
+
+            assert_eq!(
+                samples,
+                vec![
+                    (1, PingSource::GameRegion),
+                    (1, PingSource::GameRegion),
+                    (1, PingSource::GameRegion),
+                    (2, PingSource::Game),
+                    (2, PingSource::Game),
+                ],
+                "{zone:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_log_read_in_the_wrong_zone_does_not_overlap_the_session() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("ShooterGame.log"), SHOOTER).unwrap();
-        std::fs::write(dir.path().join("cef3.log"), "ignored").unwrap();
-        let at = |h: u32, m: u32| Utc.with_ymd_and_hms(2026, 10, 4, h, m, 0).unwrap();
-        let sessions = vec![
-            session(1, "VALORANT", at(13, 2), 13),
-            session(2, "VALORANT", at(13, 15), 30),
-            session(3, "League of Legends", at(13, 0), 60),
-        ];
-        let spans = spans(&sessions);
+        valorant_log(dir.path(), offset(2));
+        let sessions = vec![session(1, "VALORANT", valorant_at(13, 2), 12)];
 
-        let samples: Vec<(i64, PingSource)> = collect(GameLogKind::Valorant, dir.path(), &spans)
-            .iter()
-            .map(|s| (s.session_id, s.source))
-            .collect();
-
+        assert!(collect(
+            GameLogKind::Valorant,
+            dir.path(),
+            &spans(&sessions),
+            offset(-12)
+        )
+        .is_empty());
         assert_eq!(
-            samples,
-            vec![
-                (1, PingSource::GameRegion),
-                (1, PingSource::GameRegion),
-                (1, PingSource::GameRegion),
-                (2, PingSource::Game),
-                (2, PingSource::Game),
-            ]
+            collect(
+                GameLogKind::Valorant,
+                dir.path(),
+                &spans(&sessions),
+                offset(2)
+            )
+            .len(),
+            3
         );
     }
 }
