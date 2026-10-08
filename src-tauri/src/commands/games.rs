@@ -23,6 +23,20 @@ pub async fn get_games(limit: i32, offset: i32) -> Result<Vec<GameListItem>, Com
 
     repo.get_games(limit, offset)
         .await
+        .map(with_profiles)
+        .map_err(|e| CommandError::internal(e.to_string()))
+}
+
+fn with_profiles(games: Vec<GameListItem>) -> Vec<GameListItem> {
+    games.into_iter().map(GameListItem::with_profile).collect()
+}
+
+#[tauri::command]
+pub async fn get_monitored_game_count() -> Result<i64, CommandError> {
+    let repo = get_game_repository().ok_or_else(|| CommandError::repo_not_initialized("Game"))?;
+
+    repo.get_monitored_game_count()
+        .await
         .map_err(|e| CommandError::internal(e.to_string()))
 }
 
@@ -107,6 +121,7 @@ pub async fn search_games(
 
     repo.search_games(&query, limit, offset)
         .await
+        .map(with_profiles)
         .map_err(|e| CommandError::internal(e.to_string()))
 }
 
