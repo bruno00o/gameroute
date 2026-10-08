@@ -17,6 +17,7 @@ describe('monitoring-store initial state', () => {
     expect(state.currentSessionId).toBeNull()
     expect(state.seenIps.size).toBe(0)
     expect(state.serverIpCount).toBe(0)
+    expect(state.lastServer).toBeNull()
   })
 })
 
@@ -129,6 +130,23 @@ describe('addCapturedIp', () => {
     expect(getState().seenIps.size).toBe(2)
     expect(getState().serverIpCount).toBe(2)
   })
+
+  it('remembers the latest new server and ignores repeats', () => {
+    const first: ServerIpCapturedEvent = {
+      ip: '203.0.113.200',
+      port: 7220,
+      protocol: 'udp',
+      capturedAt: '2026-01-31T10:00:00Z',
+      packetCount: 12,
+    }
+    const second: ServerIpCapturedEvent = { ...first, ip: '203.0.113.201', port: 7221 }
+
+    getState().addCapturedIp(first)
+    getState().addCapturedIp(second)
+    getState().addCapturedIp({ ...first, capturedAt: '2026-01-31T10:00:09Z' })
+
+    expect(getState().lastServer).toBe(second)
+  })
 })
 
 describe('clearCapturedIps', () => {
@@ -152,6 +170,7 @@ describe('clearCapturedIps', () => {
 
     expect(getState().seenIps.size).toBe(0)
     expect(getState().serverIpCount).toBe(0)
+    expect(getState().lastServer).toBeNull()
   })
 })
 
@@ -186,6 +205,7 @@ describe('reset', () => {
     expect(getState().currentSessionId).toBeNull()
     expect(getState().seenIps.size).toBe(0)
     expect(getState().serverIpCount).toBe(0)
+    expect(getState().lastServer).toBeNull()
   })
 })
 
