@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { open } from '@tauri-apps/plugin-dialog'
-import { RiFolderOpenLine } from '@remixicon/react'
 import { toast } from 'sonner'
 
 import * as m from '@/paraglide/messages'
@@ -17,6 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { InputGroupButton } from '@/components/ui/input-group'
 import { TextField } from '@/components/ui/text-field'
 
 export function AddGameDialog({ children }: { children: React.ReactElement }) {
@@ -56,6 +56,7 @@ export function AddGameDialog({ children }: { children: React.ReactElement }) {
       await addManualGame(name.trim(), path.trim())
       toast.success(m.games_added())
       queryClient.invalidateQueries({ queryKey: ['games'] })
+      queryClient.invalidateQueries({ queryKey: ['games-totals'] })
       setOpen(false)
       setName('')
       setPath('')
@@ -84,29 +85,22 @@ export function AddGameDialog({ children }: { children: React.ReactElement }) {
               placeholder={m.games_add_name_placeholder()}
               required
             />
-            <div className="flex items-end gap-2">
-              <TextField
-                id="game-path"
-                label={m.games_add_path()}
-                value={path}
-                onChange={e => setPath(e.target.value)}
-                placeholder={m.games_add_path_placeholder()}
-                required
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                size="icon"
-                onClick={handleBrowse}
-                title={m.games_add_browse()}
-                aria-label={m.games_add_browse()}
-              >
-                <RiFolderOpenLine />
-              </Button>
-            </div>
+            <TextField
+              id="game-path"
+              label={m.games_add_path()}
+              hint={m.games_add_path_hint()}
+              mono
+              value={path}
+              onChange={e => setPath(e.target.value)}
+              placeholder={m.games_add_path_placeholder()}
+              required
+              suffix={
+                <InputGroupButton onClick={handleBrowse}>{m.games_add_browse()}</InputGroupButton>
+              }
+            />
           </div>
           <DialogFooter className="mt-4">
-            <Button type="button" onClick={() => setOpen(false)}>
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
               {m.games_add_cancel()}
             </Button>
             <Button

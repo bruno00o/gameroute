@@ -64,6 +64,7 @@ export const scanAllGames = () => invoke<ScanResult>('scan_all_games')
 export const getGames = (limit: number, offset: number) =>
   invoke<GameListItem[]>('get_games', { limit, offset })
 export const getGameCount = () => invoke<number>('get_game_count')
+export const getMonitoredGameCount = () => invoke<number>('get_monitored_game_count')
 export const addManualGame = (name: string, executablePath: string) =>
   invoke<number>('add_manual_game', { name, executablePath })
 export const removeGame = (id: number) => invoke<void>('remove_game', { id })
