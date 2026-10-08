@@ -201,6 +201,7 @@ describe('setIpComplete', () => {
 
     getState().setIpComplete(event)
     expect(getState().completedIps.get('1.1.1.1')).toBe(true)
+    expect(getState().statuses.get('1.1.1.1')).toBe('ok')
   })
 
   it('marks IP as failed', () => {
@@ -289,6 +290,7 @@ describe('reset', () => {
     expect(state.startedAt).toBeNull()
     expect(state.liveHops.size).toBe(0)
     expect(state.completedIps.size).toBe(0)
+    expect(state.statuses.size).toBe(0)
     expect(state.summary).toBeNull()
   })
 })

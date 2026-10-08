@@ -50,7 +50,7 @@ import {
 import { toast } from 'sonner'
 
 import { useSettingsStore } from '@/stores/settings-store'
-import { formatMs, formatPercent, formatDate, latencyColor } from '@/lib/format'
+import { formatMs, formatPercent, formatDate } from '@/lib/format'
 import { generateNetworkExport } from '@/lib/export-llm'
 import { exportServerStability } from '@/lib/export-csv'
 import { cn } from '@/lib/utils'
@@ -222,7 +222,7 @@ function OverviewTab() {
       hopColumnHelper.accessor('avgLatency', {
         header: () => advancedMode ? m.network_col_avg_latency() : m.simple_latency(),
         cell: info => (
-          <span className={latencyColor(info.getValue())}>
+          <span className="font-mono tabular-nums">
             {formatMs(info.getValue())}
           </span>
         ),
@@ -545,7 +545,7 @@ function ServersTab() {
       stabilityColumnHelper.accessor('avgLatency', {
         header: () => m.insights_col_avg_latency(),
         cell: info => (
-          <span className={latencyColor(info.getValue())}>
+          <span className="font-mono tabular-nums">
             {formatMs(info.getValue())}
           </span>
         ),
@@ -937,16 +937,12 @@ function StabilityMapSection({
           </div>
           <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-full bg-ok" />
-              {m.network_map_legend_stable()}
+              <span className="size-2.5 rounded-full bg-foreground" />
+              {m.network_map_legend_game_server()}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-full bg-watch" />
-              {m.network_map_legend_some_issues()}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-full bg-critical" />
-              {m.network_map_legend_problematic()}
+              <span className="size-2.5 rounded-full bg-route-b" />
+              {m.network_map_legend_other()}
             </span>
           </div>
         </CardContent>
@@ -975,13 +971,7 @@ function StabilityMapContent({ servers }: { servers: ServerStability[] }) {
     <Map center={center} zoom={2}>
       <MapControls />
       {servers.map(server => {
-        const ratio = server.problemHopRatio
-        const color =
-          ratio > 0.3
-            ? 'bg-critical'
-            : ratio > 0.1
-              ? 'bg-watch'
-              : 'bg-ok'
+        const color = server.isGameServer ? 'bg-foreground' : 'bg-route-b'
         return (
           <MapMarker
             key={server.ip}
@@ -1028,7 +1018,7 @@ function StabilityMapContent({ servers }: { servers: ServerStability[] }) {
               <p className="text-muted-foreground text-xs">{selected.isp}</p>
             )}
             <div className="flex items-center gap-3 pt-1 text-xs">
-              <span className={latencyColor(selected.avgLatency)}>
+              <span className="font-mono tabular-nums">
                 {formatMs(selected.avgLatency)}
               </span>
               <span className="text-muted-foreground">

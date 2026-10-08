@@ -1,9 +1,8 @@
 import { useMemo } from 'react'
-import { RiAlertLine } from '@remixicon/react'
 
 import * as m from '@/paraglide/messages'
 import type { DbHop, ResolvedIpData } from '@/types/backend'
-import { latencyColor, formatMs, formatPercent } from '@/lib/format'
+import { formatMs, formatPercent } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import {
   Table,
@@ -17,17 +16,18 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Badge } from '@/components/ui/badge'
 import { Map, MapMarker, MarkerContent, MarkerTooltip, MapRoute, MapControls } from '@/components/ui/map'
 import { ExpandableMap } from '@/components/expandable-map'
+import { SeverityGlyph } from '@/components/status/severity-glyph'
+import { severityText } from '@/components/status/severity-color'
+import { SilentHop } from '@/components/status/silent-hop'
 
 export function HopTable({
   hops,
   asnData,
-  problemHopIndex,
   targetIp,
   advancedMode = true,
 }: {
   hops: DbHop[]
   asnData?: Map<string, ResolvedIpData>
-  problemHopIndex?: number | null
   targetIp?: string
   advancedMode?: boolean
 }) {
@@ -58,7 +58,6 @@ export function HopTable({
       const hopInfo: HopPoint = {
         ip: hop.ip,
         hopNumber: hop.hopNumber,
-        isProblem: hop.isProblemHop,
         latency: hop.latencyAvg,
         isp: resolved.asnInfo.isp,
       }
@@ -69,9 +68,8 @@ export function HopTable({
       )
       if (existing) {
         existing.hops.push(hopInfo)
-        if (hop.isProblemHop) existing.hasProblem = true
       } else {
-        points.push({ lon, lat, hops: [hopInfo], hasProblem: hop.isProblemHop })
+        points.push({ lon, lat, hops: [hopInfo] })
         coords.push([lon, lat])
       }
     }
@@ -111,7 +109,6 @@ export function HopTable({
       </TableHeader>
       <TableBody>
         {hops.map(hop => {
-          const isProblem = hop.isProblemHop || hop.hopNumber === problemHopIndex
           const isDestination = hop.ip === targetIp
           const resolved = hop.ip ? asnData?.get(hop.ip) : undefined
           const asnLabel = resolved
@@ -121,13 +118,8 @@ export function HopTable({
             : null
 
           return (
-            <TableRow key={hop.id} className={cn(isProblem && 'bg-destructive/5')}>
-              <TableCell className="tabular-nums">
-                <span className="flex items-center gap-1">
-                  {isDestination ? '→' : hop.hopNumber}
-                  {isProblem && <RiAlertLine className="text-destructive size-3" />}
-                </span>
-              </TableCell>
+            <TableRow key={hop.id}>
+              <TableCell className="tabular-nums">{isDestination ? '→' : hop.hopNumber}</TableCell>
               <TableCell className="font-mono">
                 {hop.ip ? (
                   asnLabel ? (
@@ -149,10 +141,10 @@ export function HopTable({
                   {hop.hostname ?? <span className="text-muted-foreground">-</span>}
                 </TableCell>
               )}
-              <TableCell className="text-right tabular-nums">
+              <TableCell className="text-right font-mono tabular-nums">
                 {hop.latencyAvg != null ? (
                   <Tooltip>
-                    <TooltipTrigger className={cn('cursor-default', latencyColor(hop.latencyAvg))}>
+                    <TooltipTrigger className="cursor-default">
                       {formatMs(hop.latencyAvg)}
                     </TooltipTrigger>
                     <TooltipContent>
@@ -164,22 +156,11 @@ export function HopTable({
                     </TooltipContent>
                   </Tooltip>
                 ) : (
-                  <span className="text-muted-foreground">{m.session_hop_timeout()}</span>
+                  <SilentHop />
                 )}
               </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {hop.packetLoss != null ? (
-                  <span
-                    className={cn(
-                      hop.packetLoss > 5 && 'text-destructive',
-                      hop.packetLoss > 0 && hop.packetLoss <= 5 && 'text-watch',
-                    )}
-                  >
-                    {formatPercent(hop.packetLoss)}
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">-</span>
-                )}
+              <TableCell className="text-right font-mono tabular-nums">
+                <HopLoss hop={hop} />
               </TableCell>
               {advancedMode && (
                 <TableCell className="hidden text-right md:table-cell">
@@ -256,8 +237,33 @@ export function HopTable({
   )
 }
 
-type HopPoint = { ip: string; hopNumber: number; isProblem: boolean; latency: number | null; isp: string | null }
-type MapPoint = { lon: number; lat: number; hops: HopPoint[]; hasProblem: boolean }
+function HopLoss({ hop }: { hop: DbHop }) {
+  if (hop.latencyAvg == null) return null
+  if (hop.lossStatus) {
+    return (
+      <span
+        className={cn('inline-flex items-center gap-1 font-medium', severityText[hop.lossStatus])}
+      >
+        <SeverityGlyph status={hop.lossStatus} size={8} />
+        {formatPercent(hop.packetLoss)}
+      </span>
+    )
+  }
+  if ((hop.packetLoss ?? 0) > 0) {
+    return (
+      <Tooltip>
+        <TooltipTrigger className="text-ink-subtle decoration-line-strong cursor-default underline decoration-dashed underline-offset-[3px]">
+          {formatPercent(hop.packetLoss)}
+        </TooltipTrigger>
+        <TooltipContent>{m.hop_rate_limited()}</TooltipContent>
+      </Tooltip>
+    )
+  }
+  return formatPercent(hop.packetLoss)
+}
+
+type HopPoint = { ip: string; hopNumber: number; latency: number | null; isp: string | null }
+type MapPoint = { lon: number; lat: number; hops: HopPoint[] }
 
 function RouteMapContent({ points, coords }: { points: MapPoint[]; coords: [number, number][] }) {
   return (
@@ -288,9 +294,8 @@ function RouteMapContent({ points, coords }: { points: MapPoint[]; coords: [numb
             <MarkerContent>
               <div
                 className={cn(
-                  'text-background flex items-center justify-center rounded-full shadow-md',
+                  'bg-foreground text-background flex items-center justify-center rounded-full shadow-md',
                   isFirst || isLast ? 'size-5 text-[9px] font-bold' : 'size-4 text-[8px] font-semibold',
-                  point.hasProblem ? 'bg-destructive' : 'bg-foreground',
                 )}
               >
                 {label}
@@ -303,9 +308,7 @@ function RouteMapContent({ points, coords }: { points: MapPoint[]; coords: [numb
                     <span className="font-semibold">#{h.hopNumber}</span>
                     <span className="font-mono">{h.ip}</span>
                     {h.latency != null && (
-                      <span className={latencyColor(h.latency)}>
-                        {formatMs(h.latency)}
-                      </span>
+                      <span className="font-mono tabular-nums">{formatMs(h.latency)}</span>
                     )}
                   </div>
                 ))}

@@ -8,7 +8,6 @@ import {
   formatDuration,
   formatMs,
   formatNumber,
-  latencyColor,
   computeDurationSecs,
 } from '@/lib/format'
 import { useAsnResolution } from '@/hooks/use-asn-resolution'
@@ -20,6 +19,7 @@ import { Separator } from '@/components/ui/separator'
 import { Map, MapMarker, MarkerContent, MarkerTooltip, MapControls } from '@/components/ui/map'
 import { ExpandableMap } from '@/components/expandable-map'
 import { HopTable } from '@/components/hop-table'
+import { StatusPill } from '@/components/status/status-pill'
 
 export function PeriodDetail({
   period,
@@ -67,7 +67,11 @@ export function PeriodDetail({
       }
     }
 
-    return { hopCount, problemHops, serverLatency }
+    const destinationSilent = !traceroute.hops.some(
+      h => h.ip === traceroute.targetIp && h.latencyAvg != null,
+    )
+
+    return { hopCount, problemHops, serverLatency, destinationSilent, status: traceroute.status }
   }, [traceroute])
 
   const packetRate = summary && summary.totalDurationSecs > 0
@@ -132,10 +136,11 @@ export function PeriodDetail({
               <CardHeader>
                 <CardTitle>{m.session_ip_latency()}</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className={`text-sm font-medium ${latencyColor(routeStats.serverLatency)}`}>
-                  {formatMs(routeStats.serverLatency)}
+              <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <p className="font-mono text-sm font-medium tabular-nums">
+                  {formatMs(routeStats.serverLatency, { atLeast: routeStats.destinationSilent })}
                 </p>
+                <StatusPill status={routeStats.status} size="sm" />
               </CardContent>
             </Card>
             <Card size="sm">
@@ -144,9 +149,11 @@ export function PeriodDetail({
               </CardHeader>
               <CardContent>
                 {routeStats.problemHops > 0 ? (
-                  <Badge variant="destructive">{routeStats.problemHops}</Badge>
+                  <p className="font-mono text-sm font-medium tabular-nums">
+                    {routeStats.problemHops}
+                  </p>
                 ) : (
-                  <p className="text-ok text-sm font-medium">{m.session_no_problems()}</p>
+                  <p className="text-sm font-medium">{m.session_no_problems()}</p>
                 )}
               </CardContent>
             </Card>
@@ -286,7 +293,6 @@ export function PeriodDetail({
           <HopTable
             hops={traceroute.hops}
             asnData={asnData}
-            problemHopIndex={traceroute.problemHopIndex}
             targetIp={traceroute.targetIp}
             advancedMode={advancedMode}
           />
