@@ -42,10 +42,10 @@ function RootLayout() {
     }
   }, [onboardingCompleted, isWelcome, navigate])
 
-  if (isWelcome) {
+  if (!onboardingCompleted || isWelcome) {
     return (
       <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-        <Outlet />
+        {isWelcome && <Outlet />}
         <Toaster />
       </ThemeProvider>
     )
