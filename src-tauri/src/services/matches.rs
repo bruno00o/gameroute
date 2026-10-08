@@ -27,11 +27,16 @@ pub async fn session_matches(
     Ok(build_matches(flows, &traces))
 }
 
-pub async fn session_summaries(
+pub struct MatchedSession {
+    pub matches: Vec<SessionMatch>,
+    pub traces: Vec<TracerouteWithHops>,
+}
+
+pub async fn matched_sessions(
     periods: &IpPeriodRepository,
     traceroutes: &TracerouteRepository,
     session_ids: &[i64],
-) -> Result<HashMap<i64, MatchSummary>, DbError> {
+) -> Result<HashMap<i64, MatchedSession>, DbError> {
     if session_ids.is_empty() {
         return Ok(HashMap::new());
     }
@@ -51,12 +56,22 @@ pub async fn session_summaries(
     Ok(session_ids
         .iter()
         .map(|&id| {
-            let matches = build_matches(
-                flows.remove(&id).unwrap_or_default(),
-                traces.get(&id).map(Vec::as_slice).unwrap_or_default(),
-            );
-            (id, summarize(&matches))
+            let traces = traces.remove(&id).unwrap_or_default();
+            let matches = build_matches(flows.remove(&id).unwrap_or_default(), &traces);
+            (id, MatchedSession { matches, traces })
         })
+        .collect())
+}
+
+pub async fn session_summaries(
+    periods: &IpPeriodRepository,
+    traceroutes: &TracerouteRepository,
+    session_ids: &[i64],
+) -> Result<HashMap<i64, MatchSummary>, DbError> {
+    Ok(matched_sessions(periods, traceroutes, session_ids)
+        .await?
+        .into_iter()
+        .map(|(id, session)| (id, summarize(&session.matches)))
         .collect())
 }
 
@@ -89,7 +104,7 @@ fn weight(status: Severity) -> u8 {
     }
 }
 
-fn median(mut values: Vec<f64>) -> Option<f64> {
+pub fn median(mut values: Vec<f64>) -> Option<f64> {
     if values.is_empty() {
         return None;
     }

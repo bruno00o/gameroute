@@ -16,7 +16,9 @@ use commands::games::{
     add_manual_game, get_game_count, get_games, remove_game, scan_all_games, scan_epic_games,
     scan_riot_games, scan_steam_games, search_game_count, search_games, toggle_game_monitored,
 };
-use commands::insights::{get_hourly_quality, get_network_quality_over_time, get_server_stability};
+use commands::insights::{
+    get_hourly_quality, get_network_quality_over_time, get_server_stability, get_server_summary,
+};
 use commands::monitoring::{
     cancel_traceroute, get_monitoring_status, list_running_apps, list_running_processes,
     start_manual_monitoring, start_monitoring, stop_monitoring, AppMonitoringState,
@@ -282,6 +284,7 @@ pub fn run() {
             get_severity_thresholds,
             get_network_quality_over_time,
             get_server_stability,
+            get_server_summary,
             get_hourly_quality,
             check_capture_service_status,
             restart_capture_service,

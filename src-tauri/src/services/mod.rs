@@ -8,6 +8,7 @@ pub mod network_capture;
 pub mod riot_scanner;
 pub mod route_model;
 pub mod scanner_utils;
+pub mod server_summary;
 pub mod severity;
 pub mod steam_scanner;
 pub mod trace_targets;
