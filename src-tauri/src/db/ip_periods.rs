@@ -222,11 +222,12 @@ impl IpPeriodRepository {
     pub async fn set_flow_kind(&self, period_id: i64, kind: FlowKind) -> Result<(), DbError> {
         sqlx::query(
             "UPDATE ip_periods
-             SET flow_kind = $1, is_game_server = CASE WHEN $1 = $2 THEN 0 ELSE is_game_server END
-             WHERE id = $3",
+             SET flow_kind = $1, is_game_server = CASE WHEN $1 = $2 THEN 0 WHEN $1 = $3 THEN 1 ELSE is_game_server END
+             WHERE id = $4",
         )
         .bind(kind.as_str())
         .bind(FlowKind::Voice.as_str())
+        .bind(FlowKind::Game.as_str())
         .bind(period_id)
         .execute(&self.pool)
         .await?;
