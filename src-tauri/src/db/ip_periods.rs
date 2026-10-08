@@ -1,4 +1,6 @@
-use crate::config::{ACTIVITY_PERIOD_THRESHOLD_SECS, GAME_SERVER_MIN_DURATION_SECS};
+use crate::config::{
+    ACTIVITY_PERIOD_THRESHOLD_SECS, GAME_SERVER_MIN_DURATION_SECS, MATCH_GAP_GRACE_SECS,
+};
 use crate::db::DbError;
 use crate::models::flow_kind::FlowKind;
 use crate::models::ip_period::{
@@ -98,7 +100,13 @@ impl IpPeriodRepository {
                 chrono::DateTime::parse_from_rfc3339(timestamp),
             ) {
                 let elapsed = (now - ended).num_seconds();
-                if elapsed < ACTIVITY_PERIOD_THRESHOLD_SECS {
+                let same_flow = period.protocol == protocol && period.port == port;
+                let window = if period.is_game_server && same_flow {
+                    MATCH_GAP_GRACE_SECS
+                } else {
+                    ACTIVITY_PERIOD_THRESHOLD_SECS
+                };
+                if elapsed < window {
                     let new_count = period.packet_count + packets;
                     let total_duration = (now - started).num_seconds();
                     let is_voice = period.flow_kind.as_deref() == Some(FlowKind::Voice.as_str());
@@ -461,6 +469,96 @@ mod tests {
         let period = repo.get_latest_period_for_ip(1, "20.157.94.82").await.unwrap().unwrap();
         assert!(!period.is_game_server);
         assert_eq!(period.flow_kind.as_deref(), Some("voice"));
+    }
+
+    #[tokio::test]
+    async fn test_game_server_period_bridges_gaps_within_the_grace_window() {
+        let repo = create_test_repo().await;
+
+        let first = feed_udp(&repo, "162.249.72.5", 7036, 0, 60).await;
+        let after_gap = feed_udp(&repo, "162.249.72.5", 7036, 95, 120).await;
+
+        assert!(after_gap
+            .iter()
+            .all(|o| !o.is_new && !o.became_game_server && o.period_id == first[0].period_id));
+        let periods = repo.get_periods_for_session(1).await.unwrap();
+        assert_eq!(periods.len(), 1);
+        assert_eq!(periods[0].ended_at, "2026-01-25T10:02:00Z");
+    }
+
+    #[tokio::test]
+    async fn test_game_server_period_closes_after_the_grace_window() {
+        let repo = create_test_repo().await;
+
+        let first = feed_udp(&repo, "162.249.72.5", 7036, 0, 60).await;
+        let next = feed_udp(&repo, "162.249.72.5", 7036, 105, 105).await;
+
+        assert!(next[0].is_new);
+        assert_ne!(next[0].period_id, first[0].period_id);
+    }
+
+    #[tokio::test]
+    async fn test_new_port_after_a_gap_starts_a_new_match() {
+        let repo = create_test_repo().await;
+
+        let first = feed_udp(&repo, "162.249.72.5", 7036, 0, 60).await;
+        let next = feed_udp(&repo, "162.249.72.5", 7108, 80, 80).await;
+
+        assert!(next[0].is_new);
+        assert_ne!(next[0].period_id, first[0].period_id);
+    }
+
+    #[tokio::test]
+    async fn test_recognised_game_server_bridges_gaps_from_the_first_reading() {
+        let repo = create_test_repo().await;
+
+        let start = repo
+            .upsert_ip_activity(1, "162.249.72.5", "UDP", 7036, "2026-01-25T10:00:00Z", Some(380))
+            .await
+            .unwrap();
+        repo.set_flow_kind(start.period_id, FlowKind::Game).await.unwrap();
+        let after_gap = feed_udp(&repo, "162.249.72.5", 7036, 20, 20).await;
+
+        assert!(!after_gap[0].is_new && !after_gap[0].became_game_server);
+        assert_eq!(after_gap[0].period_id, start.period_id);
+    }
+
+    #[tokio::test]
+    async fn test_short_gaps_still_split_flows_that_are_not_game_servers() {
+        let repo = create_test_repo().await;
+
+        let ping = feed_udp(&repo, "162.249.75.1", 8181, 0, 0).await;
+        let ping_again = feed_udp(&repo, "162.249.75.1", 8181, 20, 20).await;
+        assert!(ping_again[0].is_new);
+        assert_ne!(ping_again[0].period_id, ping[0].period_id);
+
+        let voice = feed_udp(&repo, "20.157.94.82", 27020, 0, 60).await;
+        repo.set_flow_kind(voice[0].period_id, FlowKind::Voice).await.unwrap();
+        let voice_again = feed_udp(&repo, "20.157.94.82", 27020, 80, 80).await;
+        assert!(voice_again[0].is_new);
+        assert!(!voice_again[0].became_game_server);
+    }
+
+    #[tokio::test]
+    async fn test_match_with_silent_rounds_is_one_trace_candidate() {
+        let repo = create_test_repo().await;
+
+        let start = repo
+            .upsert_ip_activity(1, "162.249.72.5", "UDP", 7036, "2026-01-25T10:00:00Z", Some(380))
+            .await
+            .unwrap();
+        repo.set_flow_kind(start.period_id, FlowKind::Game).await.unwrap();
+        let mut outcomes = Vec::new();
+        for (from, to) in [(15, 20), (40, 300), (335, 600)] {
+            outcomes.extend(feed_udp(&repo, "162.249.72.5", 7036, from, to).await);
+        }
+
+        assert!(outcomes.iter().all(|o| !o.is_new && !o.became_game_server));
+        assert_eq!(repo.get_periods_for_session(1).await.unwrap().len(), 1);
+        let candidates = repo.get_trace_candidates(1).await.unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert!(candidates[0].is_game_server);
+        assert_eq!(candidates[0].total_secs, 600);
     }
 
     #[tokio::test]
