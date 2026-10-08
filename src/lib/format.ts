@@ -28,29 +28,22 @@ export function formatElapsed(seconds: number): string {
 
 const dateFormats = new Map<string, Intl.DateTimeFormat>()
 
-function dateFormat(locale: string, kind: 'clock' | 'day') {
-  const key = `${locale}:${kind}`
-  let format = dateFormats.get(key)
+function clockFormat(locale: string) {
+  let format = dateFormats.get(locale)
   if (!format) {
-    format = new Intl.DateTimeFormat(
-      locale,
-      kind === 'clock'
-        ? { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }
-        : { weekday: 'short', day: 'numeric', month: 'short' }
-    )
-    dateFormats.set(key, format)
+    format = new Intl.DateTimeFormat(locale, {
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+    dateFormats.set(locale, format)
   }
   return format
 }
 
 export function formatClock(iso: string, locale: string = getLocale()): string {
   const date = new Date(iso)
-  return Number.isNaN(date.getTime()) ? MISSING : dateFormat(locale, 'clock').format(date)
-}
-
-export function formatDay(iso: string, locale: string = getLocale()): string {
-  const date = new Date(iso)
-  return Number.isNaN(date.getTime()) ? MISSING : dateFormat(locale, 'day').format(date)
+  return Number.isNaN(date.getTime()) ? MISSING : clockFormat(locale).format(date)
 }
 
 export function formatDate(iso: string): string {
@@ -60,6 +53,31 @@ export function formatDate(iso: string): string {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+type DayOptions = { weekday?: boolean; locale?: string; now?: Date }
+
+export function formatDay(
+  iso: string,
+  { weekday = false, locale = getLocale(), now = new Date() }: DayOptions = {}
+): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return MISSING
+  return new Intl.DateTimeFormat(locale, {
+    weekday: weekday ? 'short' : undefined,
+    day: 'numeric',
+    month: 'short',
+    year: date.getFullYear() === now.getFullYear() ? undefined : 'numeric',
+  }).format(date)
+}
+
+export function formatDayTime(
+  iso: string,
+  { locale = getLocale(), now }: Omit<DayOptions, 'weekday'> = {}
+): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return MISSING
+  return `${formatDay(iso, { weekday: true, locale, now })}${NBSP}· ${formatClock(iso, locale)}`
 }
 
 export function computeDurationSecs(startedAt: string, endedAt: string | null): number {

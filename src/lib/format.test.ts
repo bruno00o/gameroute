@@ -3,6 +3,7 @@ import {
   computeDurationSecs,
   formatClock,
   formatDay,
+  formatDayTime,
   formatDuration,
   formatElapsed,
   formatMs,
@@ -73,11 +74,45 @@ describe('formatClock and formatDay', () => {
   })
 
   it('names the day in the active language', () => {
-    expect(formatDay(at)).toBe('dim. 13 sept.')
+    expect(formatDay(at, { weekday: true, now: new Date(2026, 9, 8) })).toBe('dim. 13 sept.')
   })
 
   it('returns a dash for invalid dates', () => {
     expect(formatClock('nope')).toBe('—')
+  })
+})
+
+describe('formatDay', () => {
+  const now = new Date(2026, 9, 8, 12, 0)
+  const saturday = new Date(2026, 9, 3, 21, 7).toISOString()
+
+  it('names the day and month per language', () => {
+    expect(formatDay(saturday, { locale: 'fr', now })).toBe('3 oct.')
+    expect(formatDay(saturday, { locale: 'en', now })).toBe('Oct 3')
+    expect(formatDay(saturday, { weekday: true, locale: 'fr', now })).toBe('sam. 3 oct.')
+  })
+
+  it('adds the year only outside the current one', () => {
+    const lastYear = new Date(2025, 11, 27, 20, 0).toISOString()
+    expect(formatDay(lastYear, { locale: 'fr', now })).toBe('27 déc. 2025')
+  })
+
+  it('returns a dash for an unreadable date', () => {
+    expect(formatDay('not a date')).toBe('—')
+  })
+})
+
+describe('formatDayTime', () => {
+  const now = new Date(2026, 9, 8, 12, 0)
+
+  it('joins the day and the local time', () => {
+    const saturday = new Date(2026, 9, 3, 21, 7).toISOString()
+    expect(formatDayTime(saturday, { locale: 'fr', now })).toBe(`sam. 3 oct.${NB}· 21:07`)
+    expect(formatDayTime(saturday, { locale: 'es', now })).toBe(`sáb, 3 oct${NB}· 21:07`)
+  })
+
+  it('returns a dash for an unreadable date', () => {
+    expect(formatDayTime('')).toBe('—')
   })
 })
 
