@@ -227,6 +227,12 @@ afterEach(() => {
 })
 
 describe('Route screen', () => {
+  it('links to the trace screen', async () => {
+    renderRoute()
+
+    expect(await screen.findByRole('link', { name: 'Traces' })).toHaveAttribute('href', '/trace')
+  })
+
   it('shows the usual route by operator with the up-to-the-last-router limit', async () => {
     renderRoute()
 

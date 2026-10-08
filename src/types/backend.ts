@@ -383,9 +383,17 @@ export type ServerIpCapturedEvent = {
   packetCount: number | null
 }
 
+export type TracedTarget = {
+  ip: string
+  kind: FlowKind | null
+  protocol: string
+  port: number
+}
+
 export type TracerouteStartedEvent = {
   serverIpCount: number
   serverIps: string[]
+  targets: TracedTarget[]
   startedAt: string
 }
 
@@ -403,6 +411,9 @@ export type TracerouteHopEvent = {
   ip: string | null
   hostname: string | null
   rttMs: number | null
+  rttMin: number | null
+  rttMax: number | null
+  packetLoss: number
   timeout: boolean
 }
 
@@ -411,6 +422,8 @@ export type TracerouteServerIpCompleteEvent = {
   targetIp: string
   success: boolean
   status: Severity
+  hops: DbHop[]
+  route: OperatorRoute | null
 }
 
 export type TracerouteAllCompleteEvent = {

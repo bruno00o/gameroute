@@ -1,6 +1,9 @@
 import { create } from 'zustand'
 import type {
+  DbHop,
+  OperatorRoute,
   Severity,
+  TracedTarget,
   TracerouteAllCompleteEvent,
   TracerouteHopEvent,
   TracerouteProgressEvent,
@@ -8,14 +11,21 @@ import type {
   TracerouteStartedEvent,
 } from '@/types/backend'
 
+export type TraceResult = {
+  success: boolean
+  status: Severity
+  hops: DbHop[]
+  route: OperatorRoute | null
+}
+
 type TraceStore = {
   isRunning: boolean
   progress: TracerouteProgressEvent | null
   liveHops: Map<string, TracerouteHopEvent[]>
   serverIps: string[]
+  targets: Map<string, TracedTarget>
   startedAt: string | null
-  completedIps: Map<string, boolean>
-  statuses: Map<string, Severity>
+  results: Map<string, TraceResult>
   summary: TracerouteAllCompleteEvent | null
   setRunning: (running: boolean) => void
   setProgress: (progress: TracerouteProgressEvent | null) => void
@@ -26,62 +36,87 @@ type TraceStore = {
   reset: () => void
 }
 
-export const useTraceStore = create<TraceStore>(set => ({
+const initial = {
   isRunning: false,
   progress: null,
-  liveHops: new Map(),
-  serverIps: [],
+  liveHops: new Map<string, TracerouteHopEvent[]>(),
+  serverIps: [] as string[],
+  targets: new Map<string, TracedTarget>(),
   startedAt: null,
-  completedIps: new Map(),
-  statuses: new Map(),
+  results: new Map<string, TraceResult>(),
   summary: null,
+}
+
+function targetMap(event: TracerouteStartedEvent): Map<string, TracedTarget> {
+  return new Map((event.targets ?? []).map(target => [target.ip, target]))
+}
+
+export const useTraceStore = create<TraceStore>(set => ({
+  ...initial,
   setRunning: running => set({ isRunning: running }),
   setProgress: progress => set({ progress }),
   addHop: hop =>
     set(state => {
       const next = new Map(state.liveHops)
-      const existing = next.get(hop.targetIp) ?? []
-      next.set(hop.targetIp, [...existing, hop])
+      const others = (next.get(hop.targetIp) ?? []).filter(h => h.hopNumber !== hop.hopNumber)
+      next.set(
+        hop.targetIp,
+        [...others, hop].sort((a, b) => a.hopNumber - b.hopNumber)
+      )
       return { liveHops: next }
     }),
   setStarted: event =>
-    set(state =>
-      state.isRunning
-        ? { serverIps: [...new Set([...state.serverIps, ...event.serverIps])] }
-        : {
-            isRunning: true,
-            serverIps: event.serverIps,
-            startedAt: event.startedAt,
-            progress: null,
-            liveHops: new Map(),
-            completedIps: new Map(),
-            statuses: new Map(),
-            summary: null,
-          },
-    ),
+    set(state => {
+      if (!state.isRunning) {
+        return {
+          isRunning: true,
+          serverIps: event.serverIps,
+          targets: targetMap(event),
+          startedAt: event.startedAt,
+          progress: null,
+          liveHops: new Map(),
+          results: new Map(),
+          summary: null,
+        }
+      }
+
+      const liveHops = new Map(state.liveHops)
+      const results = new Map(state.results)
+      for (const ip of event.serverIps) {
+        if (state.serverIps.includes(ip) && results.has(ip)) {
+          results.delete(ip)
+          liveHops.delete(ip)
+        }
+      }
+      return {
+        serverIps: [...new Set([...state.serverIps, ...event.serverIps])],
+        targets: new Map([...state.targets, ...targetMap(event)]),
+        liveHops,
+        results,
+      }
+    }),
   setIpComplete: event =>
     set(state => {
-      const next = new Map(state.completedIps)
-      next.set(event.targetIp, event.success)
-      const statuses = new Map(state.statuses)
-      statuses.set(event.targetIp, event.status)
-      return { completedIps: next, statuses }
+      const results = new Map(state.results)
+      results.set(event.targetIp, {
+        success: event.success,
+        status: event.status,
+        hops: event.hops,
+        route: event.route,
+      })
+      return { results }
     }),
   setAllComplete: event =>
     set(state => {
-      // Ignore stale event if traceroute was already cancelled/reset
       if (!state.isRunning) return state
       return { isRunning: false, summary: event }
     }),
   reset: () =>
     set({
-      isRunning: false,
-      progress: null,
+      ...initial,
       liveHops: new Map(),
+      targets: new Map(),
+      results: new Map(),
       serverIps: [],
-      startedAt: null,
-      completedIps: new Map(),
-      statuses: new Map(),
-      summary: null,
     }),
 }))

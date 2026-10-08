@@ -45,6 +45,9 @@ export const listRunningApps = () => invoke<RunningApp[]>('list_running_apps')
 export const startManualMonitoring = (pid: number) =>
   invoke<void>('start_manual_monitoring', { pid })
 export const cancelTraceroute = () => invoke<void>('cancel_traceroute')
+export const traceAddress = (address: string) => invoke<string>('trace_address', { address })
+export const getIgnoredConnectionCount = (sessionId: number) =>
+  invoke<number>('get_ignored_connection_count', { sessionId })
 
 // ===== Sessions =====
 export const getSessionList = (filter: SessionListFilter, limit: number, offset: number) =>
