@@ -1,5 +1,6 @@
 use crate::config::{
     ACTIVITY_PERIOD_THRESHOLD_SECS, GAME_SERVER_MIN_DURATION_SECS, MATCH_GAP_GRACE_SECS,
+    MATCH_MERGE_BACKUP_SUFFIX,
 };
 use crate::db::DbError;
 use crate::models::flow_kind::FlowKind;
@@ -292,6 +293,9 @@ impl IpPeriodRepository {
         if plan.is_empty() {
             return Ok(outcome);
         }
+        if plan.iter().any(|planned| !planned.absorbed.is_empty()) {
+            self.back_up_once(MATCH_MERGE_BACKUP_SUFFIX).await?;
+        }
 
         let mut tx = self.pool.begin().await?;
         for planned in &plan {
@@ -320,6 +324,26 @@ impl IpPeriodRepository {
         tx.commit().await?;
 
         Ok(outcome)
+    }
+
+    async fn back_up_once(&self, suffix: &str) -> Result<(), DbError> {
+        let (file,): (String,) =
+            sqlx::query_as("SELECT file FROM pragma_database_list WHERE name = 'main'")
+                .fetch_one(&self.pool)
+                .await?;
+        if file.is_empty() {
+            return Ok(());
+        }
+        let backup = format!("{file}.{suffix}");
+        if std::path::Path::new(&backup).exists() {
+            return Ok(());
+        }
+        sqlx::query("VACUUM INTO $1")
+            .bind(&backup)
+            .execute(&self.pool)
+            .await?;
+        log::info!("Database backed up to {}", backup);
+        Ok(())
     }
 
     pub async fn get_unique_ip_count(&self, session_id: i64) -> Result<i32, DbError> {
@@ -697,6 +721,35 @@ mod tests {
 
     fn riot_signature(_: &str, protocol: &str, port: u16) -> bool {
         protocol == "UDP" && (7000..=7999).contains(&port)
+    }
+
+    #[tokio::test]
+    async fn test_backfill_backs_up_the_database_once_before_merging() {
+        let dir = tempfile::tempdir().unwrap();
+        let pool = crate::db::init_database(dir.path()).await.unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, game_name, started_at) VALUES (1, 'Test', '2026-01-25T10:00:00Z')",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        let repo = IpPeriodRepository::new(pool);
+        stored_period(&repo, "162.249.72.5", 7036, (0, 20), None).await;
+        stored_period(&repo, "162.249.72.5", 7036, (30, 200), Some(FlowKind::Game)).await;
+        close_session(&repo).await;
+
+        repo.merge_closed_match_periods(riot_signature).await.unwrap();
+
+        let backup = dir.path().join(format!("gameroute.db.{MATCH_MERGE_BACKUP_SUFFIX}"));
+        let backed_up = SqlitePool::connect(&format!("sqlite:{}?mode=ro", backup.display()))
+            .await
+            .unwrap();
+        let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM ip_periods")
+            .fetch_one(&backed_up)
+            .await
+            .unwrap();
+        assert_eq!(count, 2);
+        assert_eq!(repo.get_periods_for_session(1).await.unwrap().len(), 1);
     }
 
     #[tokio::test]
