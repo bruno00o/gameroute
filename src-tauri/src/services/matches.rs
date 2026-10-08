@@ -4,13 +4,16 @@ use crate::db::DbError;
 use crate::models::flow_kind::FlowKind;
 use crate::models::hop::ProbedHop;
 use crate::models::ip_period::FlowPeriod;
-use crate::models::session::{FlowOperator, MeasuredFlow, SessionMatch, TraceMeasure};
+use crate::models::session::{
+    FlowOperator, MatchSummary, MeasuredFlow, SessionMatch, TraceMeasure,
+};
 use crate::models::severity::Severity;
 use crate::models::traceroute_record::TracerouteWithHops;
 use crate::services::severity::{measured_hop, route_status};
 use crate::services::trace_targets::is_traceable_game_server;
 use crate::services::traceroute::persistent_loss_onset;
 use chrono::{DateTime, FixedOffset};
+use std::collections::HashMap;
 
 pub async fn session_matches(
     periods: &IpPeriodRepository,
@@ -22,6 +25,81 @@ pub async fn session_matches(
         .get_traceroutes_with_hops_for_session(session_id)
         .await?;
     Ok(build_matches(flows, &traces))
+}
+
+pub async fn session_summaries(
+    periods: &IpPeriodRepository,
+    traceroutes: &TracerouteRepository,
+    session_ids: &[i64],
+) -> Result<HashMap<i64, MatchSummary>, DbError> {
+    if session_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let mut flows: HashMap<i64, Vec<FlowPeriod>> = HashMap::new();
+    for flow in periods.get_flow_periods_for_sessions(session_ids).await? {
+        flows.entry(flow.period.session_id).or_default().push(flow);
+    }
+    let mut traces: HashMap<i64, Vec<TracerouteWithHops>> = HashMap::new();
+    for trace in traceroutes
+        .get_flow_traceroutes_for_sessions(session_ids)
+        .await?
+    {
+        traces.entry(trace.session_id).or_default().push(trace);
+    }
+
+    Ok(session_ids
+        .iter()
+        .map(|&id| {
+            let matches = build_matches(
+                flows.remove(&id).unwrap_or_default(),
+                traces.get(&id).map(Vec::as_slice).unwrap_or_default(),
+            );
+            (id, summarize(&matches))
+        })
+        .collect())
+}
+
+pub fn summarize(matches: &[SessionMatch]) -> MatchSummary {
+    let measured: Vec<&TraceMeasure> = matches
+        .iter()
+        .filter_map(|game| game.flow.trace.as_ref())
+        .filter(|trace| trace.ping_ms.is_some())
+        .collect();
+    let pings: Vec<f64> = measured.iter().filter_map(|trace| trace.ping_ms).collect();
+
+    MatchSummary {
+        match_count: matches.len() as u32,
+        median_ping_ms: median(pings),
+        median_ping_at_least: measured.iter().any(|trace| !trace.at_destination),
+        status: matches
+            .iter()
+            .map(|game| game.flow.status)
+            .max_by_key(|status| weight(*status)),
+    }
+}
+
+fn weight(status: Severity) -> u8 {
+    match status {
+        Severity::Unmeasured => 0,
+        Severity::Ok => 1,
+        Severity::Watch => 2,
+        Severity::Degraded => 3,
+        Severity::Critical => 4,
+    }
+}
+
+fn median(mut values: Vec<f64>) -> Option<f64> {
+    if values.is_empty() {
+        return None;
+    }
+    values.sort_by(f64::total_cmp);
+    let mid = values.len() / 2;
+    Some(if values.len().is_multiple_of(2) {
+        (values[mid - 1] + values[mid]) / 2.0
+    } else {
+        values[mid]
+    })
 }
 
 fn build_matches(flows: Vec<FlowPeriod>, traces: &[TracerouteWithHops]) -> Vec<SessionMatch> {
@@ -460,6 +538,149 @@ mod tests {
         assert!(game.operator.is_none());
         assert!(game.trace.is_none());
         assert_eq!(game.status, Severity::Unmeasured);
+    }
+
+    #[tokio::test]
+    async fn summary_takes_the_median_ping_and_the_worst_status() {
+        let session = Session::new().await;
+        session.period(RIOT, 7036, (0, 1800), FlowKind::Game).await;
+        session
+            .period(RIOT_PARIS, 7108, (1900, 3700), FlowKind::Game)
+            .await;
+        session
+            .period("155.133.226.70", 27015, (3800, 5600), FlowKind::Game)
+            .await;
+        session.trace(RIOT, 30, &route_to_silent_riot()).await;
+        session
+            .trace(RIOT_PARIS, 1930, &route_to(RIOT_PARIS, 18.0, 33.3))
+            .await;
+
+        let summary = summarize(&session.matches().await);
+
+        assert_eq!(
+            summary,
+            MatchSummary {
+                match_count: 3,
+                median_ping_ms: Some(17.8),
+                median_ping_at_least: true,
+                status: Some(Severity::Critical),
+            }
+        );
+        assert!(summary.needs_review());
+    }
+
+    #[tokio::test]
+    async fn summary_is_exact_when_every_match_reaches_its_server() {
+        let session = Session::new().await;
+        for (n, port) in [7036, 7108, 7220].into_iter().enumerate() {
+            let from = n as i64 * 1900;
+            session
+                .period(RIOT, port, (from, from + 1800), FlowKind::Game)
+                .await;
+        }
+        session
+            .period(RIOT_PARIS, 7300, (6000, 7800), FlowKind::Game)
+            .await;
+        session.trace(RIOT, 30, &route_to(RIOT, 31.0, 0.0)).await;
+        session
+            .trace(RIOT_PARIS, 6030, &route_to(RIOT_PARIS, 18.0, 0.0))
+            .await;
+
+        let summary = summarize(&session.matches().await);
+
+        assert_eq!(summary.match_count, 4);
+        assert_eq!(summary.median_ping_ms, Some(31.0));
+        assert!(!summary.median_ping_at_least);
+        assert_eq!(summary.status, Some(Severity::Ok));
+        assert!(!summary.needs_review());
+    }
+
+    #[tokio::test]
+    async fn summary_of_matches_without_trace_is_unmeasured_never_zero() {
+        let session = Session::new().await;
+        session.period(RIOT, 7036, (0, 1800), FlowKind::Game).await;
+
+        let summary = summarize(&session.matches().await);
+
+        assert_eq!(summary.match_count, 1);
+        assert_eq!(summary.median_ping_ms, None);
+        assert!(!summary.median_ping_at_least);
+        assert_eq!(summary.status, Some(Severity::Unmeasured));
+        assert_eq!(summarize(&[]), MatchSummary::default());
+    }
+
+    #[test]
+    fn median_of_even_and_odd_counts() {
+        assert_eq!(median(vec![]), None);
+        assert_eq!(median(vec![31.0]), Some(31.0));
+        assert_eq!(median(vec![40.0, 17.0, 31.0]), Some(31.0));
+        assert_eq!(median(vec![40.0, 17.0, 31.0, 18.0]), Some(24.5));
+    }
+
+    #[tokio::test]
+    async fn summaries_load_every_session_at_once_with_the_same_numbers() {
+        let session = Session::new().await;
+        session.period(RIOT, 7036, (0, 1800), FlowKind::Game).await;
+        session
+            .period(TEAM_VOICE, 27020, (0, 1800), FlowKind::Voice)
+            .await;
+        session.trace(RIOT, 30, &route_to_silent_riot()).await;
+        session
+            .trace("8.8.8.8", 40, &route_to("8.8.8.8", 300.0, 50.0))
+            .await;
+        session
+            .trace(TEAM_VOICE, 50, &route_to(TEAM_VOICE, 14.0, 0.0))
+            .await;
+
+        sqlx::query(
+            "INSERT INTO sessions (id, game_name, started_at) VALUES (2, 'VALORANT', '2026-09-14T14:00:00Z')",
+        )
+        .execute(&session.pool)
+        .await
+        .unwrap();
+        let mut data = IpPeriodData::new(
+            2,
+            RIOT_PARIS.to_string(),
+            "UDP".to_string(),
+            7300,
+            at(0),
+            100,
+        );
+        data.ended_at = at(1800);
+        let id = session.periods.insert_period(&data).await.unwrap();
+        session
+            .periods
+            .set_flow_kind(id, FlowKind::Game)
+            .await
+            .unwrap();
+        let trace = session
+            .traces
+            .insert_traceroute(&TracerouteData::new(2, RIOT_PARIS.to_string(), at(30)))
+            .await
+            .unwrap();
+        HopRepository::new(session.pool.clone())
+            .insert_hops_batch(trace, &route_to(RIOT_PARIS, 18.0, 0.0))
+            .await
+            .unwrap();
+
+        let summaries = session_summaries(&session.periods, &session.traces, &[1, 2, 3])
+            .await
+            .unwrap();
+
+        for id in [1, 2] {
+            let one_by_one = session_matches(&session.periods, &session.traces, id)
+                .await
+                .unwrap();
+            assert_eq!(summaries[&id], summarize(&one_by_one), "session {id}");
+        }
+        assert_eq!(summaries[&1].median_ping_ms, Some(17.6));
+        assert_eq!(summaries[&1].status, Some(Severity::Ok));
+        assert_eq!(summaries[&2].median_ping_ms, Some(18.0));
+        assert_eq!(summaries[&3], MatchSummary::default());
+        assert!(session_summaries(&session.periods, &session.traces, &[])
+            .await
+            .unwrap()
+            .is_empty());
     }
 
     #[tokio::test]

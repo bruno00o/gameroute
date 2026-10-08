@@ -14,6 +14,24 @@ pub struct Session {
     pub ended_at: Option<String>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchSummary {
+    pub match_count: u32,
+    pub median_ping_ms: Option<f64>,
+    pub median_ping_at_least: bool,
+    pub status: Option<Severity>,
+}
+
+impl MatchSummary {
+    pub fn needs_review(&self) -> bool {
+        matches!(
+            self.status,
+            Some(Severity::Watch | Severity::Degraded | Severity::Critical)
+        )
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionListItem {
@@ -21,10 +39,30 @@ pub struct SessionListItem {
     pub game_name: String,
     pub started_at: String,
     pub ended_at: Option<String>,
-
+    pub end_estimated: bool,
     pub unique_ip_count: i32,
-
     pub traceroute_count: i32,
+    #[sqlx(skip)]
+    #[serde(flatten)]
+    pub matches: MatchSummary,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SessionListFilter {
+    pub search: Option<String>,
+    pub game: Option<String>,
+    pub to_review: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionListPage {
+    pub items: Vec<SessionListItem>,
+    pub total: i64,
+    pub recorded: i64,
+    pub first_started_at: Option<String>,
+    pub games: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -197,13 +235,64 @@ mod tests {
             game_name: "Valorant".to_string(),
             started_at: "2026-01-25T10:00:00Z".to_string(),
             ended_at: None,
+            end_estimated: false,
             unique_ip_count: 5,
             traceroute_count: 3,
+            matches: MatchSummary {
+                match_count: 4,
+                median_ping_ms: Some(17.6),
+                median_ping_at_least: true,
+                status: Some(Severity::Watch),
+            },
         };
 
-        let json = serde_json::to_string(&item).unwrap();
-        assert!(json.contains("uniqueIpCount"));
-        assert!(json.contains("tracerouteCount"));
+        let json = serde_json::to_value(&item).unwrap();
+        assert_eq!(json["uniqueIpCount"], 5);
+        assert_eq!(json["tracerouteCount"], 3);
+        assert_eq!(json["endEstimated"], false);
+        assert_eq!(json["matchCount"], 4);
+        assert_eq!(json["medianPingMs"], 17.6);
+        assert_eq!(json["medianPingAtLeast"], true);
+        assert_eq!(json["status"], "watch");
+        assert!(json.get("matches").is_none());
+    }
+
+    #[test]
+    fn test_session_without_matches_has_no_status() {
+        let json = serde_json::to_value(MatchSummary::default()).unwrap();
+        assert_eq!(json["matchCount"], 0);
+        assert!(json["medianPingMs"].is_null());
+        assert!(json["status"].is_null());
+    }
+
+    #[test]
+    fn test_only_statuses_past_a_threshold_need_review() {
+        let review = |status| {
+            MatchSummary {
+                status,
+                ..MatchSummary::default()
+            }
+            .needs_review()
+        };
+        assert!(!review(None));
+        assert!(!review(Some(Severity::Unmeasured)));
+        assert!(!review(Some(Severity::Ok)));
+        assert!(review(Some(Severity::Watch)));
+        assert!(review(Some(Severity::Degraded)));
+        assert!(review(Some(Severity::Critical)));
+    }
+
+    #[test]
+    fn test_list_filter_defaults_missing_fields() {
+        let filter: SessionListFilter = serde_json::from_str(r#"{"search":"riot"}"#).unwrap();
+        assert_eq!(filter.search.as_deref(), Some("riot"));
+        assert!(filter.game.is_none());
+        assert!(!filter.to_review);
+
+        let filter: SessionListFilter =
+            serde_json::from_str(r#"{"game":"VALORANT","toReview":true}"#).unwrap();
+        assert_eq!(filter.game.as_deref(), Some("VALORANT"));
+        assert!(filter.to_review);
     }
 
     #[test]

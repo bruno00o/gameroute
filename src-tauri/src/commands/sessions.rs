@@ -1,12 +1,14 @@
 use crate::commands::monitoring::{trace_session_targets, AppMonitoringState};
 use crate::commands::{validate_pagination, CommandError};
 use crate::db::ip_metadata::IpMetadataRepository;
+use crate::db::ip_periods::IpPeriodRepository;
+use crate::db::sessions::SessionRepository;
 use crate::db::traceroutes::TracerouteRepository;
 use crate::db::{
     get_ip_metadata_repository, get_ip_period_repository, get_session_repository,
     get_traceroute_repository, DbError,
 };
-use crate::models::session::{SessionDetail, SessionListItem, SessionMatch};
+use crate::models::session::{SessionDetail, SessionListFilter, SessionListPage, SessionMatch};
 use crate::models::traceroute_record::TracerouteWithHops;
 use crate::services::trace_targets::select_session_targets;
 use crate::services::{matches, route_model, severity};
@@ -25,15 +27,75 @@ async fn session_traceroutes(
     Ok(traceroutes)
 }
 
+async fn session_list_page(
+    sessions: &SessionRepository,
+    periods: &IpPeriodRepository,
+    traceroutes: &TracerouteRepository,
+    filter: &SessionListFilter,
+    limit: usize,
+    offset: usize,
+) -> Result<SessionListPage, DbError> {
+    let mut items = sessions.list_sessions(filter).await?;
+    let summarized: Vec<i64> = if filter.to_review {
+        items.iter().map(|item| item.id).collect()
+    } else {
+        items
+            .iter()
+            .skip(offset)
+            .take(limit)
+            .map(|item| item.id)
+            .collect()
+    };
+    let mut summaries = matches::session_summaries(periods, traceroutes, &summarized).await?;
+
+    if filter.to_review {
+        items.retain(|item| summaries.get(&item.id).is_some_and(|s| s.needs_review()));
+    }
+    let total = items.len() as i64;
+    let items = items
+        .into_iter()
+        .skip(offset)
+        .take(limit)
+        .map(|mut item| {
+            item.matches = summaries.remove(&item.id).unwrap_or_default();
+            item
+        })
+        .collect();
+
+    Ok(SessionListPage {
+        items,
+        total,
+        recorded: sessions.get_session_count().await?,
+        first_started_at: sessions.get_first_started_at().await?,
+        games: sessions.get_session_games().await?,
+    })
+}
+
 #[tauri::command]
-pub async fn get_sessions(limit: i32, offset: i32) -> Result<Vec<SessionListItem>, CommandError> {
+pub async fn get_session_list(
+    filter: SessionListFilter,
+    limit: i32,
+    offset: i32,
+) -> Result<SessionListPage, CommandError> {
     let (limit, offset) = validate_pagination(limit, offset);
 
-    let repo = get_session_repository().ok_or_else(|| CommandError::repo_not_initialized("Session"))?;
+    let sessions =
+        get_session_repository().ok_or_else(|| CommandError::repo_not_initialized("Session"))?;
+    let periods =
+        get_ip_period_repository().ok_or_else(|| CommandError::repo_not_initialized("IpPeriod"))?;
+    let traceroutes = get_traceroute_repository()
+        .ok_or_else(|| CommandError::repo_not_initialized("Traceroute"))?;
 
-    repo.get_sessions_with_counts(limit, offset)
-        .await
-        .map_err(|e| CommandError::internal(e.to_string()))
+    session_list_page(
+        &sessions,
+        &periods,
+        &traceroutes,
+        &filter,
+        limit as usize,
+        offset as usize,
+    )
+    .await
+    .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 #[tauri::command]
@@ -126,29 +188,6 @@ pub async fn get_session_matches(id: i64) -> Result<Vec<SessionMatch>, CommandEr
 }
 
 #[tauri::command]
-pub async fn search_sessions(
-    query: String,
-    limit: i32,
-    offset: i32,
-) -> Result<Vec<SessionListItem>, CommandError> {
-    let (limit, offset) = validate_pagination(limit, offset);
-    let repo =
-        get_session_repository().ok_or_else(|| CommandError::repo_not_initialized("Session"))?;
-    repo.search_sessions(&query, limit, offset)
-        .await
-        .map_err(|e| CommandError::internal(e.to_string()))
-}
-
-#[tauri::command]
-pub async fn search_session_count(query: String) -> Result<i64, CommandError> {
-    let repo =
-        get_session_repository().ok_or_else(|| CommandError::repo_not_initialized("Session"))?;
-    repo.search_session_count(&query)
-        .await
-        .map_err(|e| CommandError::internal(e.to_string()))
-}
-
-#[tauri::command]
 pub async fn get_previous_session_id(
     game_name: String,
     before_started_at: String,
@@ -170,15 +209,6 @@ pub async fn delete_session(id: i64) -> Result<(), CommandError> {
     let repo = get_session_repository().ok_or_else(|| CommandError::repo_not_initialized("Session"))?;
 
     repo.delete_session(id)
-        .await
-        .map_err(|e| CommandError::internal(e.to_string()))
-}
-
-#[tauri::command]
-pub async fn get_session_count() -> Result<i64, CommandError> {
-    let repo = get_session_repository().ok_or_else(|| CommandError::repo_not_initialized("Session"))?;
-
-    repo.get_session_count()
         .await
         .map_err(|e| CommandError::internal(e.to_string()))
 }
@@ -233,7 +263,9 @@ mod tests {
     use super::*;
     use crate::db::create_test_pool;
     use crate::db::hops::HopRepository;
+    use crate::models::flow_kind::FlowKind;
     use crate::models::ip_metadata::IpMetadataData;
+    use crate::models::ip_period::IpPeriodData;
     use crate::models::session::HopData;
     use crate::models::severity::Severity;
     use crate::models::traceroute::RouteZone;
@@ -346,5 +378,181 @@ mod tests {
         assert_eq!(route.total_ms, 31.0);
         assert_eq!(route.destination_name.as_deref(), Some("Riot Games, Inc"));
         assert!(result[1].route.is_none());
+    }
+
+    struct Listing {
+        sessions: SessionRepository,
+        periods: IpPeriodRepository,
+        traceroutes: TracerouteRepository,
+        pool: sqlx::SqlitePool,
+    }
+
+    impl Listing {
+        async fn new() -> Self {
+            let pool = create_test_pool().await;
+            Self {
+                sessions: SessionRepository::new(pool.clone()),
+                periods: IpPeriodRepository::new(pool.clone()),
+                traceroutes: TracerouteRepository::new(pool.clone()),
+                pool,
+            }
+        }
+
+        async fn session(&self, game: &str, day: u32, server: Option<(&str, f64, f64)>) -> i64 {
+            let started = format!("2026-09-{day:02}T20:00:00Z");
+            let id = self.sessions.insert_session(game, &started).await.unwrap();
+            let Some((ip, rtt, loss)) = server else {
+                return id;
+            };
+            let mut period = IpPeriodData::new(
+                id,
+                ip.to_string(),
+                "UDP".to_string(),
+                7000,
+                format!("2026-09-{day:02}T20:01:00Z"),
+                500,
+            );
+            period.ended_at = format!("2026-09-{day:02}T20:40:00Z");
+            let period_id = self.periods.insert_period(&period).await.unwrap();
+            self.periods
+                .set_flow_kind(period_id, FlowKind::Game)
+                .await
+                .unwrap();
+            let trace = self
+                .traceroutes
+                .insert_traceroute(&TracerouteData::new(
+                    id,
+                    ip.to_string(),
+                    format!("2026-09-{day:02}T20:02:00Z"),
+                ))
+                .await
+                .unwrap();
+            HopRepository::new(self.pool.clone())
+                .insert_hops_batch(
+                    trace,
+                    &[hop(1, "192.168.1.254", 0.6, 0.0), hop(2, ip, rtt, loss)],
+                )
+                .await
+                .unwrap();
+            id
+        }
+
+        async fn page(
+            &self,
+            filter: SessionListFilter,
+            limit: usize,
+            offset: usize,
+        ) -> SessionListPage {
+            session_list_page(
+                &self.sessions,
+                &self.periods,
+                &self.traceroutes,
+                &filter,
+                limit,
+                offset,
+            )
+            .await
+            .unwrap()
+        }
+    }
+
+    fn rows(page: &SessionListPage) -> Vec<(i64, u32, Option<f64>, Option<Severity>)> {
+        page.items
+            .iter()
+            .map(|item| {
+                (
+                    item.id,
+                    item.matches.match_count,
+                    item.matches.median_ping_ms,
+                    item.matches.status,
+                )
+            })
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn session_list_pages_carry_network_status_and_totals() {
+        let list = Listing::new().await;
+        let lagging = list
+            .session("VALORANT", 13, Some(("162.249.72.5", 18.0, 33.3)))
+            .await;
+        let smooth = list
+            .session("League of Legends", 12, Some(("162.249.75.1", 31.0, 0.0)))
+            .await;
+        let unmeasured = list.session("VALORANT", 10, None).await;
+
+        let first = list.page(SessionListFilter::default(), 2, 0).await;
+        assert_eq!(
+            rows(&first),
+            vec![
+                (lagging, 1, Some(18.0), Some(Severity::Critical)),
+                (smooth, 1, Some(31.0), Some(Severity::Ok)),
+            ]
+        );
+        assert_eq!(first.total, 3);
+        assert_eq!(first.recorded, 3);
+        assert_eq!(first.games, vec!["VALORANT", "League of Legends"]);
+        assert_eq!(
+            first.first_started_at.as_deref(),
+            Some("2026-09-10T20:00:00Z")
+        );
+
+        let second = list.page(SessionListFilter::default(), 2, 2).await;
+        assert_eq!(rows(&second), vec![(unmeasured, 0, None, None)]);
+        assert_eq!(second.total, 3);
+    }
+
+    #[tokio::test]
+    async fn session_list_keeps_only_sessions_to_review() {
+        let list = Listing::new().await;
+        let lagging = list
+            .session("VALORANT", 13, Some(("162.249.72.5", 18.0, 33.3)))
+            .await;
+        list.session("League of Legends", 12, Some(("162.249.75.1", 31.0, 0.0)))
+            .await;
+        list.session("VALORANT", 10, None).await;
+        let slow = list
+            .session("League of Legends", 9, Some(("162.249.75.1", 75.0, 0.0)))
+            .await;
+
+        let review = |game: Option<&str>| SessionListFilter {
+            search: None,
+            game: game.map(str::to_string),
+            to_review: true,
+        };
+
+        let page = list.page(review(None), 1, 0).await;
+        assert_eq!(
+            rows(&page),
+            vec![(lagging, 1, Some(18.0), Some(Severity::Critical))]
+        );
+        assert_eq!(page.total, 2);
+        assert_eq!(page.recorded, 4);
+
+        let page = list.page(review(None), 1, 1).await;
+        assert_eq!(
+            rows(&page),
+            vec![(slow, 1, Some(75.0), Some(Severity::Watch))]
+        );
+
+        let page = list.page(review(Some("League of Legends")), 20, 0).await;
+        assert_eq!(
+            rows(&page),
+            vec![(slow, 1, Some(75.0), Some(Severity::Watch))]
+        );
+
+        let page = list
+            .page(
+                SessionListFilter {
+                    search: Some("riot".to_string()),
+                    ..review(None)
+                },
+                20,
+                0,
+            )
+            .await;
+        assert!(page.items.is_empty());
+        assert_eq!(page.total, 0);
+        assert_eq!(page.recorded, 4);
     }
 }

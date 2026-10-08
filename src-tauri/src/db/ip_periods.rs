@@ -230,15 +230,23 @@ impl IpPeriodRepository {
     }
 
     pub async fn get_flow_periods(&self, session_id: i64) -> Result<Vec<FlowPeriod>, DbError> {
+        self.get_flow_periods_for_sessions(&[session_id]).await
+    }
+
+    pub async fn get_flow_periods_for_sessions(
+        &self,
+        session_ids: &[i64],
+    ) -> Result<Vec<FlowPeriod>, DbError> {
         sqlx::query_as::<_, FlowPeriod>(
             "SELECT p.id, p.session_id, p.ip, p.protocol, p.port, p.started_at, p.ended_at, p.packet_count, p.is_game_server, p.flow_kind,
                     m.asn, COALESCE(m.org, m.isp) AS operator_name, m.city, m.country
              FROM ip_periods p
              LEFT JOIN ip_metadata m ON m.ip = p.ip
-             WHERE p.session_id = $1 AND (p.is_game_server = 1 OR p.flow_kind = $2)
-             ORDER BY p.started_at ASC, p.id ASC",
+             WHERE p.session_id IN (SELECT value FROM json_each($1))
+               AND (p.is_game_server = 1 OR p.flow_kind = $2)
+             ORDER BY p.session_id ASC, p.started_at ASC, p.id ASC",
         )
-        .bind(session_id)
+        .bind(serde_json::to_string(session_ids).unwrap_or_default())
         .bind(FlowKind::Voice.as_str())
         .fetch_all(&self.pool)
         .await

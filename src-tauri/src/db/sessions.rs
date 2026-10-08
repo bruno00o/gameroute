@@ -1,6 +1,6 @@
 use crate::db::DbError;
 use crate::models::dashboard::RecentSession;
-use crate::models::session::{Session, SessionListItem};
+use crate::models::session::{Session, SessionListFilter, SessionListItem};
 use sqlx::sqlite::SqlitePool;
 use std::sync::{Arc, OnceLock};
 
@@ -85,17 +85,25 @@ impl SessionRepository {
         .map_err(Into::into)
     }
 
-    pub async fn get_sessions_with_counts(
+    pub async fn list_sessions(
         &self,
-        limit: i32,
-        offset: i32,
+        filter: &SessionListFilter,
     ) -> Result<Vec<SessionListItem>, DbError> {
+        let game = filter.game.as_deref().filter(|game| !game.is_empty());
+        let pattern = filter
+            .search
+            .as_deref()
+            .map(str::trim)
+            .filter(|search| !search.is_empty())
+            .map(like_pattern);
+
         sqlx::query_as::<_, SessionListItem>(
             "SELECT
                 s.id,
                 s.game_name,
                 s.started_at,
                 s.ended_at,
+                s.end_estimated,
                 COALESCE(ip_counts.unique_ip_count, 0) as unique_ip_count,
                 COALESCE(tr_counts.traceroute_count, 0) as traceroute_count
              FROM sessions s
@@ -109,14 +117,45 @@ impl SessionRepository {
                  FROM traceroutes
                  GROUP BY session_id
              ) tr_counts ON tr_counts.session_id = s.id
-             ORDER BY s.started_at DESC
-             LIMIT $1 OFFSET $2",
+             WHERE ($1 IS NULL OR s.game_name = $1)
+               AND ($2 IS NULL
+                    OR s.game_name LIKE $2 ESCAPE '\\'
+                    OR EXISTS (
+                        SELECT 1
+                        FROM ip_periods p
+                        LEFT JOIN ip_metadata m ON m.ip = p.ip
+                        WHERE p.session_id = s.id
+                          AND p.is_game_server = 1
+                          AND (p.ip LIKE $2 ESCAPE '\\'
+                               OR m.org LIKE $2 ESCAPE '\\'
+                               OR m.isp LIKE $2 ESCAPE '\\'
+                               OR m.city LIKE $2 ESCAPE '\\')
+                    ))
+             ORDER BY s.started_at DESC, s.id DESC",
         )
-        .bind(limit)
-        .bind(offset)
+        .bind(game)
+        .bind(pattern)
         .fetch_all(&self.pool)
         .await
         .map_err(Into::into)
+    }
+
+    pub async fn get_session_games(&self) -> Result<Vec<String>, DbError> {
+        let rows: Vec<(String,)> = sqlx::query_as(
+            "SELECT game_name FROM sessions GROUP BY game_name ORDER BY MAX(started_at) DESC",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|row| row.0).collect())
+    }
+
+    pub async fn get_first_started_at(&self) -> Result<Option<String>, DbError> {
+        let row: (Option<String>,) = sqlx::query_as("SELECT MIN(started_at) FROM sessions")
+            .fetch_one(&self.pool)
+            .await?;
+
+        Ok(row.0)
     }
 
     pub async fn delete_session(&self, id: i64) -> Result<(), DbError> {
@@ -175,54 +214,6 @@ impl SessionRepository {
         Ok(row.map(|r| r.0))
     }
 
-    pub async fn search_sessions(
-        &self,
-        query: &str,
-        limit: i32,
-        offset: i32,
-    ) -> Result<Vec<SessionListItem>, DbError> {
-        let pattern = format!("%{}%", query);
-        sqlx::query_as::<_, SessionListItem>(
-            "SELECT
-                s.id,
-                s.game_name,
-                s.started_at,
-                s.ended_at,
-                COALESCE(ip_counts.unique_ip_count, 0) as unique_ip_count,
-                COALESCE(tr_counts.traceroute_count, 0) as traceroute_count
-             FROM sessions s
-             LEFT JOIN (
-                 SELECT session_id, COUNT(DISTINCT ip) as unique_ip_count
-                 FROM ip_periods
-                 GROUP BY session_id
-             ) ip_counts ON ip_counts.session_id = s.id
-             LEFT JOIN (
-                 SELECT session_id, COUNT(*) as traceroute_count
-                 FROM traceroutes
-                 GROUP BY session_id
-             ) tr_counts ON tr_counts.session_id = s.id
-             WHERE s.game_name LIKE $1
-             ORDER BY s.started_at DESC
-             LIMIT $2 OFFSET $3",
-        )
-        .bind(&pattern)
-        .bind(limit)
-        .bind(offset)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(Into::into)
-    }
-
-    pub async fn search_session_count(&self, query: &str) -> Result<i64, DbError> {
-        let pattern = format!("%{}%", query);
-        let row: (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM sessions WHERE game_name LIKE $1")
-                .bind(&pattern)
-                .fetch_one(&self.pool)
-                .await?;
-        Ok(row.0)
-    }
-
     pub async fn get_session_count(&self) -> Result<i64, DbError> {
         let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM sessions")
             .fetch_one(&self.pool)
@@ -260,6 +251,14 @@ impl SessionRepository {
         .await
         .map_err(Into::into)
     }
+}
+
+fn like_pattern(search: &str) -> String {
+    let escaped = search
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_");
+    format!("%{escaped}%")
 }
 
 static SESSION_REPOSITORY: OnceLock<Arc<SessionRepository>> = OnceLock::new();
@@ -380,6 +379,186 @@ mod tests {
                 (without_traffic, true),
                 (ended, false)
             ]
+        );
+    }
+
+    async fn insert_period(repo: &SessionRepository, session_id: i64, ip: &str, game_server: bool) {
+        sqlx::query(
+            "INSERT INTO ip_periods (session_id, ip, protocol, port, started_at, ended_at, is_game_server)
+             VALUES ($1, $2, 'UDP', 7000, '2026-09-13T14:00:00Z', '2026-09-13T14:30:00Z', $3)",
+        )
+        .bind(session_id)
+        .bind(ip)
+        .bind(game_server)
+        .execute(&repo.pool)
+        .await
+        .unwrap();
+    }
+
+    async fn insert_operator(repo: &SessionRepository, ip: &str, org: &str, city: &str) {
+        sqlx::query(
+            "INSERT INTO ip_metadata (ip, asn, isp, org, city, resolved_at)
+             VALUES ($1, 'AS6507', $2, $2, $3, '2026-09-13T14:00:00Z')",
+        )
+        .bind(ip)
+        .bind(org)
+        .bind(city)
+        .execute(&repo.pool)
+        .await
+        .unwrap();
+    }
+
+    async fn listed(
+        repo: &SessionRepository,
+        search: Option<&str>,
+        game: Option<&str>,
+    ) -> Vec<String> {
+        let filter = SessionListFilter {
+            search: search.map(str::to_string),
+            game: game.map(str::to_string),
+            to_review: false,
+        };
+        repo.list_sessions(&filter)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|item| format!("{} {}", item.game_name, &item.started_at[..10]))
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn test_list_sessions_newest_first_with_counts() {
+        let repo = create_test_repo().await;
+        let older = repo
+            .insert_session("League of Legends", "2026-09-12T19:00:00Z")
+            .await
+            .unwrap();
+        repo.insert_session("VALORANT", "2026-09-13T14:00:00Z")
+            .await
+            .unwrap();
+        insert_period(&repo, older, "162.249.72.5", true).await;
+        insert_period(&repo, older, "8.8.8.8", false).await;
+        sqlx::query(
+            "INSERT INTO traceroutes (session_id, target_ip, started_at) VALUES ($1, '162.249.72.5', '2026-09-12T19:01:00Z')",
+        )
+        .bind(older)
+        .execute(&repo.pool)
+        .await
+        .unwrap();
+
+        let items = repo
+            .list_sessions(&SessionListFilter::default())
+            .await
+            .unwrap();
+
+        let rows: Vec<(&str, i32, i32, bool)> = items
+            .iter()
+            .map(|item| {
+                (
+                    item.game_name.as_str(),
+                    item.unique_ip_count,
+                    item.traceroute_count,
+                    item.end_estimated,
+                )
+            })
+            .collect();
+        assert_eq!(
+            rows,
+            vec![
+                ("VALORANT", 0, 0, false),
+                ("League of Legends", 2, 1, false)
+            ]
+        );
+        assert!(items.iter().all(|item| item.matches.match_count == 0));
+    }
+
+    #[tokio::test]
+    async fn test_list_sessions_searches_games_and_game_servers() {
+        let repo = create_test_repo().await;
+        let lol = repo
+            .insert_session("League of Legends", "2026-09-12T19:00:00Z")
+            .await
+            .unwrap();
+        let valorant = repo
+            .insert_session("VALORANT", "2026-09-13T14:00:00Z")
+            .await
+            .unwrap();
+        repo.insert_session("Rocket_League", "2026-09-14T14:00:00Z")
+            .await
+            .unwrap();
+        insert_period(&repo, valorant, "162.249.72.5", true).await;
+        insert_operator(&repo, "162.249.72.5", "Riot Games, Inc", "Paris").await;
+        insert_period(&repo, lol, "104.18.0.1", false).await;
+        insert_operator(&repo, "104.18.0.1", "Cloudflare, Inc.", "Paris").await;
+
+        assert_eq!(
+            listed(&repo, Some("valo"), None).await,
+            vec!["VALORANT 2026-09-13"]
+        );
+        assert_eq!(
+            listed(&repo, Some("riot"), None).await,
+            vec!["VALORANT 2026-09-13"]
+        );
+        assert_eq!(
+            listed(&repo, Some(" paris "), None).await,
+            vec!["VALORANT 2026-09-13"]
+        );
+        assert_eq!(
+            listed(&repo, Some("162.249"), None).await,
+            vec!["VALORANT 2026-09-13"]
+        );
+        assert!(listed(&repo, Some("cloudflare"), None).await.is_empty());
+        assert_eq!(
+            listed(&repo, Some("t_l"), None).await,
+            vec!["Rocket_League 2026-09-14"]
+        );
+        assert!(listed(&repo, Some("%"), None).await.is_empty());
+        assert_eq!(listed(&repo, Some("   "), None).await.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_list_sessions_filters_by_game() {
+        let repo = create_test_repo().await;
+        for (game, started) in [
+            ("VALORANT", "2026-09-13T14:00:00Z"),
+            ("League of Legends", "2026-09-12T19:00:00Z"),
+            ("VALORANT", "2026-09-10T19:00:00Z"),
+        ] {
+            repo.insert_session(game, started).await.unwrap();
+        }
+
+        assert_eq!(
+            listed(&repo, None, Some("VALORANT")).await,
+            vec!["VALORANT 2026-09-13", "VALORANT 2026-09-10"]
+        );
+        assert_eq!(
+            listed(&repo, Some("valo"), Some("League of Legends")).await,
+            Vec::<String>::new()
+        );
+        assert_eq!(listed(&repo, None, Some("")).await.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_session_games_and_first_start() {
+        let repo = create_test_repo().await;
+        assert!(repo.get_session_games().await.unwrap().is_empty());
+        assert_eq!(repo.get_first_started_at().await.unwrap(), None);
+
+        for (game, started) in [
+            ("League of Legends", "2026-07-10T19:00:00Z"),
+            ("VALORANT", "2026-09-13T14:00:00Z"),
+            ("League of Legends", "2026-10-08T15:00:00Z"),
+        ] {
+            repo.insert_session(game, started).await.unwrap();
+        }
+
+        assert_eq!(
+            repo.get_session_games().await.unwrap(),
+            vec!["League of Legends", "VALORANT"]
+        );
+        assert_eq!(
+            repo.get_first_started_at().await.unwrap().as_deref(),
+            Some("2026-07-10T19:00:00Z")
         );
     }
 

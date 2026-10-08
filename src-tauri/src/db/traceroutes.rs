@@ -1,4 +1,5 @@
 use crate::db::DbError;
+use crate::models::flow_kind::FlowKind;
 use crate::models::session::DbHop;
 use crate::models::severity::Severity;
 use crate::models::traceroute_record::{TracerouteData, TracerouteRecord, TracerouteWithHops};
@@ -143,49 +144,49 @@ impl TracerouteRepository {
         .fetch_all(&self.pool)
         .await?;
 
-        let mut traceroute_map: HashMap<i64, TracerouteWithHops> = HashMap::new();
-        let mut order: Vec<i64> = Vec::new();
+        Ok(group_traceroute_rows(rows))
+    }
 
-        for row in rows {
-            let entry = traceroute_map.entry(row.traceroute_id).or_insert_with(|| {
-                order.push(row.traceroute_id);
-                TracerouteWithHops {
-                    id: row.traceroute_id,
-                    session_id: row.session_id,
-                    target_ip: row.target_ip.clone(),
-                    started_at: row.traceroute_started_at.clone(),
-                    completed_at: row.completed_at.clone(),
-                    problem_hop_index: row.problem_hop_index,
-                    traceroute_method: row.traceroute_method.clone(),
-                    hops: Vec::new(),
-                    status: Severity::default(),
-                    route: None,
-                }
-            });
+    pub async fn get_flow_traceroutes_for_sessions(
+        &self,
+        session_ids: &[i64],
+    ) -> Result<Vec<TracerouteWithHops>, DbError> {
+        let rows = sqlx::query_as::<_, JoinedTracerouteHopRow>(
+            "SELECT
+                t.id as traceroute_id,
+                t.session_id,
+                t.target_ip,
+                t.started_at as traceroute_started_at,
+                t.completed_at,
+                t.problem_hop_index,
+                t.traceroute_method,
+                h.id as hop_id,
+                h.hop_number,
+                h.ip as hop_ip,
+                h.hostname,
+                h.latency_min,
+                h.latency_avg,
+                h.latency_max,
+                h.packet_loss,
+                h.is_problem_hop,
+                h.source as hop_source
+             FROM traceroutes t
+             LEFT JOIN hops h ON h.traceroute_id = t.id
+             WHERE t.session_id IN (SELECT value FROM json_each($1))
+               AND EXISTS (
+                   SELECT 1 FROM ip_periods p
+                   WHERE p.session_id = t.session_id
+                     AND p.ip = t.target_ip
+                     AND (p.is_game_server = 1 OR p.flow_kind = $2)
+               )
+             ORDER BY t.session_id ASC, t.started_at ASC, t.id ASC, h.hop_number ASC",
+        )
+        .bind(serde_json::to_string(session_ids).unwrap_or_default())
+        .bind(FlowKind::Voice.as_str())
+        .fetch_all(&self.pool)
+        .await?;
 
-            // LEFT JOIN may produce NULL hop_id when traceroute has no hops
-            if let Some(hop_id) = row.hop_id {
-                entry.hops.push(DbHop {
-                    id: hop_id,
-                    traceroute_id: row.traceroute_id,
-                    hop_number: row.hop_number.unwrap_or(0),
-                    ip: row.hop_ip,
-                    hostname: row.hostname,
-                    latency_min: row.latency_min,
-                    latency_avg: row.latency_avg,
-                    latency_max: row.latency_max,
-                    packet_loss: row.packet_loss,
-                    is_problem_hop: row.is_problem_hop.unwrap_or(false),
-                    source: row.hop_source,
-                    loss_status: None,
-                });
-            }
-        }
-
-        Ok(order
-            .into_iter()
-            .filter_map(|id| traceroute_map.remove(&id))
-            .collect())
+        Ok(group_traceroute_rows(rows))
     }
 
     pub async fn get_traced_ips(&self, session_id: i64) -> Result<Vec<String>, DbError> {
@@ -224,6 +225,52 @@ impl TracerouteRepository {
 
         Ok(())
     }
+}
+
+fn group_traceroute_rows(rows: Vec<JoinedTracerouteHopRow>) -> Vec<TracerouteWithHops> {
+    let mut traceroute_map: HashMap<i64, TracerouteWithHops> = HashMap::new();
+    let mut order: Vec<i64> = Vec::new();
+
+    for row in rows {
+        let entry = traceroute_map.entry(row.traceroute_id).or_insert_with(|| {
+            order.push(row.traceroute_id);
+            TracerouteWithHops {
+                id: row.traceroute_id,
+                session_id: row.session_id,
+                target_ip: row.target_ip.clone(),
+                started_at: row.traceroute_started_at.clone(),
+                completed_at: row.completed_at.clone(),
+                problem_hop_index: row.problem_hop_index,
+                traceroute_method: row.traceroute_method.clone(),
+                hops: Vec::new(),
+                status: Severity::default(),
+                route: None,
+            }
+        });
+
+        // LEFT JOIN may produce NULL hop_id when traceroute has no hops
+        if let Some(hop_id) = row.hop_id {
+            entry.hops.push(DbHop {
+                id: hop_id,
+                traceroute_id: row.traceroute_id,
+                hop_number: row.hop_number.unwrap_or(0),
+                ip: row.hop_ip,
+                hostname: row.hostname,
+                latency_min: row.latency_min,
+                latency_avg: row.latency_avg,
+                latency_max: row.latency_max,
+                packet_loss: row.packet_loss,
+                is_problem_hop: row.is_problem_hop.unwrap_or(false),
+                source: row.hop_source,
+                loss_status: None,
+            });
+        }
+    }
+
+    order
+        .into_iter()
+        .filter_map(|id| traceroute_map.remove(&id))
+        .collect()
 }
 
 #[derive(Debug, sqlx::FromRow)]
