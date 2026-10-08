@@ -21,6 +21,7 @@ pub mod traceroute;
 pub mod tracert_parser;
 pub mod udp_capture;
 pub mod usual;
+pub mod week_hour;
 
 pub use game_detection::GameDetector;
 pub use traceroute::TracerouteService;

@@ -3,17 +3,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
 #[serde(rename_all = "camelCase")]
-pub struct SessionQualityPoint {
-    pub session_id: i64,
-    pub game_name: String,
-    pub started_at: String,
-    pub avg_latency: Option<f64>,
-    pub problem_hop_ratio: f64,
-    pub ip_count: i64,
-}
-
-#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
-#[serde(rename_all = "camelCase")]
 pub struct ServerStability {
     pub ip: String,
     pub asn: Option<String>,
@@ -26,15 +15,6 @@ pub struct ServerStability {
     pub traceroute_count: i64,
     pub problem_hop_ratio: f64,
     pub is_game_server: bool,
-}
-
-#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
-#[serde(rename_all = "camelCase")]
-pub struct HourlyQuality {
-    pub hour: i32,
-    pub session_count: i64,
-    pub avg_latency: Option<f64>,
-    pub problem_hop_ratio: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -145,4 +125,39 @@ pub struct ServerSummary {
     pub usual_max_samples: u32,
     pub usual_min_samples: u32,
     pub servers: Vec<ServerSummaryItem>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WeekHourCell {
+    pub weekday: u8,
+    pub hour: u8,
+    pub match_count: u32,
+    pub sample_count: u32,
+    pub compared_count: u32,
+    pub source: Option<PingSource>,
+    pub at_least: bool,
+    pub median_ms: Option<f64>,
+    pub usual_ms: Option<f64>,
+    pub over_usual_ms: Option<f64>,
+    pub loss_pct: Option<f64>,
+    pub status: Severity,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WeekHourGame {
+    pub game_name: String,
+    pub match_count: u32,
+    pub first_played_at: String,
+    pub last_played_at: String,
+    pub cells: Vec<WeekHourCell>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WeekHourGrid {
+    pub since: String,
+    pub usual_min_samples: u32,
+    pub games: Vec<WeekHourGame>,
 }
