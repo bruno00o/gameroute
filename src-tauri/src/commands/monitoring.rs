@@ -14,7 +14,7 @@ use crate::models::{
 };
 use crate::platform;
 use crate::services::asn_resolver::resolve_ip;
-use crate::services::flow_kind::classify;
+use crate::services::flow_kind::{classify, is_known_game_server};
 use crate::services::trace_targets::{is_traceable_game_server, select_session_targets, TraceTarget};
 use crate::services::traceroute::{persist_traceroute_result, TracerouteJob};
 use crate::services::{GameDetector, TracerouteService};
@@ -186,9 +186,11 @@ async fn record_capture(
         }
     }
 
+    let asn = operator.as_ref().and_then(|operator| operator.asn_info.number());
+    let recognised = outcome.is_new && is_known_game_server(asn, &event.protocol, event.port);
+
     let mut trace = None;
-    if outcome.became_game_server {
-        let asn = operator.as_ref().and_then(|operator| operator.asn_info.number());
+    if outcome.became_game_server || recognised {
         let kind = classify(asn, &event.protocol, event.port);
         if let Err(e) = ip_period_repo.set_flow_kind(outcome.period_id, kind).await {
             log::error!("Failed to classify flow {}: {}", event.ip, e);
@@ -846,6 +848,80 @@ mod tests {
         let web = periods.get_latest_period_for_ip(1, "104.18.41.183").await.unwrap().unwrap();
         assert_eq!(web.packet_count, 3);
         assert!(metadata.get_metadata("162.249.72.5").await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn riot_match_is_a_game_server_from_the_first_reading() {
+        let (periods, metadata) = create_test_repos().await;
+        let riot = |ip: &str| Some(operator(ip, 6507, "Riot Games, Inc"));
+
+        let first = record_capture(&periods, Some(&metadata), riot, 1, &capture("162.249.72.5", "UDP", 7036, 0, Some(384)))
+            .await
+            .unwrap();
+        assert_eq!(
+            first.trace,
+            Some(TraceTarget { ip: "162.249.72.5".into(), protocol: "UDP".into(), port: 7036, kind: FlowKind::Game })
+        );
+
+        let period = periods.get_latest_period_for_ip(1, "162.249.72.5").await.unwrap().unwrap();
+        assert!(period.is_game_server);
+        assert_eq!(period.flow_kind.as_deref(), Some("game"));
+
+        for sec in (5..=60).step_by(5) {
+            let recorded = record_capture(&periods, Some(&metadata), riot, 1, &capture("162.249.72.5", "UDP", 7036, sec, Some(384)))
+                .await
+                .unwrap();
+            assert!(recorded.trace.is_none());
+            assert_eq!(recorded.period_id, first.period_id);
+        }
+    }
+
+    #[tokio::test]
+    async fn riot_qos_ping_is_not_a_game_server() {
+        let (periods, metadata) = create_test_repos().await;
+        let riot = |ip: &str| Some(operator(ip, 6507, "Riot Games, Inc"));
+
+        let recorded = record_capture(&periods, Some(&metadata), riot, 1, &capture("162.249.75.1", "UDP", 8181, 0, Some(4)))
+            .await
+            .unwrap();
+
+        assert!(recorded.trace.is_none());
+        let period = periods.get_latest_period_for_ip(1, "162.249.75.1").await.unwrap().unwrap();
+        assert!(!period.is_game_server);
+        assert!(period.flow_kind.is_none());
+    }
+
+    #[tokio::test]
+    async fn voice_on_azure_is_never_recognised_as_a_game_server() {
+        let (periods, metadata) = create_test_repos().await;
+        let azure = |ip: &str| Some(operator(ip, 8075, "MICROSOFT-CORP-MSN-AS-BLOCK"));
+
+        for sec in (0..=60).step_by(5) {
+            let recorded = record_capture(&periods, Some(&metadata), azure, 1, &capture("20.157.94.82", "UDP", 27020, sec, Some(45)))
+                .await
+                .unwrap();
+            assert!(recorded.trace.as_ref().is_none_or(|target| target.kind == FlowKind::Voice));
+            let period = periods.get_latest_period_for_ip(1, "20.157.94.82").await.unwrap().unwrap();
+            assert!(!period.is_game_server);
+        }
+    }
+
+    #[tokio::test]
+    async fn unknown_game_still_needs_thirty_seconds_of_udp() {
+        let (periods, metadata) = create_test_repos().await;
+        let valve = |ip: &str| Some(operator(ip, 32590, "Valve Corporation"));
+
+        let mut traced_at = Vec::new();
+        for sec in (0..=60).step_by(5) {
+            let recorded = record_capture(&periods, Some(&metadata), valve, 1, &capture("155.133.226.70", "UDP", 27015, sec, Some(200)))
+                .await
+                .unwrap();
+            if recorded.trace.is_some() {
+                traced_at.push(sec);
+            }
+        }
+
+        assert_eq!(traced_at, vec![30]);
     }
 
     #[tokio::test]

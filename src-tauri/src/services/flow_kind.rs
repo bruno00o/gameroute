@@ -4,29 +4,42 @@ use crate::services::asn_resolver::get_resolver;
 use std::net::IpAddr;
 use std::ops::RangeInclusive;
 
-struct VoiceRule {
+struct FlowRule {
     asns: &'static [u32],
     ports: RangeInclusive<u16>,
+    kind: FlowKind,
 }
 
-const VOICE_RULES: &[VoiceRule] = &[VoiceRule {
-    asns: &[8068, 8069, 8075],
-    ports: 27000..=27099,
-}];
+const FLOW_RULES: &[FlowRule] = &[
+    FlowRule {
+        asns: &[8068, 8069, 8075],
+        ports: 27000..=27099,
+        kind: FlowKind::Voice,
+    },
+    FlowRule {
+        asns: &[6507],
+        ports: 7000..=7999,
+        kind: FlowKind::Game,
+    },
+];
+
+fn known_kind(asn: Option<u32>, protocol: &str, port: u16) -> Option<FlowKind> {
+    if protocol != "UDP" {
+        return None;
+    }
+    let asn = asn?;
+    FLOW_RULES
+        .iter()
+        .find(|rule| rule.asns.contains(&asn) && rule.ports.contains(&port))
+        .map(|rule| rule.kind)
+}
 
 pub fn classify(asn: Option<u32>, protocol: &str, port: u16) -> FlowKind {
-    let is_voice = protocol == "UDP"
-        && asn.is_some_and(|asn| {
-            VOICE_RULES
-                .iter()
-                .any(|rule| rule.asns.contains(&asn) && rule.ports.contains(&port))
-        });
+    known_kind(asn, protocol, port).unwrap_or(FlowKind::Game)
+}
 
-    if is_voice {
-        FlowKind::Voice
-    } else {
-        FlowKind::Game
-    }
+pub fn is_known_game_server(asn: Option<u32>, protocol: &str, port: u16) -> bool {
+    known_kind(asn, protocol, port) == Some(FlowKind::Game)
 }
 
 pub fn classify_ip(ip: &str, protocol: &str, port: u16) -> FlowKind {
@@ -74,6 +87,7 @@ mod tests {
     fn valorant_voice_on_azure_is_voice() {
         assert_eq!(classify(Some(8069), "UDP", 27020), FlowKind::Voice);
         assert_eq!(classify(Some(8075), "UDP", 27032), FlowKind::Voice);
+        assert!(!is_known_game_server(Some(8069), "UDP", 27020));
     }
 
     #[test]
@@ -82,9 +96,25 @@ mod tests {
     }
 
     #[test]
+    fn riot_match_ports_are_known_game_servers() {
+        for port in [7002, 7036, 7286, 7492] {
+            assert!(is_known_game_server(Some(6507), "UDP", port));
+        }
+    }
+
+    #[test]
+    fn riot_qos_pings_and_other_operators_are_not_known_game_servers() {
+        assert!(!is_known_game_server(Some(6507), "UDP", 8181));
+        assert!(!is_known_game_server(Some(16509), "UDP", 7032));
+        assert!(!is_known_game_server(Some(6507), "TCP", 7032));
+        assert!(!is_known_game_server(None, "UDP", 7032));
+    }
+
+    #[test]
     fn source_engine_ports_outside_azure_stay_game() {
         assert_eq!(classify(Some(32590), "UDP", 27015), FlowKind::Game);
         assert_eq!(classify(None, "UDP", 27020), FlowKind::Game);
+        assert!(!is_known_game_server(Some(32590), "UDP", 27015));
     }
 
     #[test]
