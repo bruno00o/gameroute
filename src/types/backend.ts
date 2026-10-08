@@ -126,6 +126,31 @@ export type TracerouteWithHops = {
   tracerouteMethod: string | null
   hops: DbHop[]
   status: Severity
+  route: OperatorRoute | null
+}
+
+// ===== Route by operator =====
+export type RouteZone = 'home' | 'isp' | 'transit' | 'service'
+
+export type RouteSegment = {
+  zone: RouteZone
+  asn: number | null
+  name: string | null
+  firstHop: number
+  lastHop: number
+  hops: number
+  silentHops: number
+  addedMs: number
+  status: Severity | null
+}
+
+export type OperatorRoute = {
+  segments: RouteSegment[]
+  lastRespondingHop: number
+  totalMs: number
+  destinationSilent: boolean
+  destinationAsn: number | null
+  destinationName: string | null
 }
 
 // ===== Game Library =====
