@@ -5,8 +5,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import './index.css'
 import { routeTree } from './routeTree.gen'
+import { RouteErrorScreen } from '@/components/error-boundary'
 
-const router = createRouter({ routeTree })
+const router = createRouter({ routeTree, defaultErrorComponent: RouteErrorScreen })
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
