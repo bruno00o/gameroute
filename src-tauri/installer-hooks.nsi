@@ -1,6 +1,20 @@
 ; GameRoute NSIS Installer Hooks
 ; Handles installation and removal of the GameRouteCaptureService
 
+!macro STOP_CAPTURE_SERVICE
+  nsExec::ExecToLog 'sc failure GameRouteCaptureService reset= 0 actions= ""'
+  nsExec::ExecToLog 'sc stop GameRouteCaptureService'
+  Sleep 2000
+  nsExec::ExecToLog 'taskkill /F /IM gameroute-capture-service.exe'
+  nsExec::ExecToLog 'pktmon stop'
+  Sleep 500
+!macroend
+
+!macro NSIS_HOOK_PREINSTALL
+  DetailPrint "Stopping GameRoute Capture Service..."
+  !insertmacro STOP_CAPTURE_SERVICE
+!macroend
+
 !macro NSIS_HOOK_POSTINSTALL
   ; Install and start the capture service
   DetailPrint "Installing GameRoute Capture Service..."
@@ -35,11 +49,7 @@
   ; Stop and remove the capture service before uninstalling
   DetailPrint "Removing GameRoute Capture Service..."
 
-  ; Stop the service
-  nsExec::ExecToLog 'sc stop GameRouteCaptureService'
-
-  ; Wait for service to stop
-  Sleep 2000
+  !insertmacro STOP_CAPTURE_SERVICE
 
   ; Delete the service
   nsExec::ExecToLog 'sc delete GameRouteCaptureService'
