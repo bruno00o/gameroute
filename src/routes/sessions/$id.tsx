@@ -1,25 +1,25 @@
 import { useEffect, useState } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { RiFileCopyLine, RiLoopLeftLine, RiMore2Fill } from '@remixicon/react'
+import {
+  Navigate,
+  Outlet,
+  createFileRoute,
+  useChildMatches,
+  useNavigate,
+} from '@tanstack/react-router'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { RiFileCopyLine, RiMore2Fill } from '@remixicon/react'
 import { toast } from 'sonner'
 
 import * as m from '@/paraglide/messages'
-import type { SessionDetail, SessionMatch } from '@/types/backend'
-import {
-  deleteSession,
-  getSessionDetail,
-  getSessionMatches,
-  getSeverityThresholds,
-  retryTraceroutes,
-} from '@/lib/tauri'
+import { deleteSession, retryTraceroutes } from '@/lib/tauri'
 import { sessionDiagnostic } from '@/lib/diagnostic-text'
 import { exportSessionDetail } from '@/lib/export-csv'
 import { generateSessionExport } from '@/lib/export-llm'
-import { computeDurationSecs, formatClock, formatDay, formatElapsed } from '@/lib/format'
-import { flowServerLabel, traceOf } from '@/lib/matches'
+import { formatDay } from '@/lib/format'
+import { matchOfPeriod } from '@/lib/matches'
 import { errorMessage } from '@/lib/utils'
-import { useBreadcrumbStore, type BreadcrumbSegment } from '@/stores/breadcrumb-store'
+import { useSessionData } from '@/hooks/use-session-data'
+import { useBreadcrumbStore } from '@/stores/breadcrumb-store'
 import { useSettingsStore } from '@/stores/settings-store'
 import { Button } from '@/components/ui/button'
 import {
@@ -39,28 +39,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { EmptyState } from '@/components/empty-state'
-import { Notice } from '@/components/notice'
 import { DetailSkeleton } from '@/components/session/detail-skeleton'
-import { PeriodDetail } from '@/components/session/period-detail'
-import { SessionHeader, SessionScreen } from '@/components/session/session-screen'
+import { SessionScreen } from '@/components/session/session-screen'
+import { SessionGone, SessionLoadError } from '@/components/session/session-states'
 
 export const Route = createFileRoute('/sessions/$id')({
-  component: SessionPage,
-  validateSearch: (search: Record<string, unknown>) => {
+  component: SessionRoute,
+  validateSearch: (search: Record<string, unknown>): { period?: number } => {
     const period = Number(search.period)
-    return {
-      period: search.period != null && Number.isFinite(period) ? period : undefined,
-    }
+    return search.period != null && Number.isFinite(period) ? { period } : {}
   },
 })
 
-function periodTitle(detail: SessionDetail, matches: SessionMatch[], periodId: number) {
-  const match = matches.find(item => item.periodId === periodId)
-  if (match) return m.match_title({ number: String(match.number) })
-  const withVoice = matches.find(item => item.voice?.periodId === periodId)
-  if (withVoice) return m.match_voice_title({ number: String(withVoice.number) })
-  return detail.ipPeriods.find(period => period.id === periodId)?.ip ?? null
+function SessionRoute() {
+  const children = useChildMatches()
+  return children.length > 0 ? <Outlet /> : <SessionPage />
 }
 
 function SessionPage() {
@@ -73,32 +66,9 @@ function SessionPage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const sessionId = Number(id)
-  const isValidId = Number.isInteger(sessionId) && sessionId > 0
-
-  const detailQuery = useQuery({
-    queryKey: ['session', sessionId],
-    queryFn: () => getSessionDetail(sessionId),
-    enabled: isValidId,
-    staleTime: 60_000,
-    refetchInterval: query => (query.state.data?.endedAt === null ? 3_000 : false),
-  })
+  const { valid, ongoing, detailQuery, matchesQuery, thresholds } = useSessionData(sessionId)
   const detail = detailQuery.data
-  const ongoing = detail?.endedAt === null
-
-  const matchesQuery = useQuery({
-    queryKey: ['session', sessionId, 'matches'],
-    queryFn: () => getSessionMatches(sessionId),
-    enabled: isValidId && detail != null,
-    staleTime: 60_000,
-    refetchInterval: ongoing ? 3_000 : false,
-  })
   const matches = matchesQuery.data
-
-  const { data: thresholds } = useQuery({
-    queryKey: ['severity-thresholds'],
-    queryFn: getSeverityThresholds,
-    staleTime: Infinity,
-  })
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteSession(sessionId),
@@ -123,63 +93,31 @@ function SessionPage() {
 
   useEffect(() => {
     if (!detail) return
-    const day = formatDay(detail.startedAt, { weekday: true })
-    const selected = periodId != null && matches ? periodTitle(detail, matches, periodId) : null
-    const segments: BreadcrumbSegment[] = selected
-      ? [
-          {
-            label: day,
-            onClick: () =>
-              navigate({ to: '/sessions/$id', params: { id }, search: { period: undefined } }),
-          },
-          { label: selected },
-        ]
-      : [{ label: day }]
-    setSegments(segments)
+    setSegments([{ label: formatDay(detail.startedAt, { weekday: true }) }])
     return () => setSegments([])
-  }, [detail, matches, periodId, id, navigate, setSegments])
+  }, [detail, setSegments])
 
-  const backToSessions = () => navigate({ to: '/sessions' })
-
-  if (!isValidId || detail === null) {
-    return (
-      <div className="h-full overflow-y-auto p-4 sm:px-6">
-        <EmptyState
-          title={m.session_gone_title()}
-          action={<Button onClick={backToSessions}>{m.session_back()}</Button>}
-        >
-          {m.session_gone_body()}
-        </EmptyState>
-      </div>
-    )
+  if (!valid || detail === null) {
+    return <SessionGone onBack={() => navigate({ to: '/sessions' })} />
   }
 
   if (detailQuery.isError || matchesQuery.isError) {
     return (
-      <div className="h-full overflow-y-auto p-4 sm:px-6">
-        <Notice
-          tone="critical"
-          title={m.session_load_failed()}
-          action={
-            <Button
-              size="sm"
-              onClick={() => queryClient.invalidateQueries({ queryKey: ['session', sessionId] })}
-            >
-              <RiLoopLeftLine data-icon="inline-start" />
-              {m.session_try_again()}
-            </Button>
-          }
-        >
-          {m.session_load_failed_body()}
-        </Notice>
-      </div>
+      <SessionLoadError
+        onRetry={() => queryClient.invalidateQueries({ queryKey: ['session', sessionId] })}
+      />
     )
   }
 
   if (!detail || !matches) return <DetailSkeleton />
 
   if (periodId != null) {
-    return <PeriodView detail={detail} matches={matches} periodId={periodId} sessionId={id} />
+    const match = matchOfPeriod(matches, periodId)
+    return match ? (
+      <Navigate to="/sessions/$id/matches/$n" params={{ id, n: String(match.number) }} replace />
+    ) : (
+      <Navigate to="/sessions/$id" params={{ id }} replace />
+    )
   }
 
   const copyText = async (text: string, success: string, failure: string) => {
@@ -222,7 +160,10 @@ function SessionPage() {
         detailed={detailed}
         actions={actions}
         onSelectMatch={match =>
-          navigate({ to: '/sessions/$id', params: { id }, search: { period: match.periodId } })
+          navigate({
+            to: '/sessions/$id/matches/$n',
+            params: { id, n: String(match.number) },
+          })
         }
         onRetry={() => retryMutation.mutate()}
         retrying={retryMutation.isPending}
@@ -302,67 +243,5 @@ function DeleteSessionDialog({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  )
-}
-
-function PeriodView({
-  detail,
-  matches,
-  periodId,
-  sessionId,
-}: {
-  detail: SessionDetail
-  matches: SessionMatch[]
-  periodId: number
-  sessionId: string
-}) {
-  const navigate = useNavigate()
-  const backToSession = () =>
-    navigate({ to: '/sessions/$id', params: { id: sessionId }, search: { period: undefined } })
-
-  const period = detail.ipPeriods.find(item => item.id === periodId)
-  if (!period) {
-    return (
-      <div className="h-full overflow-y-auto p-4 sm:px-6">
-        <EmptyState
-          title={m.match_gone()}
-          action={<Button onClick={backToSession}>{m.match_back()}</Button>}
-        />
-      </div>
-    )
-  }
-
-  const flow =
-    matches.find(match => match.periodId === periodId) ??
-    matches.find(match => match.voice?.periodId === periodId)?.voice
-  const title = periodTitle(detail, matches, periodId) ?? period.ip
-  const span = `${formatClock(period.startedAt)} → ${formatClock(period.endedAt)}`
-  const facts = [
-    formatElapsed(computeDurationSecs(period.startedAt, period.endedAt)),
-    flow ? flowServerLabel(flow) : `${period.protocol} ${period.port}`,
-  ]
-
-  return (
-    <div className="h-full overflow-y-auto">
-      <SessionHeader
-        title={`${title} · ${span}`}
-        facts={facts}
-        actions={
-          <Button size="sm" variant="ghost" onClick={backToSession}>
-            {m.match_back()}
-          </Button>
-        }
-      />
-      <div className="px-4 pt-5 pb-6 sm:px-6">
-        <PeriodDetail
-          period={period}
-          summary={detail.ipSummaries.find(summary => summary.ip === period.ip)}
-          traceroute={
-            (flow && traceOf(flow, detail.traceroutes)) ??
-            detail.traceroutes.find(trace => trace.targetIp === period.ip)
-          }
-        />
-      </div>
-    </div>
   )
 }
