@@ -18,6 +18,7 @@ import {
   flowServerLabel,
   formatFlowPing,
   formatLoss,
+  matchMeasure,
   sessionSpan,
   sessionVerdict,
   severityLabel,
@@ -77,7 +78,7 @@ export function sessionDiagnostic(
     const provenance = flowProvenance(match, matches, detail.traceroutes, detail.endedAt, {
       withOffset: true,
     })
-    const trace = match.trace
+    const trace = matchMeasure(match)
     const parts = [
       `${match.number}. ${formatClock(match.startedAt)}`,
       formatElapsed(match.durationSecs),

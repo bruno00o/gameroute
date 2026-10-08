@@ -5,6 +5,7 @@ import type {
   DetectedGame,
   GameEndedEvent,
   GameListItem,
+  GamePingSample,
   HourlyQuality,
   IpMetadataCacheStats,
   MonitoringStatusResponse,
@@ -141,3 +142,5 @@ export const onTracerouteAllComplete = (
   cb: (event: TracerouteAllCompleteEvent) => void
 ): Promise<UnlistenFn> =>
   listen<TracerouteAllCompleteEvent>('traceroute-all-complete', e => cb(e.payload))
+export const onGamePingSample = (cb: (sample: GamePingSample) => void): Promise<UnlistenFn> =>
+  listen<GamePingSample>('game-ping-sample', e => cb(e.payload))

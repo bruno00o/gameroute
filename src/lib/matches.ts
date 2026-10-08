@@ -2,6 +2,7 @@ import * as m from '@/paraglide/messages'
 import { getLocale } from '@/paraglide/runtime'
 import type {
   FlowOperator,
+  GameMeasure,
   MeasuredFlow,
   OperatorRoute,
   RouteZone,
@@ -75,7 +76,31 @@ export function traceOf(
   return id == null ? undefined : traceroutes.find(trace => trace.id === id)
 }
 
-export function formatFlowPing(trace: TraceMeasure | null | undefined): string {
+export type PingMeasure = Pick<
+  TraceMeasure,
+  'pingMs' | 'atDestination' | 'measuredHop' | 'lossPct' | 'jitterMs' | 'usual'
+>
+
+export function matchMeasure(flow: MeasuredFlow): PingMeasure | null {
+  const game = flow.game
+  if (!game) return flow.trace
+  return {
+    pingMs: game.pingMs,
+    atDestination: true,
+    measuredHop: null,
+    lossPct: game.lossPct ?? flow.trace?.lossPct ?? null,
+    jitterMs: game.jitterMs ?? flow.trace?.jitterMs ?? null,
+    usual: game.usual,
+  }
+}
+
+export function gamePingSource(game: GameMeasure): string {
+  return game.source === 'game_region' && game.region
+    ? m.ping_by_game_region({ region: game.region })
+    : m.ping_by_game()
+}
+
+export function formatFlowPing(trace: PingMeasure | null | undefined): string {
   if (trace?.pingMs == null) return MISSING
   return formatRouteMs(trace.pingMs, !trace.atDestination)
 }
@@ -92,7 +117,7 @@ function operatorAt(route: OperatorRoute | null | undefined, hop: number): strin
 }
 
 export function measuredUpTo(
-  trace: TraceMeasure | null | undefined,
+  trace: PingMeasure | null | undefined,
   route: OperatorRoute | null | undefined
 ): string | null {
   if (!trace || trace.atDestination || trace.measuredHop == null) return null
@@ -163,11 +188,18 @@ const LEVELS = ['watch', 'degraded', 'critical'] as const
 
 type ThresholdLevel = (typeof LEVELS)[number]
 
-export function usualPing(trace: TraceMeasure | null | undefined): number | null {
+export function pingSourceNote(
+  flow: MeasuredFlow,
+  route: OperatorRoute | null | undefined
+): string | null {
+  return flow.game ? gamePingSource(flow.game) : measuredUpTo(flow.trace, route)
+}
+
+export function usualPing(trace: PingMeasure | null | undefined): number | null {
   return trace?.usual?.medianMs ?? null
 }
 
-export function formatUsualPing(trace: TraceMeasure): string | null {
+export function formatUsualPing(trace: PingMeasure): string | null {
   const usual = usualPing(trace)
   return usual == null ? null : formatRouteMs(usual, !trace.atDestination)
 }
@@ -189,7 +221,7 @@ export function thresholdRules(
 }
 
 export function statusReason(flow: MeasuredFlow, thresholds?: SeverityThresholds | null): string {
-  const trace = flow.trace
+  const trace = matchMeasure(flow)
   if (flow.status === 'unmeasured' || trace?.pingMs == null) return m.match_why_unmeasured()
   const ping = formatFlowPing(trace)
   const loss = formatLoss(trace.lossPct ?? 0)
@@ -213,7 +245,7 @@ export function statusReason(flow: MeasuredFlow, thresholds?: SeverityThresholds
   return severityLabel(flow.status)
 }
 
-function latencyLevel(trace: TraceMeasure, thresholds: SeverityThresholds): number {
+function latencyLevel(trace: PingMeasure, thresholds: SeverityThresholds): number {
   const usual = usualPing(trace)
   return usual != null && trace.pingMs != null
     ? thresholdLevel(
@@ -233,6 +265,7 @@ export function flowProvenance(
   sessionEndedAt: string | null,
   { withOffset = false }: { withOffset?: boolean } = {}
 ): string[] {
+  if (flow.game) return [gamePingSource(flow.game)]
   if (flow.trace?.pingMs == null) return []
   const timing = traceTiming(flow, matches, sessionEndedAt)
   const upTo = measuredUpTo(flow.trace, traceOf(flow, traceroutes)?.route)
@@ -329,7 +362,7 @@ function verdictZones(
 }
 
 function silentSentence(match: SessionMatch, route: OperatorRoute | null | undefined) {
-  const trace = match.trace
+  const trace = matchMeasure(match)
   if (!trace || trace.atDestination || trace.measuredHop == null) return null
   const hop = String(trace.measuredHop)
   const operator = operatorAt(route, trace.measuredHop)
@@ -375,13 +408,13 @@ const adviceSentences: Record<RouteZone, () => string> = {
 }
 
 function mostTraced(matches: SessionMatch[]): SessionMatch {
+  const key = (match: SessionMatch) => match.trace?.tracerouteId ?? -match.periodId
   const counts = new Map<number, number>()
   for (const match of matches) {
-    const id = match.trace!.tracerouteId
-    counts.set(id, (counts.get(id) ?? 0) + 1)
+    counts.set(key(match), (counts.get(key(match)) ?? 0) + 1)
   }
   return matches.reduce((best, match) =>
-    counts.get(match.trace!.tracerouteId)! > counts.get(best.trace!.tracerouteId)! ? match : best
+    counts.get(key(match))! > counts.get(key(best))! ? match : best
   )
 }
 
@@ -393,7 +426,7 @@ export function sessionVerdict(
 ): SessionVerdict | null {
   if (matches.length === 0) return null
 
-  const measured = matches.filter(match => match.trace?.pingMs != null)
+  const measured = matches.filter(match => matchMeasure(match)?.pingMs != null)
   const scope = m.verdict_scope({
     measured: String(measured.length),
     total: String(matches.length),
@@ -418,10 +451,10 @@ export function sessionVerdict(
     const reference = mostTraced(measured)
     const route = traceOf(reference, traceroutes)?.route
     const ping = formatRouteMs(
-      median(measured.map(match => match.trace!.pingMs!)),
-      measured.some(match => !match.trace!.atDestination)
+      median(measured.map(match => matchMeasure(match)!.pingMs!)),
+      measured.some(match => !matchMeasure(match)!.atDestination)
     )
-    const maxLoss = Math.max(...measured.map(match => match.trace!.lossPct ?? 0))
+    const maxLoss = Math.max(...measured.map(match => matchMeasure(match)!.lossPct ?? 0))
     return {
       status: 'ok',
       title:
@@ -442,7 +475,7 @@ export function sessionVerdict(
 
   const affected = measured.filter(match => RANK[match.status] === worst)
   const reference = affected[0]
-  const trace = reference.trace!
+  const trace = matchMeasure(reference)!
   const route = traceOf(reference, traceroutes)?.route
   const lossPct = trace.lossPct ?? 0
   const lossCause = thresholds

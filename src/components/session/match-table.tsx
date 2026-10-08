@@ -8,6 +8,7 @@ import {
   flowServerLabel,
   formatFlowPing,
   formatLoss,
+  matchMeasure,
   severityRank,
 } from '@/lib/matches'
 import { DataTable, type DataTableColumn } from '@/components/data-table'
@@ -89,10 +90,10 @@ function MatchTable({
         label: m.matches_col_ping(),
         mono: true,
         align: 'end',
-        sortValue: match => match.trace?.pingMs,
+        sortValue: match => matchMeasure(match)?.pingMs,
         render: match =>
-          match.trace?.pingMs == null ? null : (
-            <Measure value={formatFlowPing(match.trace)} notes={provenance(match)} />
+          matchMeasure(match)?.pingMs == null ? null : (
+            <Measure value={formatFlowPing(matchMeasure(match))} notes={provenance(match)} />
           ),
       },
       {
@@ -100,8 +101,11 @@ function MatchTable({
         label: m.matches_col_loss(),
         mono: true,
         align: 'end',
-        sortValue: match => match.trace?.lossPct,
-        render: match => (match.trace?.lossPct == null ? null : formatLoss(match.trace.lossPct)),
+        sortValue: match => matchMeasure(match)?.lossPct,
+        render: match => {
+          const loss = matchMeasure(match)?.lossPct
+          return loss == null ? null : formatLoss(loss)
+        },
       },
       ...(detailed
         ? [
@@ -110,9 +114,11 @@ function MatchTable({
               label: m.matches_col_jitter(),
               mono: true,
               align: 'end',
-              sortValue: match => match.trace?.jitterMs,
-              render: match =>
-                match.trace?.jitterMs == null ? null : formatMs(match.trace.jitterMs),
+              sortValue: match => matchMeasure(match)?.jitterMs,
+              render: match => {
+                const jitter = matchMeasure(match)?.jitterMs
+                return jitter == null ? null : formatMs(jitter)
+              },
             } satisfies DataTableColumn<SessionMatch>,
           ]
         : []),

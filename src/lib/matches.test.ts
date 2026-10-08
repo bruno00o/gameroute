@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { SessionMatch } from '@/types/backend'
+import type { GameMeasure, SessionMatch } from '@/types/backend'
 import {
   at,
   measure,
@@ -14,7 +14,16 @@ import {
 } from '@/test/session-fixtures'
 import { sessionDiagnostic } from './diagnostic-text'
 import { generateSessionExport } from './export-llm'
-import { flowServerLabel, formatLoss, sessionVerdict, traceTiming } from './matches'
+import {
+  flowProvenance,
+  flowServerLabel,
+  formatFlowPing,
+  formatLoss,
+  matchMeasure,
+  pingSourceNote,
+  sessionVerdict,
+  traceTiming,
+} from './matches'
 
 const NB = ' '
 
@@ -29,6 +38,50 @@ describe('flowServerLabel', () => {
 
   it('falls back to the address when the operator is unknown', () => {
     expect(flowServerLabel({ ...sessionMatches()[0], operator: null })).toBe(`${RIOT} · UDP 7284`)
+  })
+})
+
+describe('ping measured by the game', () => {
+  const game: GameMeasure = {
+    source: 'game',
+    region: null,
+    measuredAt: at(15, 45, 10),
+    sampleCount: 38,
+    pingMs: 13.2,
+    jitterMs: 2.3,
+    lossPct: 0,
+    packetsLost: 0,
+    usual: { medianMs: 12.4, sampleCount: 20 },
+  }
+  const matches = sessionMatches()
+  const measured = { ...matches[0], game }
+
+  it('replaces the lower bound of the trace in the match ping', () => {
+    expect(formatFlowPing(matches[0].trace)).toBe(`≥${NB}18${NB}ms`)
+    expect(formatFlowPing(matchMeasure(measured))).toBe(`13${NB}ms`)
+    expect(matchMeasure(measured)).toMatchObject({ atDestination: true, jitterMs: 2.3 })
+    expect(
+      flowProvenance(measured, matches, [trace(11, RIOT, at(15, 45, 41), riotRoute())], null)
+    ).toEqual(['measured by the game'])
+  })
+
+  it('says which region the game measured before the match', () => {
+    const region = {
+      ...measured,
+      game: { ...game, source: 'game_region' as const, region: 'Paris' },
+    }
+    expect(pingSourceNote(region, null)).toBe('measured by the game (Paris, before the match)')
+    expect(pingSourceNote(matches[0], riotRoute())).toBe('measured up to hop 3 (RETN)')
+  })
+
+  it('keeps the trace loss when the game does not report any', () => {
+    const region = {
+      ...measured,
+      trace: measure({ lossPct: 1.5 }),
+      game: { ...game, source: 'game_region' as const, lossPct: null },
+    }
+    expect(matchMeasure(region)?.lossPct).toBe(1.5)
+    expect(sessionVerdict([region], [])?.title).toBe(`13${NB}ms to the server, up to 1.5% loss`)
   })
 })
 

@@ -37,6 +37,7 @@ function session(overrides: Partial<SessionListItem>): SessionListItem {
     matchCount: 4,
     medianPingMs: 17.6,
     medianPingAtLeast: true,
+    medianPingByGame: false,
     status: 'watch',
     ...overrides,
   }
@@ -49,6 +50,7 @@ const rows: SessionListItem[] = [
     gameName: 'League of Legends',
     matchCount: 3,
     medianPingMs: 31.2,
+    medianPingByGame: true,
     medianPingAtLeast: false,
     status: 'ok',
   }),
@@ -113,6 +115,11 @@ describe('Sessions list', () => {
     const league = cells(/League of Legends/)
     expect(league[4].textContent).toBe(`31${NB}ms`)
     expect(league[4]).not.toHaveTextContent('≥')
+    expect(league[4].firstElementChild).toHaveAttribute('title', 'measured by the game')
+    expect(valorant[4].firstElementChild).toHaveAttribute(
+      'title',
+      'up to the last responding router'
+    )
     expect(within(league[5]).getByText('Good')).toBeInTheDocument()
   })
 
