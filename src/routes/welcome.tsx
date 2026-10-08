@@ -1,20 +1,9 @@
-import { useEffect, useState } from 'react'
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import {
-  RiShieldKeyholeLine,
-  RiEyeOffLine,
-  RiLockLine,
-  RiSpeedLine,
-} from '@remixicon/react'
-import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
-import { toast } from 'sonner'
+import { useState } from 'react'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 
-import * as m from '@/paraglide/messages'
 import { useSettingsStore } from '@/stores/settings-store'
 import { LogoMark } from '@/components/logo-mark'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { SwitchField } from '@/components/ui/switch'
+import { CaptureStep, DataStep, GamesStep, WelcomeStep } from '@/components/onboarding/steps'
 
 export const Route = createFileRoute('/welcome')({
   component: WelcomePage,
@@ -22,116 +11,32 @@ export const Route = createFileRoute('/welcome')({
 
 function WelcomePage() {
   const setOnboardingCompleted = useSettingsStore(s => s.setOnboardingCompleted)
-  const advancedMode = useSettingsStore(s => s.advancedMode)
-  const setAdvancedMode = useSettingsStore(s => s.setAdvancedMode)
+  const localeVersion = useSettingsStore(s => s._localeVersion)
   const navigate = useNavigate()
+  const [step, setStep] = useState(1)
 
-  const [launchOnStartup, setLaunchOnStartup] = useState(false)
-  const [launchOnStartupLoading, setLaunchOnStartupLoading] = useState(true)
+  const next = () => setStep(current => current + 1)
+  const back = () => setStep(current => current - 1)
 
-  useEffect(() => {
-    isEnabled()
-      .then(setLaunchOnStartup)
-      .catch(() => {})
-      .finally(() => setLaunchOnStartupLoading(false))
-  }, [])
-
-  const handleLaunchOnStartup = async (value: boolean) => {
-    try {
-      if (value) await enable()
-      else await disable()
-      setLaunchOnStartup(value)
-    } catch {
-      toast.error(m.settings_launch_on_startup_error())
-    }
-  }
-
-  const handleLaunch = () => {
+  const finish = () => {
     setOnboardingCompleted(true)
     navigate({ to: '/' })
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6">
-      <div className="w-full max-w-2xl space-y-8">
-        <div className="text-center space-y-2">
-          <LogoMark role="img" aria-label="GameRoute" className="mx-auto block size-16" />
-          <h1 className="text-3xl font-bold">{m.welcome_title()}</h1>
-          <p className="text-muted-foreground">{m.welcome_subtitle()}</p>
-        </div>
-
-        <div className="grid gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <RiShieldKeyholeLine className="size-5 text-muted-foreground shrink-0" />
-              <CardTitle className="text-sm">{m.welcome_admin_title()}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-xs">{m.welcome_admin_body()}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <RiLockLine className="size-5 text-muted-foreground shrink-0" />
-              <CardTitle className="text-sm">{m.welcome_privacy_title()}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-xs">{m.welcome_privacy_body()}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <RiEyeOffLine className="size-5 text-muted-foreground shrink-0" />
-              <CardTitle className="text-sm">{m.welcome_no_collection_title()}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-xs">{m.welcome_no_collection_body()}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <RiSpeedLine className="size-5 text-muted-foreground shrink-0" />
-              <CardTitle className="text-sm">{m.welcome_performance_title()}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-xs">{m.welcome_performance_body()}</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-3">
-          <SwitchField
-            className="rounded-sm border bg-card px-4 py-3"
-            label={m.welcome_launch_on_startup()}
-            description={m.welcome_launch_on_startup_description()}
-            checked={launchOnStartup}
-            onCheckedChange={handleLaunchOnStartup}
-            disabled={launchOnStartupLoading}
-          />
-          <SwitchField
-            className="rounded-sm border bg-card px-4 py-3"
-            label={m.welcome_advanced_mode()}
-            description={m.welcome_advanced_mode_description()}
-            checked={advancedMode}
-            onCheckedChange={setAdvancedMode}
-          />
-        </div>
-
-        <div className="text-center space-y-3">
-          <Button variant="primary" size="lg" onClick={handleLaunch}>
-            {m.welcome_launch_button()}
-          </Button>
-          <p className="text-muted-foreground text-xs">
-            {m.welcome_help_prefix()}{' '}
-            <Link to="/help" className="text-primary underline underline-offset-2">
-              {m.welcome_help_link_text()}
-            </Link>
-          </p>
-        </div>
-      </div>
+    <div className="flex min-h-screen flex-col">
+      <header className="flex items-center gap-2.5 px-7 py-5">
+        <LogoMark role="img" aria-label="GameRoute" className="size-7" />
+        <span className="text-heading font-bold tracking-[-0.01em] font-stretch-[112%]">
+          GameRoute
+        </span>
+      </header>
+      <main key={localeVersion} className="flex flex-1 justify-center px-6 pt-2 pb-12">
+        {step === 1 && <WelcomeStep onNext={next} />}
+        {step === 2 && <CaptureStep onBack={back} onNext={next} />}
+        {step === 3 && <GamesStep onBack={back} onNext={next} />}
+        {step === 4 && <DataStep onBack={back} onNext={finish} />}
+      </main>
     </div>
   )
 }
