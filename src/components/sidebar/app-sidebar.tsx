@@ -6,8 +6,8 @@ import * as m from '@/paraglide/messages'
 import { useServiceHealthCheck } from '@/hooks/use-service-health-check'
 import { selectLiveState, useMonitoringStore } from '@/stores/monitoring-store'
 import { LogoMark } from '@/components/logo-mark'
-import { MonitoringWidget } from '@/components/sidebar/monitoring-widget'
 import { NavMain } from '@/components/sidebar/nav-main'
+import { SidebarMonitor } from '@/components/sidebar/sidebar-monitor'
 import { SidebarSearch } from '@/components/sidebar/sidebar-search'
 import {
   Sidebar,
@@ -64,7 +64,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </nav>
       </SidebarContent>
       <SidebarFooter>
-        <MonitoringWidget />
+        <SidebarMonitor liveState={liveState} />
       </SidebarFooter>
     </Sidebar>
   )

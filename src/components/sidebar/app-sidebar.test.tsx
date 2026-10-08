@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   RouterProvider,
@@ -114,6 +114,11 @@ describe('AppSidebar', () => {
     const dots = document.querySelectorAll('[data-slot=live-dot]')
     expect(dots).toHaveLength(1)
     expect(dots[0].closest('a')).toHaveTextContent('Live')
+
+    const monitor = document.querySelector<HTMLElement>('[data-slot=sidebar-monitor]')!
+    expect(within(monitor).getByRole('status')).toHaveTextContent('In match')
+    expect(monitor).toHaveTextContent('203.0.113.200 · UDP 7220')
+    expect(within(monitor).getByRole('button', { name: 'Stop' })).toBeInTheDocument()
   })
 
   it('has no live dot while waiting for the match', async () => {
@@ -121,5 +126,16 @@ describe('AppSidebar', () => {
     await renderSidebar('/')
 
     expect(document.querySelectorAll('[data-slot=live-dot]')).toHaveLength(0)
+    const monitor = document.querySelector<HTMLElement>('[data-slot=sidebar-monitor]')!
+    expect(within(monitor).getByRole('status')).toHaveTextContent('Measuring')
+    expect(monitor).toHaveTextContent('Waiting for the match')
+  })
+
+  it('offers to start monitoring when it is stopped', async () => {
+    await renderSidebar('/')
+
+    const monitor = document.querySelector<HTMLElement>('[data-slot=sidebar-monitor]')!
+    expect(within(monitor).getByRole('status')).toHaveTextContent('Monitoring stopped')
+    expect(within(monitor).getByRole('button', { name: 'Start' })).toBeInTheDocument()
   })
 })

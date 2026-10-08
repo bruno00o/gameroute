@@ -12,3 +12,17 @@ const labels: Record<LiveState, () => string> = {
 export function liveStateLabel(state: LiveState): string {
   return labels[state]()
 }
+
+export function monitorLabel({
+  liveState,
+  isMonitoring,
+  isManualMode,
+}: {
+  liveState: LiveState
+  isMonitoring: boolean
+  isManualMode: boolean
+}): string {
+  if (!isMonitoring) return m.monitoring_off()
+  if (liveState === 'live' && isManualMode) return m.nav_live()
+  return liveStateLabel(liveState)
+}

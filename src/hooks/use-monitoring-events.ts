@@ -30,6 +30,7 @@ export function useMonitoringEvents() {
           isMonitoring: true,
           seenIps: new Set(),
           serverIpCount: 0,
+          lastServer: null,
         })
         // Clear any previous polling interval
         clearInterval(activePollRef.current)
@@ -62,6 +63,7 @@ export function useMonitoringEvents() {
           currentGame: null,
           seenIps: new Set(),
           serverIpCount: 0,
+          lastServer: null,
           currentSessionId: null,
         })
         queryClient.invalidateQueries({ queryKey: ['sessions'] })
