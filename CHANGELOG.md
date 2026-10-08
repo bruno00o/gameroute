@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.16](https://github.com/bruno00o/gameroute/compare/v0.1.15...v0.1.16) (2026-10-08)
+
+
+### Features
+
+* **capture:** write service logs to ProgramData ([5b4a8a5](https://github.com/bruno00o/gameroute/commit/5b4a8a5234065b5e582b6dfa30dc053c495e8584))
+
+
+### Bug Fixes
+
+* **capture:** let the service stop while waiting for clients ([3bd6dbb](https://github.com/bruno00o/gameroute/commit/3bd6dbb090880a8f6df80b71f347a9f68d60d14d))
+* **capture:** stop counting lost probes as zero-latency samples ([7185ab6](https://github.com/bruno00o/gameroute/commit/7185ab621f4c759cadd5110d7b10782f447eed15))
+* **installer:** stop the capture service before copying files ([1fbcef6](https://github.com/bruno00o/gameroute/commit/1fbcef68a1090f9ded8f4597a6c836380474ba02))
+
 ## [0.1.15](https://github.com/bruno00o/gameroute/compare/v0.1.14...v0.1.15) (2026-10-07)
 
 
