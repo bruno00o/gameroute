@@ -641,7 +641,7 @@ mod service {
         let mut builder = Builder::new(target_ip)
             .privilege_mode(PrivilegeMode::Privileged)
             .max_ttl(max_hops)
-            .max_rounds(Some(3));
+            .max_rounds(Some(10));
 
         match protocol {
             "TCP" => {
