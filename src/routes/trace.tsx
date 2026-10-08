@@ -177,8 +177,8 @@ function getTraceVerdict(hops: TracerouteHopEvent[]) {
 }
 
 const traceVerdictConfig = {
-  good: { label: () => m.trace_verdict_good(), color: 'text-emerald-500' },
-  fair: { label: () => m.trace_verdict_fair(), color: 'text-amber-500' },
+  good: { label: () => m.trace_verdict_good(), color: 'text-ok' },
+  fair: { label: () => m.trace_verdict_fair(), color: 'text-watch' },
   poor: { label: () => m.trace_verdict_poor(), color: 'text-destructive' },
 } as const
 
@@ -236,7 +236,7 @@ function IpStatusIcon({
   isCurrent: boolean
 }) {
   if (completed === true) {
-    return <RiCheckLine className="size-4 shrink-0 text-emerald-500" />
+    return <RiCheckLine className="text-muted-foreground size-4 shrink-0" />
   }
   if (completed === false) {
     return <RiCloseLine className="text-destructive size-4 shrink-0" />

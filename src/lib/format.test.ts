@@ -45,13 +45,13 @@ describe('latencyColor', () => {
   })
 
   it('returns green for low latency', () => {
-    expect(latencyColor(10)).toBe('text-emerald-500')
-    expect(latencyColor(29)).toBe('text-emerald-500')
+    expect(latencyColor(10)).toBe('text-ok')
+    expect(latencyColor(29)).toBe('text-ok')
   })
 
   it('returns amber for moderate latency', () => {
-    expect(latencyColor(30)).toBe('text-amber-500')
-    expect(latencyColor(79)).toBe('text-amber-500')
+    expect(latencyColor(30)).toBe('text-watch')
+    expect(latencyColor(79)).toBe('text-watch')
   })
 
   it('returns destructive for high latency', () => {

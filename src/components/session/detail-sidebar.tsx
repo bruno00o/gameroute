@@ -149,7 +149,7 @@ export function DetailSidebar({
           {gameServerPeriods.length > 0 && (
             <>
               <SidebarGroupLabel className="mt-2 gap-1.5">
-                <RiGamepadLine className="size-3.5 text-amber-500" />
+                <RiGamepadLine className="size-3.5 text-muted-foreground" />
                 {m.session_game_servers()}
                 <Tooltip>
                   <TooltipTrigger
@@ -183,7 +183,7 @@ export function DetailSidebar({
           {voicePeriods.length > 0 && (
             <>
               <SidebarGroupLabel className="mt-2 gap-1.5">
-                <RiMicLine className="size-3.5 text-sky-500" />
+                <RiMicLine className="size-3.5 text-muted-foreground" />
                 {m.session_voice()}
                 <Tooltip>
                   <TooltipTrigger
@@ -276,18 +276,17 @@ function PeriodItem({
       <SidebarMenuButton
         isActive={isActive}
         onClick={() => onSelect(period.id)}
-        className={cn(highlight && 'border-l-2 border-amber-500')}
       >
         {highlight ? (
           <Tooltip>
             <TooltipTrigger
-              render={<RiGamepadLine className="shrink-0 text-amber-500" />}
+              render={<RiGamepadLine className="shrink-0 text-muted-foreground" />}
             />
             <TooltipContent side="right">{m.session_likely_game_server()}</TooltipContent>
           </Tooltip>
         ) : period.flowKind === 'voice' ? (
           <Tooltip>
-            <TooltipTrigger render={<RiMicLine className="shrink-0 text-sky-500" />} />
+            <TooltipTrigger render={<RiMicLine className="shrink-0 text-muted-foreground" />} />
             <TooltipContent side="right">{m.session_likely_voice()}</TooltipContent>
           </Tooltip>
         ) : (

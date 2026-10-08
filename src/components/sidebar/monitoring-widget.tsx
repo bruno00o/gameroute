@@ -58,7 +58,7 @@ export function MonitoringWidget() {
             <span
               className={cn(
                 'absolute right-0.5 top-0.5 size-2 rounded-full',
-                isMonitoring ? 'bg-emerald-500' : 'bg-muted-foreground/40'
+                isMonitoring ? 'bg-signal' : 'bg-muted-foreground/40'
               )}
             />
           </TooltipTrigger>
@@ -81,7 +81,7 @@ export function MonitoringWidget() {
           <span
             className={cn(
               'size-2 shrink-0 rounded-full',
-              isMonitoring ? 'bg-emerald-500' : 'bg-muted-foreground/40'
+              isMonitoring ? 'bg-signal' : 'bg-muted-foreground/40'
             )}
           />
           <div className="min-w-0 flex-1">
@@ -119,7 +119,7 @@ export function MonitoringWidget() {
 
         <div className="flex gap-1">
           <Button
-            variant={isMonitoring ? 'destructive' : 'default'}
+            variant={isMonitoring ? 'outline' : 'default'}
             size="xs"
             className="flex-1"
             onClick={handleToggle}

@@ -10,8 +10,8 @@ import { disable, enable, isEnabled } from '@tauri-apps/plugin-autostart'
 import { toast } from 'sonner'
 
 import * as m from '@/paraglide/messages'
-import logoSvg from '@/assets/logo.svg'
 import { useSettingsStore } from '@/stores/settings-store'
+import { LogoMark } from '@/components/logo-mark'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
@@ -55,7 +55,7 @@ function WelcomePage() {
     <div className="flex min-h-screen items-center justify-center p-6">
       <div className="w-full max-w-2xl space-y-8">
         <div className="text-center space-y-2">
-          <img src={logoSvg} alt="GameRoute" className="mx-auto size-16" />
+          <LogoMark role="img" aria-label="GameRoute" className="mx-auto block size-16" />
           <h1 className="text-3xl font-bold">{m.welcome_title()}</h1>
           <p className="text-muted-foreground">{m.welcome_subtitle()}</p>
         </div>
@@ -63,7 +63,7 @@ function WelcomePage() {
         <div className="grid gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <RiShieldKeyholeLine className="size-5 text-blue-500 shrink-0" />
+              <RiShieldKeyholeLine className="size-5 text-muted-foreground shrink-0" />
               <CardTitle className="text-sm">{m.welcome_admin_title()}</CardTitle>
             </CardHeader>
             <CardContent>
@@ -73,7 +73,7 @@ function WelcomePage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <RiLockLine className="size-5 text-green-500 shrink-0" />
+              <RiLockLine className="size-5 text-muted-foreground shrink-0" />
               <CardTitle className="text-sm">{m.welcome_privacy_title()}</CardTitle>
             </CardHeader>
             <CardContent>
@@ -83,7 +83,7 @@ function WelcomePage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <RiEyeOffLine className="size-5 text-amber-500 shrink-0" />
+              <RiEyeOffLine className="size-5 text-muted-foreground shrink-0" />
               <CardTitle className="text-sm">{m.welcome_no_collection_title()}</CardTitle>
             </CardHeader>
             <CardContent>
@@ -93,7 +93,7 @@ function WelcomePage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center gap-3 pb-2">
-              <RiSpeedLine className="size-5 text-purple-500 shrink-0" />
+              <RiSpeedLine className="size-5 text-muted-foreground shrink-0" />
               <CardTitle className="text-sm">{m.welcome_performance_title()}</CardTitle>
             </CardHeader>
             <CardContent>

@@ -26,8 +26,8 @@ export function computeDurationSecs(startedAt: string, endedAt: string | null): 
 
 export function latencyColor(ms: number | null): string {
   if (ms == null) return ''
-  if (ms < 30) return 'text-emerald-500'
-  if (ms < 80) return 'text-amber-500'
+  if (ms < 30) return 'text-ok'
+  if (ms < 80) return 'text-watch'
   return 'text-destructive'
 }
 

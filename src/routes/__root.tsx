@@ -88,7 +88,7 @@ function MainLayout() {
           <SidebarInset className="max-h-screen">
             <Header />
             {!isServiceRunning && !isLoading && (
-              <div className="flex items-center gap-2 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-400">
+              <div className="flex items-center gap-2 border-b border-watch/30 bg-watch-soft px-4 py-2 text-xs text-watch">
                 <RiAlertLine className="size-4 shrink-0" />
                 <div className="flex-1">
                   <span className="font-medium">{m.service_warning_title()}</span>
@@ -98,7 +98,7 @@ function MainLayout() {
                 <button
                   onClick={handleFixService}
                   disabled={isFixing}
-                  className="inline-flex items-center gap-1 whitespace-nowrap rounded border border-amber-500/40 px-2 py-0.5 text-xs font-medium text-amber-300 transition-colors hover:bg-amber-500/20 disabled:opacity-50"
+                  className="inline-flex items-center gap-1 whitespace-nowrap rounded border border-watch/40 px-2 py-0.5 text-xs font-medium text-watch transition-colors hover:bg-watch/15 disabled:opacity-50"
                 >
                   <RiLoopLeftLine className={`size-3 ${isFixing ? 'animate-spin' : ''}`} />
                   {m.service_warning_fix()}

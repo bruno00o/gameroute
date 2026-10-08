@@ -82,6 +82,15 @@ function useResolvedTheme(themeProp?: "light" | "dark"): Theme {
   return themeProp ?? detectedTheme;
 }
 
+function resolveCssColor(color: string): string {
+  const match = /^var\((--[\w-]+)\)$/.exec(color.trim());
+  if (!match || typeof document === "undefined") return color;
+  const value = getComputedStyle(document.documentElement)
+    .getPropertyValue(match[1])
+    .trim();
+  return value || "gray";
+}
+
 type MapContextValue = {
   map: MapLibreGL.Map | null;
   isLoaded: boolean;
@@ -511,7 +520,7 @@ function MarkerContent({ children, className }: MarkerContentProps) {
 
 function DefaultMarkerIcon() {
   return (
-    <div className="relative h-4 w-4 rounded-full border-2 border-white bg-blue-500 shadow-lg" />
+    <div className="relative h-4 w-4 rounded-full border-2 border-background bg-foreground shadow-lg" />
   );
 }
 
@@ -906,8 +915,8 @@ function CompassButton({ onClick }: { onClick: () => void }) {
         className="size-5 transition-transform duration-200"
         style={{ transformStyle: "preserve-3d" }}
       >
-        <path d="M12 2L16 12H12V2Z" className="fill-red-500" />
-        <path d="M12 2L8 12H12V2Z" className="fill-red-300" />
+        <path d="M12 2L16 12H12V2Z" className="fill-foreground" />
+        <path d="M12 2L8 12H12V2Z" className="fill-foreground/60" />
         <path d="M12 22L16 12H12V22Z" className="fill-muted-foreground/60" />
         <path d="M12 22L8 12H12V22Z" className="fill-muted-foreground/30" />
       </svg>
@@ -1029,7 +1038,7 @@ type MapRouteProps = {
   id?: string;
   /** Array of [longitude, latitude] coordinate pairs defining the route */
   coordinates: [number, number][];
-  /** Line color as CSS color value (default: "#4285F4") */
+  /** Line color as CSS color value or var(--token) (default: "var(--route-a)") */
   color?: string;
   /** Line width in pixels (default: 3) */
   width?: number;
@@ -1050,7 +1059,7 @@ type MapRouteProps = {
 function MapRoute({
   id: propId,
   coordinates,
-  color = "#4285F4",
+  color = "var(--route-a)",
   width = 3,
   opacity = 0.8,
   dashArray,
@@ -1084,7 +1093,7 @@ function MapRoute({
       source: sourceId,
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": color,
+        "line-color": resolveCssColor(color),
         "line-width": width,
         "line-opacity": opacity,
         ...(dashArray && { "line-dasharray": dashArray }),
@@ -1119,7 +1128,7 @@ function MapRoute({
   useEffect(() => {
     if (!isLoaded || !map || !map.getLayer(layerId)) return;
 
-    map.setPaintProperty(layerId, "line-color", color);
+    map.setPaintProperty(layerId, "line-color", resolveCssColor(color));
     map.setPaintProperty(layerId, "line-width", width);
     map.setPaintProperty(layerId, "line-opacity", opacity);
     if (dashArray) {

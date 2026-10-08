@@ -139,7 +139,7 @@ export function PeriodDetail({
                 {routeStats.problemHops > 0 ? (
                   <Badge variant="destructive">{routeStats.problemHops}</Badge>
                 ) : (
-                  <p className="text-emerald-500 text-sm font-medium">{m.session_no_problems()}</p>
+                  <p className="text-ok text-sm font-medium">{m.session_no_problems()}</p>
                 )}
               </CardContent>
             </Card>
@@ -314,7 +314,7 @@ function PeriodMapContent({
           <div
             className={cn(
               'size-4 rounded-full shadow-[0_0_0_2px_rgba(0,0,0,0.1)]',
-              isGameServer ? 'bg-blue-500' : 'bg-slate-400',
+              isGameServer ? 'bg-foreground' : 'bg-route-b',
             )}
           />
         </MarkerContent>
