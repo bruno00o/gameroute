@@ -304,6 +304,7 @@ mod tests {
                 db_hop(5, Some(TARGET), Some(12.0), 20.0),
             ],
             status: Severity::default(),
+            route: None,
         };
 
         assess_traceroute(&mut traceroute);
