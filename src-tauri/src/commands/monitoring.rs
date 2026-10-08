@@ -20,7 +20,6 @@ use crate::services::live_probe::follow_live_probes;
 use crate::services::live_probe::store::LiveProbeService;
 use crate::services::route_model::assessed_trace;
 use crate::services::live_status::{follow_live_status, LiveStatusService};
-use crate::services::severity;
 use crate::services::udp_capture;
 use crate::services::trace_targets::{is_traceable_game_server, select_session_targets, TraceTarget};
 use crate::services::traceroute::{persist_traceroute_result, TracerouteJob};
