@@ -1,11 +1,10 @@
 use crate::db::ip_metadata::IpMetadataRepository;
-use crate::models::asn::ResolvedIpData;
 use crate::models::hop::ProbedHop;
-use crate::models::ip_metadata::IpMetadata;
+use crate::models::ip_metadata::IpMetadataData;
 use crate::models::session::DbHop;
 use crate::models::traceroute::{OperatorRoute, RouteSegment, RouteZone};
 use crate::models::traceroute_record::TracerouteWithHops;
-use crate::services::asn_resolver::resolve_ip;
+use crate::services::asn_resolver::lookup_metadata;
 use crate::services::network_capture::is_private_or_special_ip;
 use crate::services::severity::loss_status;
 use crate::services::traceroute::persistent_loss_onset;
@@ -20,18 +19,11 @@ pub struct Operator {
 }
 
 impl Operator {
-    fn from_metadata(metadata: IpMetadata) -> Option<Self> {
+    fn from_metadata(metadata: IpMetadataData) -> Option<Self> {
         let asn = metadata.asn.as_deref()?.strip_prefix("AS")?.parse().ok()?;
         Some(Self {
             asn,
             name: metadata.org.or(metadata.isp),
-        })
-    }
-
-    fn from_resolved(resolved: ResolvedIpData) -> Option<Self> {
-        Some(Self {
-            asn: resolved.asn_info.number()?,
-            name: resolved.asn_info.org,
         })
     }
 
@@ -237,22 +229,10 @@ async fn load_operators(
         .map(str::to_string)
         .collect();
 
-    let mut stored: HashMap<String, IpMetadata> = HashMap::new();
-    if let Some(repo) = metadata {
-        match repo.get_metadata_batch(&ips).await {
-            Ok(rows) => stored.extend(rows.into_iter().filter_map(|(ip, row)| Some((ip, row?)))),
-            Err(e) => log::warn!("Failed to load operators for routes: {}", e),
-        }
-    }
-
-    ips.into_iter()
-        .filter_map(|ip| {
-            let operator = stored
-                .remove(&ip)
-                .and_then(Operator::from_metadata)
-                .or_else(|| resolve_ip(&ip).and_then(Operator::from_resolved))?;
-            Some((ip, operator))
-        })
+    lookup_metadata(&ips, metadata)
+        .await
+        .into_iter()
+        .filter_map(|(ip, data)| Some((ip, Operator::from_metadata(data)?)))
         .collect()
 }
 
@@ -616,7 +596,7 @@ mod tests {
 
     #[test]
     fn operator_comes_from_stored_metadata() {
-        let metadata = |asn: Option<&str>| IpMetadata {
+        let metadata = |asn: Option<&str>| IpMetadataData {
             ip: "87.245.246.246".to_string(),
             asn: asn.map(str::to_string),
             isp: Some("RETN Limited".to_string()),

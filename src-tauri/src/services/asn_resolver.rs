@@ -1,9 +1,11 @@
 use super::network_capture::is_private_or_special_ip;
 use crate::db::get_ip_metadata_repository;
+use crate::db::ip_metadata::IpMetadataRepository;
 use crate::models::asn::{AsnInfo, GeoLocation, ResolvedIpData};
 use crate::models::ip_metadata::IpMetadataData;
 use chrono::Utc;
 use maxminddb::{geoip2, MaxMindDBError, Reader};
+use std::collections::HashMap;
 use std::net::IpAddr;
 use std::path::Path;
 use std::sync::{Arc, OnceLock};
@@ -134,6 +136,36 @@ pub fn resolve_ip(ip: &str) -> Option<ResolvedIpData> {
     }
     let addr = ip.parse().ok()?;
     get_resolver().map(|resolver| resolver.lookup(addr, ip))
+}
+
+pub async fn lookup_metadata(
+    ips: &[String],
+    repo: Option<&IpMetadataRepository>,
+) -> HashMap<String, IpMetadataData> {
+    let mut stored: HashMap<String, IpMetadataData> = HashMap::new();
+    if let Some(repo) = repo {
+        match repo.get_metadata_batch(ips).await {
+            Ok(rows) => stored.extend(
+                rows.into_iter()
+                    .filter_map(|(ip, row)| Some((ip, IpMetadataData::from(row?)))),
+            ),
+            Err(e) => log::warn!("Failed to load IP metadata: {}", e),
+        }
+    }
+
+    let resolved_at = Utc::now().to_rfc3339();
+    ips.iter()
+        .filter_map(|ip| {
+            let row = stored.remove(ip);
+            let data = match row {
+                Some(row) if row.asn.is_some() => row,
+                row => resolve_ip(ip)
+                    .map(|resolved| IpMetadataData::from_resolved(&resolved, &resolved_at))
+                    .or(row)?,
+            };
+            Some((ip.clone(), data))
+        })
+        .collect()
 }
 
 pub async fn record_operators<S: AsRef<str>>(ips: impl IntoIterator<Item = S>) -> usize {
