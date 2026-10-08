@@ -703,12 +703,20 @@
   "report_stop_hop": "saut {hop}",
   "report_section_limits": "Limites de la mesure",
   "report_limit_method": "Chaque chiffre vient d'une trace par serveur (3 sondes par saut) lancée pendant la session, pas d'une mesure continue. Le ping est l'aller-retour jusqu'au dernier routeur qui répond ; la gigue est l'écart entre les 3 sondes.",
-  "report_limit_lower_bound": "« ≥ » indique une valeur minimale. Les serveurs de {servers} ne répondent pas aux sondes : la mesure s'arrête au dernier routeur qui répond ({stops}).",
+  "report_limit_lower_bound": "« ≥ » indique une valeur minimale. Les serveurs de {servers} ne répondent pas aux sondes : la mesure de la route s'arrête au dernier routeur qui répond ({stops}).",
   "report_limit_silent": "Un routeur qui ne répond pas aux pings, ou qui en ignore une partie, est courant : ces sauts sont marqués « normal » et ne comptent pas comme une perte.",
   "report_limit_loss": "Une perte n'est retenue que si chaque routeur qui répond, d'un point de la route jusqu'au dernier, perd au moins {min} des sondes. La perte d'un routeur isolé n'est pas comptée.",
   "report_section_context": "Contexte local",
   "report_context_vantage": "Mesures faites depuis l'ordinateur du joueur, sous Windows, avec GameRoute.",
   "report_context_link": "Type de connexion locale (Wi-Fi ou câble) : non mesuré.",
   "report_context_masked": "Les adresses du réseau local ne figurent pas dans ce rapport.",
-  "report_context_unmasked": "Les adresses du réseau local figurent dans ce rapport."
+  "report_context_unmasked": "Les adresses du réseau local figurent dans ce rapport.",
+  "report_summary_loss_game": "{match} : perte de {loss} mesurée par le jeu (paquets perdus : {lost}).",
+  "report_ping_by_game_one": "mesuré par le jeu ({game}, {count} relevé)",
+  "report_ping_by_game_other": "mesuré par le jeu ({game}, {count} relevés)",
+  "report_match_loss_game": "Perte mesurée par le jeu : {loss} (paquets perdus : {lost})",
+  "report_match_jitter_game": "Gigue : {value} (mesurée par le jeu)",
+  "report_limit_game": "Les valeurs « mesuré par le jeu » sont des relevés du jeu pendant la partie : ping aller-retour jusqu'au serveur (médiane des relevés), gigue et paquets perdus.",
+  "report_limit_method_route": "La route, les sauts et la perte persistante viennent d'une trace par serveur (3 sondes par saut) lancée pendant la session, pas d'une mesure continue. Sans mesure du jeu, le ping est l'aller-retour jusqu'au dernier routeur qui répond et la gigue l'écart entre les 3 sondes.",
+  "report_limit_region": "Les pings par région mesurés par {games} avant la partie sont du contexte : ils ne mesurent pas la partie."
 }

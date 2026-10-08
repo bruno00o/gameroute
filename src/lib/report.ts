@@ -17,7 +17,7 @@ import {
   formatMs,
   formatPercent,
 } from '@/lib/format'
-import { flowServerName, traceOf, traceTiming, usualPing } from '@/lib/matches'
+import { flowServerName, matchMeasure, traceOf, traceTiming, usualPing } from '@/lib/matches'
 import { shortOperatorName } from '@/lib/operators'
 import { lastRespondingHop, segmentAt, segmentName } from '@/lib/route'
 
@@ -46,6 +46,7 @@ type Entry = {
 }
 
 const INDENT = '  '
+const REGION_PINGS_SHOWN = 3
 
 function mostCommon(values: (string | null)[]): string | null {
   const counts = new Map<string, number>()
@@ -159,9 +160,13 @@ export function reportText(sources: ReportSource[], options: ReportOptions): str
     return lines.join('\n')
   }
 
-  const measured = entries.filter(entry => entry.source.match.trace?.pingMs != null)
+  const measureOf = (entry: Entry) => matchMeasure(entry.source.match)
+  const measured = entries.filter(entry => measureOf(entry)?.pingMs != null)
   const unmeasured = entries.length - measured.length
   const withLoss = measured.filter(entry => (entry.source.match.trace?.lossPct ?? 0) > 0)
+  const withGameLoss = measured.filter(entry => (entry.source.match.game?.lossPct ?? 0) > 0)
+  const anyGame = entries.some(entry => entry.source.match.game != null)
+  const lossy = new Set([...withLoss, ...withGameLoss])
 
   const games = [...new Set(entries.map(entry => entry.source.detail.gameName))]
   const first = ordered[0].match.startedAt
@@ -206,13 +211,26 @@ export function reportText(sources: ReportSource[], options: ReportOptions): str
       )
     )
   }
-  if (measured.length > 0 && withLoss.length === 0) {
+  for (const entry of withGameLoss) {
+    const game = entry.source.match.game!
+    lines.push(
+      m.report_summary_loss_game(
+        {
+          match: matchLabel(entry.source),
+          loss: loss(game.lossPct!),
+          lost: String(game.packetsLost),
+        },
+        tr
+      )
+    )
+  }
+  if (measured.length > 0 && lossy.size === 0) {
     lines.push(m.report_summary_no_loss({}, tr))
-  } else if (withLoss.length > 0 && withLoss.length < measured.length) {
+  } else if (lossy.size > 0 && lossy.size < measured.length) {
     lines.push(m.report_summary_no_loss_others({}, tr))
   }
   if (measured.length > 1) {
-    const pings = measured.map(entry => entry.source.match.trace!)
+    const pings = measured.map(entry => measureOf(entry)!)
     const low = pings.reduce((a, b) => (b.pingMs! < a.pingMs! ? b : a))
     const high = pings.reduce((a, b) => (b.pingMs! > a.pingMs! ? b : a))
     if (low.pingMs !== high.pingMs) {
@@ -282,7 +300,8 @@ export function reportText(sources: ReportSource[], options: ReportOptions): str
   for (const entry of entries) {
     const { source, trace } = entry
     const { match, detail, matches } = source
-    const measure = match.trace
+    const measure = matchMeasure(match)
+    const game = match.game
     const port = match.port > 0 ? `${match.protocol} ${match.port}` : match.protocol
     const asn = match.operator?.asn != null ? ` (AS${match.operator.asn})` : ''
     const span = `${formatClock(match.startedAt, locale)} → ${formatClock(match.endedAt, locale)}`
@@ -294,13 +313,37 @@ export function reportText(sources: ReportSource[], options: ReportOptions): str
       `${INDENT}${m.report_match_server({ server: `${flowServerName(match)}${asn} · ${match.ip} · ${port}` }, tr)}`
     )
 
+    const regionPings = (match.regionPings?.pings ?? []).slice(0, REGION_PINGS_SHOWN)
+    const regionLine =
+      regionPings.length > 0
+        ? `${INDENT}${m.match_region_pings(
+            {
+              game: detail.gameName,
+              pings: regionPings
+                .map(item => `${item.region} ${formatMs(item.pingMs, { digits: 0, locale })}`)
+                .join(' · '),
+            },
+            tr
+          )}`
+        : null
+
     if (!measure || measure.pingMs == null) {
       lines.push(`${INDENT}${m.report_match_unmeasured({}, tr)}`)
+      if (regionLine) lines.push(regionLine)
       continue
     }
 
-    const pingParts = [ms(measure.pingMs, !measure.atDestination)]
-    if (!measure.atDestination && measure.measuredHop != null) {
+    const exact = (value: number) =>
+      game ? formatMs(value, { locale }) : ms(value, !measure.atDestination)
+    const pingParts = [exact(measure.pingMs)]
+    if (game) {
+      const params = { game: detail.gameName, count: String(game.sampleCount) }
+      pingParts.push(
+        game.sampleCount === 1
+          ? m.report_ping_by_game_one(params, tr)
+          : m.report_ping_by_game_other(params, tr)
+      )
+    } else if (!measure.atDestination && measure.measuredHop != null) {
       const operator = operatorAt(trace?.route, measure.measuredHop)
       pingParts.push(
         operator
@@ -311,26 +354,33 @@ export function reportText(sources: ReportSource[], options: ReportOptions): str
     const usual = usualPing(measure)
     if (usual != null) {
       pingParts.push(
-        m.report_ping_usual(
-          { value: ms(usual, !measure.atDestination), count: String(measure.usual!.sampleCount) },
-          tr
-        )
+        m.report_ping_usual({ value: exact(usual), count: String(measure.usual!.sampleCount) }, tr)
       )
     }
     lines.push(`${INDENT}${m.report_match_ping({ value: pingParts.join(' · ') }, tr)}`)
 
-    const lossPct = measure.lossPct ?? 0
-    lines.push(
-      INDENT +
-        (lossPct > 0
-          ? [m.report_match_loss({ loss: loss(lossPct) }, tr), ...lossOrigin(entry)].join(', ')
-          : m.report_match_loss_none({}, tr))
-    )
-    if (measure.jitterMs != null) {
-      lines.push(`${INDENT}${m.report_match_jitter({ value: ms(measure.jitterMs) }, tr)}`)
+    if (game?.lossPct != null) {
+      lines.push(
+        `${INDENT}${m.report_match_loss_game({ loss: loss(game.lossPct), lost: String(game.packetsLost) }, tr)}`
+      )
     }
+    if (match.trace?.pingMs != null) {
+      const lossPct = match.trace.lossPct ?? 0
+      lines.push(
+        INDENT +
+          (lossPct > 0
+            ? [m.report_match_loss({ loss: loss(lossPct) }, tr), ...lossOrigin(entry)].join(', ')
+            : m.report_match_loss_none({}, tr))
+      )
+    }
+    if (game?.jitterMs != null) {
+      lines.push(`${INDENT}${m.report_match_jitter_game({ value: ms(game.jitterMs) }, tr)}`)
+    } else if (match.trace?.jitterMs != null) {
+      lines.push(`${INDENT}${m.report_match_jitter({ value: ms(match.trace.jitterMs) }, tr)}`)
+    }
+    if (regionLine) lines.push(regionLine)
 
-    const timing = traceTiming(match, matches, detail.endedAt)
+    const timing = match.trace ? traceTiming(match, matches, detail.endedAt) : null
     if (timing) {
       const text = (() => {
         switch (timing.kind) {
@@ -364,15 +414,36 @@ export function reportText(sources: ReportSource[], options: ReportOptions): str
     }
   }
 
-  lines.push('', m.report_section_limits({}, tr), m.report_limit_method({}, tr))
+  lines.push('', m.report_section_limits({}, tr))
+  if (anyGame) {
+    lines.push(m.report_limit_game({}, tr))
+    if (entries.some(entry => entry.source.match.trace)) {
+      lines.push(m.report_limit_method_route({}, tr))
+    }
+  } else {
+    lines.push(m.report_limit_method({}, tr))
+  }
 
-  const lowerBounds = measured.filter(entry => !entry.source.match.trace!.atDestination)
+  const regionGames = [
+    ...new Set(
+      entries
+        .filter(entry => (entry.source.match.regionPings?.pings.length ?? 0) > 0)
+        .map(entry => entry.source.detail.gameName)
+    ),
+  ]
+  if (regionGames.length > 0) {
+    lines.push(m.report_limit_region({ games: regionGames.join(', ') }, tr))
+  }
+
+  const lowerBounds = entries.filter(
+    entry => entry.source.match.trace?.pingMs != null && !entry.source.match.trace.atDestination
+  )
   if (lowerBounds.length > 0) {
     const servers = [...new Set(lowerBounds.map(entry => flowServerName(entry.source.match)))]
     const stops = new Set<string>()
     for (const { source, trace } of lowerBounds) {
       const hop =
-        source.match.trace!.measuredHop ?? (trace ? lastRespondingHop(trace.hops)?.hopNumber : null)
+        source.match.trace?.measuredHop ?? (trace ? lastRespondingHop(trace.hops)?.hopNumber : null)
       if (hop != null) stops.add(stop(hop, operatorAt(trace?.route, hop)))
     }
     lines.push(
@@ -419,7 +490,7 @@ export function defaultReportSelection(
     focusSessionId == null
       ? candidates
       : candidates.filter(candidate => candidate.sessionId === focusSessionId)
-  const measured = pool.filter(candidate => candidate.match.trace?.pingMs != null)
+  const measured = pool.filter(candidate => matchMeasure(candidate.match)?.pingMs != null)
   const problems = measured.filter(candidate => PROBLEM_STATUSES.has(candidate.match.status))
 
   if (problems.length === 0) return measured.slice(0, 1).map(candidate => candidate.key)
@@ -429,7 +500,7 @@ export function defaultReportSelection(
     candidate =>
       candidate.gameName === selected[0].gameName &&
       candidate.match.status === 'ok' &&
-      candidate.match.trace?.pingMs != null
+      matchMeasure(candidate.match)?.pingMs != null
   )
   return [...selected, ...(reference ? [reference] : [])].map(candidate => candidate.key)
 }

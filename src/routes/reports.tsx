@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import * as m from '@/paraglide/messages'
 import { getLocale } from '@/paraglide/runtime'
 import { formatClock, formatDay } from '@/lib/format'
-import { flowServerName, formatFlowPing, formatLoss } from '@/lib/matches'
+import { flowServerName, formatFlowPing, formatLoss, matchMeasure } from '@/lib/matches'
 import {
   defaultReportSelection,
   reportCandidateKey,
@@ -373,11 +373,12 @@ function MatchRow({
     day: formatDay(match.startedAt, { weekday: true }),
     number: String(match.number),
   })
+  const measure = matchMeasure(match)
   const facts = [
     formatClock(match.startedAt),
     flowServerName(match),
-    match.trace?.pingMs != null
-      ? `${formatFlowPing(match.trace)}${(match.trace.lossPct ?? 0) > 0 ? ` · ${formatLoss(match.trace.lossPct)}` : ''}`
+    measure?.pingMs != null
+      ? `${formatFlowPing(measure)}${(measure.lossPct ?? 0) > 0 ? ` · ${formatLoss(measure.lossPct)}` : ''}`
       : null,
   ].filter(Boolean)
 
