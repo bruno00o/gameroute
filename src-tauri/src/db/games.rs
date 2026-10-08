@@ -64,21 +64,8 @@ impl GameRepository {
         sqlx::query_as::<_, GameListItem>(
             "SELECT
                 g.id, g.name, g.executable_name, g.source, g.icon_url,
-                g.monitored, g.last_played_at,
-                COALESCE(stats.session_count, 0) as session_count,
-                COALESCE(stats.total_play_time_secs, 0) as total_play_time_secs
+                g.monitored, g.last_played_at
              FROM games g
-             LEFT JOIN (
-                 SELECT game_name,
-                        COUNT(*) as session_count,
-                        CAST(SUM(
-                            CASE WHEN ended_at IS NOT NULL
-                            THEN (julianday(ended_at) - julianday(started_at)) * 86400
-                            ELSE 0 END
-                        ) AS INTEGER) as total_play_time_secs
-                 FROM sessions
-                 GROUP BY game_name
-             ) stats ON g.name = stats.game_name
              ORDER BY g.name ASC
              LIMIT $1 OFFSET $2",
         )
@@ -91,6 +78,14 @@ impl GameRepository {
 
     pub async fn get_game_count(&self) -> Result<i64, DbError> {
         let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM games")
+            .fetch_one(&self.pool)
+            .await?;
+
+        Ok(row.0)
+    }
+
+    pub async fn get_monitored_game_count(&self) -> Result<i64, DbError> {
+        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM games WHERE monitored = 1")
             .fetch_one(&self.pool)
             .await?;
 
@@ -154,21 +149,8 @@ impl GameRepository {
         sqlx::query_as::<_, GameListItem>(
             "SELECT
                 g.id, g.name, g.executable_name, g.source, g.icon_url,
-                g.monitored, g.last_played_at,
-                COALESCE(stats.session_count, 0) as session_count,
-                COALESCE(stats.total_play_time_secs, 0) as total_play_time_secs
+                g.monitored, g.last_played_at
              FROM games g
-             LEFT JOIN (
-                 SELECT game_name,
-                        COUNT(*) as session_count,
-                        CAST(SUM(
-                            CASE WHEN ended_at IS NOT NULL
-                            THEN (julianday(ended_at) - julianday(started_at)) * 86400
-                            ELSE 0 END
-                        ) AS INTEGER) as total_play_time_secs
-                 FROM sessions
-                 GROUP BY game_name
-             ) stats ON g.name = stats.game_name
              WHERE g.name LIKE $1 OR g.executable_name LIKE $1
              ORDER BY g.name ASC
              LIMIT $2 OFFSET $3",
@@ -309,9 +291,42 @@ mod tests {
         let monitored = repo.get_monitored_games().await.unwrap();
         assert_eq!(monitored.len(), 1);
 
+        assert_eq!(repo.get_monitored_game_count().await.unwrap(), 1);
+
         repo.set_monitored(id, false).await.unwrap();
         let monitored = repo.get_monitored_games().await.unwrap();
         assert_eq!(monitored.len(), 0);
+        assert_eq!(repo.get_monitored_game_count().await.unwrap(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_list_items_carry_a_profile_only_for_known_executables() {
+        let repo = create_test_repo().await;
+
+        for (name, exe) in [("VALORANT", "VALORANT-Win64-Shipping.exe"), ("Other", "other.exe")] {
+            let game = NewGame {
+                name: name.to_string(),
+                executable_path: None,
+                executable_name: exe.to_string(),
+                source: "riot".to_string(),
+                source_id: Some(name.to_string()),
+                icon_url: None,
+                auto_detected: true,
+            };
+            repo.upsert_game(&game).await.unwrap();
+        }
+
+        let games: Vec<_> = repo
+            .get_games(10, 0)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(GameListItem::with_profile)
+            .collect();
+        assert_eq!(games[0].name, "Other");
+        assert!(games[0].profile.is_none());
+        assert_eq!(games[1].name, "VALORANT");
+        assert_eq!(games[1].profile.unwrap().operator, "Riot Games");
     }
 
     #[tokio::test]

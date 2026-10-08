@@ -1,3 +1,4 @@
+use crate::services::game_profiles::{profile_for, GameProfile};
 use serde::{Deserialize, Serialize};
 
 /// Full game row from the database.
@@ -29,8 +30,15 @@ pub struct GameListItem {
     pub icon_url: Option<String>,
     pub monitored: bool,
     pub last_played_at: Option<String>,
-    pub session_count: i32,
-    pub total_play_time_secs: i64,
+    #[sqlx(skip)]
+    pub profile: Option<GameProfile>,
+}
+
+impl GameListItem {
+    pub fn with_profile(mut self) -> Self {
+        self.profile = profile_for(&self.executable_name);
+        self
+    }
 }
 
 /// Minimal struct used by GameDetector for process matching.

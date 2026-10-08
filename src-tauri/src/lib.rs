@@ -13,8 +13,9 @@ use commands::asn::{
 use commands::dashboard::get_dashboard_data;
 use commands::export::write_export_file;
 use commands::games::{
-    add_manual_game, get_game_count, get_games, remove_game, scan_all_games, scan_epic_games,
-    scan_riot_games, scan_steam_games, search_game_count, search_games, toggle_game_monitored,
+    add_manual_game, get_game_count, get_games, get_monitored_game_count, remove_game,
+    scan_all_games, scan_epic_games, scan_riot_games, scan_steam_games, search_game_count,
+    search_games, toggle_game_monitored,
 };
 use commands::insights::{
     get_hourly_quality, get_network_quality_over_time, get_server_stability, get_server_summary,
@@ -279,6 +280,7 @@ pub fn run() {
             scan_all_games,
             get_games,
             get_game_count,
+            get_monitored_game_count,
             add_manual_game,
             remove_game,
             toggle_game_monitored,

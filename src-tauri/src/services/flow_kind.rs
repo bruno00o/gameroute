@@ -1,6 +1,7 @@
 use crate::db::get_ip_period_repository;
 pub use crate::models::flow_kind::FlowKind;
 use crate::services::asn_resolver::get_resolver;
+use crate::services::game_profiles::{RIOT_ASN, VALORANT_UDP_PORTS};
 use std::net::IpAddr;
 use std::ops::RangeInclusive;
 
@@ -17,8 +18,8 @@ const FLOW_RULES: &[FlowRule] = &[
         kind: FlowKind::Voice,
     },
     FlowRule {
-        asns: &[6507],
-        ports: 7000..=7999,
+        asns: &[RIOT_ASN],
+        ports: VALORANT_UDP_PORTS.0..=VALORANT_UDP_PORTS.1,
         kind: FlowKind::Game,
     },
 ];
