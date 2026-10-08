@@ -8,7 +8,9 @@ import * as m from '@/paraglide/messages'
 import { getSessionDetail, deleteSession, retryTraceroutes } from '@/lib/tauri'
 import { errorMessage } from '@/lib/utils'
 import { useBreadcrumbStore, type BreadcrumbSegment } from '@/stores/breadcrumb-store'
+import { Button } from '@/components/ui/button'
 import { SidebarProvider } from '@/components/ui/sidebar'
+import { EmptyState } from '@/components/empty-state'
 import { DetailSidebar, type SortMode } from '@/components/session/detail-sidebar'
 import { SessionOverview } from '@/components/session/session-overview'
 import { PeriodDetail } from '@/components/session/period-detail'
@@ -94,7 +96,13 @@ function SessionDetailPage() {
     return (
       <div className="p-4">
         <h1 className="text-2xl font-bold">{m.page_session_detail_title()}</h1>
-        <p className="text-muted-foreground mt-2">{m.session_not_found()}</p>
+        <EmptyState
+          className="mt-6"
+          title={m.session_not_found()}
+          action={
+            <Button onClick={() => navigate({ to: '/sessions' })}>{m.dashboard_view_all()}</Button>
+          }
+        />
       </div>
     )
   }

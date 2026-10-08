@@ -13,12 +13,12 @@ import {
 import { useAsnResolution } from '@/hooks/use-asn-resolution'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/settings-store'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import { Map, MapMarker, MarkerContent, MarkerTooltip, MapControls } from '@/components/ui/map'
+import { EmptyState } from '@/components/empty-state'
 import { ExpandableMap } from '@/components/expandable-map'
+import { Fact, FactRow } from '@/components/fact-row'
 import { HopTable } from '@/components/hop-table'
+import { Panel } from '@/components/panel'
 import { StatusPill } from '@/components/status/status-pill'
 
 export function PeriodDetail({
@@ -68,15 +68,16 @@ export function PeriodDetail({
     }
 
     const destinationSilent = !traceroute.hops.some(
-      h => h.ip === traceroute.targetIp && h.latencyAvg != null,
+      h => h.ip === traceroute.targetIp && h.latencyAvg != null
     )
 
     return { hopCount, problemHops, serverLatency, destinationSilent, status: traceroute.status }
   }, [traceroute])
 
-  const packetRate = summary && summary.totalDurationSecs > 0
-    ? summary.totalPacketCount / summary.totalDurationSecs
-    : null
+  const packetRate =
+    summary && summary.totalDurationSecs > 0
+      ? summary.totalPacketCount / summary.totalDurationSecs
+      : null
 
   return (
     <div className="space-y-6">
@@ -118,177 +119,72 @@ export function PeriodDetail({
         </div>
       )}
 
-      <Separator />
-
       {routeStats && (
-        <section>
-          <h3 className="mb-3 text-sm font-medium">{m.session_ip_route_info()}</h3>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Card size="sm">
-              <CardHeader>
-                <CardTitle>{m.session_ip_hop_count()}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm font-medium">{routeStats.hopCount}</p>
-              </CardContent>
-            </Card>
-            <Card size="sm">
-              <CardHeader>
-                <CardTitle>{m.session_ip_latency()}</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <p className="font-mono text-sm font-medium tabular-nums">
-                  {formatMs(routeStats.serverLatency, { atLeast: routeStats.destinationSilent })}
-                </p>
-                <StatusPill status={routeStats.status} size="sm" />
-              </CardContent>
-            </Card>
-            <Card size="sm">
-              <CardHeader>
-                <CardTitle>{m.session_ip_problem_hops()}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {routeStats.problemHops > 0 ? (
-                  <p className="font-mono text-sm font-medium tabular-nums">
-                    {routeStats.problemHops}
-                  </p>
-                ) : (
-                  <p className="text-sm font-medium">{m.session_no_problems()}</p>
-                )}
-              </CardContent>
-            </Card>
-            <Card size="sm">
-              <CardHeader>
-                <CardTitle>{m.session_ip_packet_rate()}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm font-medium tabular-nums">
-                  {packetRate != null ? `${formatNumber(packetRate, 1)}/s` : '—'}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
+        <Panel level={3} label={m.session_ip_route_info()}>
+          <FactRow>
+            <Fact label={m.session_ip_hop_count()}>{routeStats.hopCount}</Fact>
+            <Fact label={m.session_ip_latency()}>
+              {formatMs(routeStats.serverLatency, { atLeast: routeStats.destinationSilent })}
+              <StatusPill status={routeStats.status} size="sm" className="font-sans" />
+            </Fact>
+            <Fact label={m.session_ip_problem_hops()}>
+              {routeStats.problemHops > 0 ? (
+                routeStats.problemHops
+              ) : (
+                <span className="text-ui font-sans">{m.session_no_problems()}</span>
+              )}
+            </Fact>
+            <Fact label={m.session_ip_packet_rate()}>
+              {packetRate != null && `${formatNumber(packetRate, 1)}/s`}
+            </Fact>
+          </FactRow>
+        </Panel>
       )}
 
-      <section>
-        <h3 className="mb-3 text-sm font-medium">{m.session_period()}</h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <Panel level={3} label={m.session_period()}>
+        <FactRow>
+          {advancedMode && <Fact label={m.session_period_protocol()}>{period.protocol}</Fact>}
+          {advancedMode && <Fact label={m.session_period_port()}>{period.port || null}</Fact>}
+          <Fact label={m.session_period_start()}>{formatDate(period.startedAt)}</Fact>
+          <Fact label={m.session_period_end()}>{formatDate(period.endedAt)}</Fact>
+          <Fact label={m.session_period_duration()}>{formatDuration(durationSecs)}</Fact>
           {advancedMode && (
-            <Card size="sm">
-              <CardHeader>
-                <CardTitle>{m.session_period_protocol()}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm font-medium">{period.protocol || '-'}</p>
-              </CardContent>
-            </Card>
+            <Fact label={m.session_period_packets()}>{formatNumber(period.packetCount)}</Fact>
           )}
-          {advancedMode && (
-            <Card size="sm">
-              <CardHeader>
-                <CardTitle>{m.session_period_port()}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm font-medium tabular-nums">{period.port || '-'}</p>
-              </CardContent>
-            </Card>
-          )}
-          <Card size="sm">
-            <CardHeader>
-              <CardTitle>{m.session_period_start()}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs">{formatDate(period.startedAt)}</p>
-            </CardContent>
-          </Card>
-          <Card size="sm">
-            <CardHeader>
-              <CardTitle>{m.session_period_end()}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs">{formatDate(period.endedAt)}</p>
-            </CardContent>
-          </Card>
-          <Card size="sm">
-            <CardHeader>
-              <CardTitle>{m.session_period_duration()}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm font-medium">{formatDuration(durationSecs)}</p>
-            </CardContent>
-          </Card>
-          {advancedMode && (
-            <Card size="sm">
-              <CardHeader>
-                <CardTitle>{m.session_period_packets()}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm font-medium tabular-nums">{period.packetCount}</p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </section>
+        </FactRow>
+      </Panel>
 
       {summary && (
-        <section>
-          <h3 className="mb-3 text-sm font-medium">{m.session_ip_summary()}</h3>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Card size="sm">
-              <CardHeader>
-                <CardTitle>{m.session_ip_total_duration()}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm font-medium">
-                  {formatDuration(Math.round(summary.totalDurationSecs))}
-                </p>
-              </CardContent>
-            </Card>
+        <Panel
+          level={3}
+          label={m.session_ip_summary()}
+          title={
+            summary.periodCount > 1
+              ? m.session_ip_periods({ count: String(summary.periodCount) })
+              : undefined
+          }
+        >
+          <FactRow>
+            <Fact label={m.session_ip_total_duration()}>
+              {formatDuration(Math.round(summary.totalDurationSecs))}
+            </Fact>
             {advancedMode && (
-              <Card size="sm">
-                <CardHeader>
-                  <CardTitle>{m.session_ip_total_packets()}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm font-medium tabular-nums">{summary.totalPacketCount}</p>
-                </CardContent>
-              </Card>
+              <Fact label={m.session_ip_total_packets()}>
+                {formatNumber(summary.totalPacketCount)}
+              </Fact>
             )}
-            <Card size="sm">
-              <CardHeader>
-                <CardTitle>{m.session_ip_first_seen()}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs">{formatDate(summary.firstSeenAt)}</p>
-              </CardContent>
-            </Card>
-            <Card size="sm">
-              <CardHeader>
-                <CardTitle>{m.session_ip_last_seen()}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs">{formatDate(summary.lastSeenAt)}</p>
-              </CardContent>
-            </Card>
-          </div>
-          {summary.periodCount > 1 && (
-            <p className="text-muted-foreground mt-2 text-xs">
-              {m.session_ip_periods({ count: String(summary.periodCount) })}
-            </p>
-          )}
-        </section>
+            <Fact label={m.session_ip_first_seen()}>{formatDate(summary.firstSeenAt)}</Fact>
+            <Fact label={m.session_ip_last_seen()}>{formatDate(summary.lastSeenAt)}</Fact>
+          </FactRow>
+        </Panel>
       )}
 
-      <section>
-        <div className="mb-3 flex items-center gap-2">
-          <h3 className="text-sm font-medium">{m.session_traceroute()}</h3>
-          {advancedMode && traceroute?.tracerouteMethod && (
-            <Badge variant="outline" className="text-xs font-normal">
-              {traceroute.tracerouteMethod}
-            </Badge>
-          )}
-        </div>
+      <Panel
+        level={3}
+        label={m.session_traceroute()}
+        title={advancedMode ? traceroute?.tracerouteMethod : undefined}
+        flush={traceroute != null}
+      >
         {traceroute ? (
           <HopTable
             hops={traceroute.hops}
@@ -297,9 +193,9 @@ export function PeriodDetail({
             advancedMode={advancedMode}
           />
         ) : (
-          <p className="text-muted-foreground text-xs">{m.session_no_traceroute()}</p>
+          <EmptyState compact title={m.session_no_traceroute()} />
         )}
-      </section>
+      </Panel>
     </div>
   )
 }

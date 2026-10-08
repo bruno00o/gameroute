@@ -1,17 +1,11 @@
 import { useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  RiAlertLine,
   RiArrowDownSLine,
   RiArrowUpSLine,
   RiClipboardLine,
   RiDownloadLine,
-  RiGlobalLine,
   RiLoopLeftLine,
-  RiRouteLine,
-  RiSpeedLine,
-  RiShieldCheckLine,
-  RiTimeLine,
 } from '@remixicon/react'
 import { toast } from 'sonner'
 
@@ -31,9 +25,9 @@ import { getPreviousSessionId, getSessionDetail } from '@/lib/tauri'
 import { useSettingsStore } from '@/stores/settings-store'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Fact, FactRow } from '@/components/fact-row'
 
 interface SessionOverviewProps {
   detail: SessionDetail
@@ -156,6 +150,12 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
           </Badge>
         </div>
         <div className="flex gap-1">
+          {!isActive && onRetry && (
+            <Button size="sm" onClick={onRetry} loading={isRetrying}>
+              <RiLoopLeftLine data-icon="inline-start" />
+              {m.session_retry_traceroutes()}
+            </Button>
+          )}
           <Button size="sm" onClick={() => exportSessionDetail(detail)}>
             <RiDownloadLine data-icon="inline-start" />
             {m.export_csv_button()}
@@ -172,121 +172,62 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
 
       <Separator />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <RiTimeLine className="text-muted-foreground size-3.5" />
-              {m.session_duration()}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-lg font-medium">{formatDuration(durationSecs)}</p>
-            <p className="text-muted-foreground text-xs">{formatDate(detail.startedAt)}</p>
-          </CardContent>
-        </Card>
-
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <RiGlobalLine className="text-muted-foreground size-3.5" />
-              {m.session_ips_count()}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-lg font-medium">{detail.ipSummaries.length}</p>
-            <p className="text-muted-foreground text-xs">
-              {m.session_ip_periods({ count: String(detail.ipPeriods.length) })}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card size="sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <RiRouteLine className="text-muted-foreground size-3.5" />
-              {advancedMode ? m.session_traceroutes_count() : m.simple_traceroutes()}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <p className="text-lg font-medium">{detail.traceroutes.length}</p>
-              {!isActive && onRetry && (
-                <Button size="sm" onClick={onRetry} loading={isRetrying}>
-                  <RiLoopLeftLine data-icon="inline-start" />
-                  {m.session_retry_traceroutes()}
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card size="sm">
-          <CardHeader>
-            <Tooltip>
-              <TooltipTrigger render={<CardTitle className="flex items-center gap-2 cursor-help" />}>
-                  <RiShieldCheckLine className="text-muted-foreground size-3.5" />
-                  <span className="underline decoration-dotted">{advancedMode ? m.session_route_stability() : m.simple_route_stability()}</span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">{advancedMode ? m.session_route_stability_tooltip() : m.simple_route_stability_tooltip()}</TooltipContent>
-            </Tooltip>
-          </CardHeader>
-          <CardContent>
-            {stats.stability != null ? (
-              <div className="flex items-baseline gap-2">
-                <p className="font-mono text-lg font-medium tabular-nums">
-                  {formatPercent(stats.stability)}
-                </p>
-                <DeltaBadge current={stats.stability} previous={prevStats?.stability ?? null} unit="%" />
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-lg font-medium">-</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card size="sm">
-          <CardHeader>
-            <Tooltip>
-              <TooltipTrigger render={<CardTitle className="flex items-center gap-2 cursor-help" />}>
-                  <RiSpeedLine className="text-muted-foreground size-3.5" />
-                  <span className="underline decoration-dotted">{advancedMode ? m.session_avg_latency() : m.simple_avg_latency()}</span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">{advancedMode ? m.session_avg_latency_tooltip() : m.simple_avg_latency_tooltip()}</TooltipContent>
-            </Tooltip>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline gap-2">
-              <p className="font-mono text-lg font-medium tabular-nums">
-                {formatMs(stats.avgLatency)}
-              </p>
-              <DeltaBadge current={stats.avgLatency} previous={prevStats?.avgLatency ?? null} unit="ms" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card size="sm">
-          <CardHeader>
-            <Tooltip>
-              <TooltipTrigger render={<CardTitle className="flex items-center gap-2 cursor-help" />}>
-                  <RiAlertLine className="text-muted-foreground size-3.5" />
-                  <span className="underline decoration-dotted">{advancedMode ? m.session_problem_hops() : m.simple_problem_hops()}</span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">{advancedMode ? m.session_problem_hops_tooltip() : m.simple_problem_hops_tooltip()}</TooltipContent>
-            </Tooltip>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-baseline gap-2">
-              {stats.problemHopCount > 0 ? (
-                <p className="font-mono text-lg font-medium tabular-nums">{stats.problemHopCount}</p>
-              ) : (
-                <p className="text-sm font-medium">{m.session_no_problems()}</p>
-              )}
-              <DeltaBadge current={stats.problemHopCount} previous={prevStats?.problemHopCount ?? null} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <FactRow>
+        <Fact label={m.session_duration()} detail={formatDate(detail.startedAt)}>
+          {formatDuration(durationSecs)}
+        </Fact>
+        <Fact
+          label={m.session_ips_count()}
+          detail={m.session_ip_periods({ count: String(detail.ipPeriods.length) })}
+        >
+          {detail.ipSummaries.length}
+        </Fact>
+        <Fact label={advancedMode ? m.session_traceroutes_count() : m.simple_traceroutes()}>
+          {detail.traceroutes.length}
+        </Fact>
+        <Fact
+          label={advancedMode ? m.session_route_stability() : m.simple_route_stability()}
+          hint={
+            advancedMode ? m.session_route_stability_tooltip() : m.simple_route_stability_tooltip()
+          }
+        >
+          {stats.stability != null && (
+            <>
+              {formatPercent(stats.stability)}
+              <DeltaBadge
+                current={stats.stability}
+                previous={prevStats?.stability ?? null}
+                unit="%"
+              />
+            </>
+          )}
+        </Fact>
+        <Fact
+          label={advancedMode ? m.session_avg_latency() : m.simple_avg_latency()}
+          hint={advancedMode ? m.session_avg_latency_tooltip() : m.simple_avg_latency_tooltip()}
+        >
+          {formatMs(stats.avgLatency)}
+          <DeltaBadge
+            current={stats.avgLatency}
+            previous={prevStats?.avgLatency ?? null}
+            unit="ms"
+          />
+        </Fact>
+        <Fact
+          label={advancedMode ? m.session_problem_hops() : m.simple_problem_hops()}
+          hint={advancedMode ? m.session_problem_hops_tooltip() : m.simple_problem_hops_tooltip()}
+        >
+          {stats.problemHopCount > 0 ? (
+            stats.problemHopCount
+          ) : (
+            <span className="font-sans text-ui">{m.session_no_problems()}</span>
+          )}
+          <DeltaBadge
+            current={stats.problemHopCount}
+            previous={prevStats?.problemHopCount ?? null}
+          />
+        </Fact>
+      </FactRow>
     </div>
   )
 }
