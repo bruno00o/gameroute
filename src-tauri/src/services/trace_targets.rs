@@ -27,17 +27,19 @@ pub fn is_cdn(ip: &str) -> bool {
     let Ok(addr) = ip.parse::<IpAddr>() else {
         return false;
     };
-    get_resolver()
-        .and_then(|resolver| resolver.asn_number(addr))
-        .is_some_and(|asn| CDN_ASNS.contains(&asn))
+    is_cdn_asn(get_resolver().and_then(|resolver| resolver.asn_number(addr)))
+}
+
+fn is_cdn_asn(asn: Option<u32>) -> bool {
+    asn.is_some_and(|asn| CDN_ASNS.contains(&asn))
 }
 
 fn is_quic(protocol: &str, port: i32) -> bool {
     protocol == "UDP" && port == 443
 }
 
-pub fn is_traceable_game_server(ip: &str, protocol: &str, port: i32) -> bool {
-    !is_quic(protocol, port) && !is_cdn(ip)
+pub fn is_traceable_game_server(asn: Option<u32>, protocol: &str, port: i32) -> bool {
+    !is_quic(protocol, port) && !is_cdn_asn(asn)
 }
 
 pub fn select_targets(

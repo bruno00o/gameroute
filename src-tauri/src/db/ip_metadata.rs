@@ -4,6 +4,8 @@ use sqlx::sqlite::SqlitePool;
 use sqlx::QueryBuilder;
 use std::sync::{Arc, OnceLock};
 
+const UPSERT_CHUNK_SIZE: usize = 500;
+
 pub struct IpMetadataRepository {
     pool: SqlitePool,
 }
@@ -26,34 +28,56 @@ impl IpMetadataRepository {
     }
 
     pub async fn upsert_metadata(&self, data: &IpMetadataData) -> Result<(), DbError> {
-        sqlx::query(
-            r#"
-            INSERT INTO ip_metadata (ip, asn, isp, org, country, city, lat, lon, resolved_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            ON CONFLICT(ip) DO UPDATE SET
-                asn = excluded.asn,
-                isp = excluded.isp,
-                org = excluded.org,
-                country = excluded.country,
-                city = excluded.city,
-                lat = excluded.lat,
-                lon = excluded.lon,
-                resolved_at = excluded.resolved_at
-            "#,
-        )
-        .bind(&data.ip)
-        .bind(&data.asn)
-        .bind(&data.isp)
-        .bind(&data.org)
-        .bind(&data.country)
-        .bind(&data.city)
-        .bind(data.lat)
-        .bind(data.lon)
-        .bind(&data.resolved_at)
-        .execute(&self.pool)
-        .await?;
+        self.upsert_metadata_batch(std::slice::from_ref(data)).await
+    }
+
+    pub async fn upsert_metadata_batch(&self, items: &[IpMetadataData]) -> Result<(), DbError> {
+        for chunk in items.chunks(UPSERT_CHUNK_SIZE) {
+            let mut query_builder: QueryBuilder<sqlx::Sqlite> = QueryBuilder::new(
+                "INSERT INTO ip_metadata (ip, asn, isp, org, country, city, lat, lon, resolved_at) ",
+            );
+
+            query_builder.push_values(chunk, |mut b, data| {
+                b.push_bind(&data.ip)
+                    .push_bind(&data.asn)
+                    .push_bind(&data.isp)
+                    .push_bind(&data.org)
+                    .push_bind(&data.country)
+                    .push_bind(&data.city)
+                    .push_bind(data.lat)
+                    .push_bind(data.lon)
+                    .push_bind(&data.resolved_at);
+            });
+
+            query_builder.push(
+                " ON CONFLICT(ip) DO UPDATE SET
+                    asn = excluded.asn,
+                    isp = excluded.isp,
+                    org = excluded.org,
+                    country = excluded.country,
+                    city = excluded.city,
+                    lat = excluded.lat,
+                    lon = excluded.lon,
+                    resolved_at = excluded.resolved_at",
+            );
+
+            query_builder.build().execute(&self.pool).await?;
+        }
 
         Ok(())
+    }
+
+    pub async fn get_ips_without_metadata(&self) -> Result<Vec<String>, DbError> {
+        let rows: Vec<(String,)> = sqlx::query_as(
+            "SELECT ip FROM ip_periods
+             UNION SELECT target_ip FROM traceroutes
+             UNION SELECT ip FROM hops WHERE ip IS NOT NULL
+             EXCEPT SELECT ip FROM ip_metadata",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.0).collect())
     }
 
     pub async fn insert_metadata(&self, metadata: &IpMetadata) -> Result<(), DbError> {
@@ -357,5 +381,60 @@ mod tests {
 
         let stats = repo.get_stats().await.unwrap();
         assert_eq!(stats.total_entries, 0);
+    }
+
+    fn operator(ip: &str, asn: &str) -> IpMetadataData {
+        IpMetadataData {
+            ip: ip.to_string(),
+            asn: Some(asn.to_string()),
+            isp: None,
+            org: None,
+            country: None,
+            city: None,
+            lat: None,
+            lon: None,
+            resolved_at: "2026-10-08T10:00:00Z".to_string(),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_batch_upsert_inserts_and_updates() {
+        let repo = create_test_repo().await;
+        repo.upsert_metadata(&operator("162.249.72.5", "AS0")).await.unwrap();
+
+        let batch: Vec<IpMetadataData> = (0..=UPSERT_CHUNK_SIZE)
+            .map(|i| operator(&format!("198.51.{}.{}", i / 256, i % 256), "AS64500"))
+            .chain([operator("162.249.72.5", "AS6507")])
+            .collect();
+        repo.upsert_metadata_batch(&batch).await.unwrap();
+
+        let stats = repo.get_stats().await.unwrap();
+        assert_eq!(stats.total_entries, UPSERT_CHUNK_SIZE + 2);
+        let riot = repo.get_metadata("162.249.72.5").await.unwrap().unwrap();
+        assert_eq!(riot.asn.as_deref(), Some("AS6507"));
+    }
+
+    #[tokio::test]
+    async fn test_ips_without_metadata_cover_periods_and_routes() {
+        let pool = create_test_pool().await;
+        for sql in [
+            "INSERT INTO sessions (id, game_name, started_at) VALUES (1, 'VALORANT', '2026-10-07T20:00:00Z')",
+            "INSERT INTO ip_periods (session_id, ip, protocol, port, started_at, ended_at) VALUES
+                (1, '162.249.72.5', 'UDP', 7032, '2026-10-07T20:00:00Z', '2026-10-07T20:30:00Z'),
+                (1, '162.249.72.5', 'UDP', 7032, '2026-10-07T20:31:00Z', '2026-10-07T20:40:00Z'),
+                (1, '104.18.41.183', 'TCP', 443, '2026-10-07T20:00:00Z', '2026-10-07T20:01:00Z')",
+            "INSERT INTO traceroutes (id, session_id, target_ip, started_at) VALUES (1, 1, '162.249.72.5', '2026-10-07T20:35:00Z')",
+            "INSERT INTO hops (traceroute_id, hop_number, ip) VALUES
+                (1, 1, '192.168.1.254'), (1, 2, NULL), (1, 3, '80.10.0.1'), (1, 4, '162.249.72.5')",
+        ] {
+            sqlx::query(sql).execute(&pool).await.unwrap();
+        }
+        let repo = IpMetadataRepository::new(pool);
+        repo.upsert_metadata(&operator("104.18.41.183", "AS13335")).await.unwrap();
+
+        let mut ips = repo.get_ips_without_metadata().await.unwrap();
+        ips.sort();
+
+        assert_eq!(ips, vec!["162.249.72.5", "192.168.1.254", "80.10.0.1"]);
     }
 }

@@ -120,23 +120,60 @@ impl AsnResolver {
             return;
         };
 
-        let data = IpMetadataData {
-            ip: resolved.ip.clone(),
-            asn: resolved.asn_info.asn.clone(),
-            isp: resolved.asn_info.isp.clone(),
-            org: resolved.asn_info.org.clone(),
-            country: resolved.geo.country.clone(),
-            city: resolved.geo.city.clone(),
-            lat: resolved.geo.lat,
-            lon: resolved.geo.lon,
-            resolved_at: Utc::now().to_rfc3339(),
-        };
-
+        let data = IpMetadataData::from_resolved(resolved, &Utc::now().to_rfc3339());
         if let Err(e) = repo.upsert_metadata(&data).await {
             log::warn!("Failed to save IP metadata for {}: {}", resolved.ip, e);
         }
     }
 
+}
+
+pub fn resolve_ip(ip: &str) -> Option<ResolvedIpData> {
+    if is_private_or_special_ip(ip) {
+        return None;
+    }
+    let addr = ip.parse().ok()?;
+    get_resolver().map(|resolver| resolver.lookup(addr, ip))
+}
+
+pub async fn record_operators<S: AsRef<str>>(ips: impl IntoIterator<Item = S>) -> usize {
+    let Some(repo) = get_ip_metadata_repository() else {
+        return 0;
+    };
+
+    let resolved_at = Utc::now().to_rfc3339();
+    let data: Vec<IpMetadataData> = ips
+        .into_iter()
+        .filter_map(|ip| resolve_ip(ip.as_ref()))
+        .map(|resolved| IpMetadataData::from_resolved(&resolved, &resolved_at))
+        .collect();
+
+    match repo.upsert_metadata_batch(&data).await {
+        Ok(()) => data.len(),
+        Err(e) => {
+            log::warn!("Failed to save IP metadata: {}", e);
+            0
+        }
+    }
+}
+
+pub async fn backfill_ip_metadata() {
+    let (Some(repo), Some(_)) = (get_ip_metadata_repository(), get_resolver()) else {
+        return;
+    };
+
+    let ips = match repo.get_ips_without_metadata().await {
+        Ok(ips) => ips,
+        Err(e) => {
+            log::error!("Failed to load IPs without metadata: {}", e);
+            return;
+        }
+    };
+
+    let saved = record_operators(&ips).await;
+    if saved > 0 {
+        log::info!("Resolved the operator of {} addresses", saved);
+    }
 }
 
 static ASN_RESOLVER: OnceLock<Arc<AsnResolver>> = OnceLock::new();

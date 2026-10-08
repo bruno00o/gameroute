@@ -6,6 +6,7 @@ use crate::db::{get_hop_repository, get_traceroute_repository};
 use crate::models::flow_kind::FlowKind;
 use crate::models::session::HopData;
 use crate::models::HopResult;
+use crate::services::asn_resolver::record_operators;
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Instant;
@@ -446,6 +447,8 @@ pub async fn persist_traceroute_result(result: &TracerouteResult) {
             );
         }
     }
+
+    record_operators(result.hops.iter().filter_map(|hop| hop.ip.as_deref())).await;
 }
 
 #[cfg(test)]
