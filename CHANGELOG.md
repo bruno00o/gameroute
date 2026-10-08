@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.18](https://github.com/bruno00o/gameroute/compare/v0.1.17...v0.1.18) (2026-10-08)
+
+
+### Features
+
+* **capture:** recognise riot game servers by operator and port ([5164640](https://github.com/bruno00o/gameroute/commit/516464036562641a0ab1d1c4ab0858c7f41061ee))
+* **sessions:** merge fragmented matches from earlier sessions on startup ([ecdb7ef](https://github.com/bruno00o/gameroute/commit/ecdb7ef65de6e2dbfef2fe6acbd0de5c68c94b20))
+
+
+### Bug Fixes
+
+* **i18n:** describe the app's real outbound connections ([00596b6](https://github.com/bruno00o/gameroute/commit/00596b6a5af65b322437a0e2f1911454fccb4ccb))
+* **sessions:** back up the database before merging match fragments ([371aea5](https://github.com/bruno00o/gameroute/commit/371aea5ddc168ee4c80075489ec2a2c876605899))
+* **sessions:** merge short gaps within a match ([9505dd3](https://github.com/bruno00o/gameroute/commit/9505dd336d0d603f8e18aea726807a21cb8efd72))
+
 ## [0.1.17](https://github.com/bruno00o/gameroute/compare/v0.1.16...v0.1.17) (2026-10-08)
 
 
