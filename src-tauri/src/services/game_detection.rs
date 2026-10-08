@@ -3,6 +3,7 @@ use crate::config::{
     PROCESS_ENUMERATION_TIMEOUT_SECS,
 };
 use crate::db::games::GameRepository;
+use crate::models::capture_protocol::CapturedEndpoint;
 use crate::models::{
     CapturedConnection, DetectedGame, GameEndedEvent, MonitoringState, ServerIpCapturedEvent,
     TracedServerIp,
@@ -11,7 +12,7 @@ use crate::platform;
 use crate::services::capture_client;
 use crate::services::network_capture::{capture_connections_for_pids, is_private_or_special_ip};
 use crate::services::udp_capture;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use tokio::time::{interval, Duration};
@@ -516,11 +517,7 @@ async fn capture_udp_connections(related_pids: &HashSet<u32>) -> Vec<CapturedCon
     match capture_client::request_udp_capture(local_ports.clone()).await {
         Ok(endpoints) => {
             let raw_count = endpoints.len();
-            let connections: Vec<CapturedConnection> = endpoints
-                .into_iter()
-                .filter(|ep| !is_private_or_special_ip(&ep.remote_ip))
-                .map(|ep| CapturedConnection::new(ep.remote_ip, ep.remote_port, "UDP".to_string()))
-                .collect();
+            let connections = group_udp_endpoints(endpoints);
 
             log::info!(
                 "UDP capture result: {} raw endpoints, {} public (ports: {:?})",
@@ -538,6 +535,39 @@ async fn capture_udp_connections(related_pids: &HashSet<u32>) -> Vec<CapturedCon
     }
 }
 
+fn group_udp_endpoints(endpoints: Vec<CapturedEndpoint>) -> Vec<CapturedConnection> {
+    let mut groups: Vec<(CapturedEndpoint, u32)> = Vec::new();
+    let mut index: HashMap<String, usize> = HashMap::new();
+
+    for endpoint in endpoints {
+        if is_private_or_special_ip(&endpoint.remote_ip) {
+            continue;
+        }
+        match index.get(&endpoint.remote_ip) {
+            Some(&i) => {
+                let (busiest, total) = &mut groups[i];
+                *total = total.saturating_add(endpoint.packet_count);
+                if endpoint.packet_count > busiest.packet_count {
+                    *busiest = endpoint;
+                }
+            }
+            None => {
+                index.insert(endpoint.remote_ip.clone(), groups.len());
+                let total = endpoint.packet_count;
+                groups.push((endpoint, total));
+            }
+        }
+    }
+
+    groups
+        .into_iter()
+        .map(|(busiest, total)| {
+            CapturedConnection::new(busiest.remote_ip, busiest.remote_port, "UDP".to_string())
+                .with_packet_count(total)
+        })
+        .collect()
+}
+
 /// Merge TCP and UDP connections, deduplicating by remote IP.
 ///
 /// TCP connections take priority (they're more reliable indicators of active connections).
@@ -545,24 +575,87 @@ fn merge_connections(
     tcp_connections: Vec<CapturedConnection>,
     udp_connections: Vec<CapturedConnection>,
 ) -> Vec<CapturedConnection> {
-    let mut seen_ips: HashSet<String> = HashSet::new();
-    let mut result = Vec::with_capacity(tcp_connections.len() + udp_connections.len());
+    let mut index: HashMap<String, usize> = HashMap::new();
+    let mut result: Vec<CapturedConnection> =
+        Vec::with_capacity(tcp_connections.len() + udp_connections.len());
 
-    // Add TCP connections first (higher priority)
-    for conn in tcp_connections {
-        if !seen_ips.contains(&conn.remote_ip) {
-            seen_ips.insert(conn.remote_ip.clone());
-            result.push(conn);
-        }
-    }
-
-    // Add UDP connections that weren't already seen via TCP
-    for conn in udp_connections {
-        if !seen_ips.contains(&conn.remote_ip) {
-            seen_ips.insert(conn.remote_ip.clone());
-            result.push(conn);
+    for conn in tcp_connections.into_iter().chain(udp_connections) {
+        match index.get(&conn.remote_ip) {
+            Some(&i) => {
+                let kept = &mut result[i];
+                kept.packet_count = kept.packet_count.or(conn.packet_count);
+            }
+            None => {
+                index.insert(conn.remote_ip.clone(), result.len());
+                result.push(conn);
+            }
         }
     }
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn endpoint(local_port: u16, remote_ip: &str, remote_port: u16, packet_count: u32) -> CapturedEndpoint {
+        CapturedEndpoint {
+            local_port,
+            remote_ip: remote_ip.to_string(),
+            remote_port,
+            packet_count,
+        }
+    }
+
+    #[test]
+    fn udp_endpoints_of_one_address_add_up() {
+        let connections = group_udp_endpoints(vec![
+            endpoint(50000, "162.249.72.5", 7032, 380),
+            endpoint(50001, "20.157.94.82", 27020, 45),
+            endpoint(50002, "162.249.72.5", 7033, 12),
+            endpoint(50000, "192.168.1.1", 53, 4),
+        ]);
+
+        assert_eq!(connections.len(), 2);
+        let game = connections.iter().find(|c| c.remote_ip == "162.249.72.5").unwrap();
+        assert_eq!(game.packet_count, Some(392));
+        assert_eq!(game.remote_port, 7032);
+        assert_eq!(game.protocol, "UDP");
+        let voice = connections.iter().find(|c| c.remote_ip == "20.157.94.82").unwrap();
+        assert_eq!(voice.packet_count, Some(45));
+    }
+
+    #[test]
+    fn busiest_endpoint_gives_the_port() {
+        let connections = group_udp_endpoints(vec![
+            endpoint(50002, "162.249.72.5", 7033, 12),
+            endpoint(50000, "162.249.72.5", 7032, 380),
+        ]);
+
+        assert_eq!(connections[0].remote_port, 7032);
+        assert_eq!(connections[0].packet_count, Some(392));
+    }
+
+    #[test]
+    fn merge_keeps_tcp_but_takes_the_udp_packet_count() {
+        let tcp = vec![
+            CapturedConnection::new("104.18.41.183".to_string(), 443, "TCP".to_string()),
+            CapturedConnection::new("162.249.72.5".to_string(), 443, "TCP".to_string()),
+        ];
+        let udp = group_udp_endpoints(vec![
+            endpoint(50000, "162.249.72.5", 7032, 380),
+            endpoint(50001, "20.157.94.82", 27020, 45),
+        ]);
+
+        let merged = merge_connections(tcp, udp);
+
+        assert_eq!(merged.len(), 3);
+        assert_eq!(merged[0].packet_count, None);
+        assert_eq!(merged[1].protocol, "TCP");
+        assert_eq!(merged[1].remote_port, 443);
+        assert_eq!(merged[1].packet_count, Some(380));
+        assert_eq!(merged[2].remote_ip, "20.157.94.82");
+        assert_eq!(merged[2].packet_count, Some(45));
+    }
 }

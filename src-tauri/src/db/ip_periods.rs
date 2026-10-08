@@ -40,7 +40,7 @@ impl IpPeriodRepository {
         &self,
         id: i64,
         ended_at: &str,
-        packet_count: i32,
+        packet_count: i64,
         is_game_server: bool,
     ) -> Result<(), DbError> {
         sqlx::query(
@@ -82,11 +82,13 @@ impl IpPeriodRepository {
         protocol: &str,
         port: i32,
         timestamp: &str,
+        packet_count: Option<u32>,
     ) -> Result<IpActivityUpsert, DbError> {
         if ip.parse::<IpAddr>().is_err() {
             return Err(DbError::Validation(format!("Invalid IP address: {}", ip)));
         }
 
+        let packets = packet_count.map_or(1, i64::from);
         let latest = self.get_latest_period_for_ip(session_id, ip).await?;
 
         if let Some(period) = latest {
@@ -97,7 +99,7 @@ impl IpPeriodRepository {
             ) {
                 let elapsed = (now - ended).num_seconds();
                 if elapsed < ACTIVITY_PERIOD_THRESHOLD_SECS {
-                    let new_count = period.packet_count + 1;
+                    let new_count = period.packet_count + packets;
                     let total_duration = (now - started).num_seconds();
                     let is_voice = period.flow_kind.as_deref() == Some(FlowKind::Voice.as_str());
                     let is_game_server = !is_voice
@@ -123,7 +125,7 @@ impl IpPeriodRepository {
             }
         }
 
-        let data = IpPeriodData::new(session_id, ip.to_string(), protocol.to_string(), port, timestamp.to_string());
+        let data = IpPeriodData::new(session_id, ip.to_string(), protocol.to_string(), port, timestamp.to_string(), packets);
         let period_id = self.insert_period(&data).await?;
         log::debug!("Created new IP period {} for {}", period_id, ip);
         Ok(IpActivityUpsert {
@@ -303,7 +305,7 @@ mod tests {
     async fn test_insert_period() {
         let repo = create_test_repo().await;
 
-        let data = IpPeriodData::new(1, "8.8.8.8".to_string(), "TCP".to_string(), 443, "2026-01-25T10:00:00Z".to_string());
+        let data = IpPeriodData::new(1, "8.8.8.8".to_string(), "TCP".to_string(), 443, "2026-01-25T10:00:00Z".to_string(), 1);
         let id = repo.insert_period(&data).await.expect("Failed to insert");
 
         assert!(id > 0);
@@ -314,13 +316,13 @@ mod tests {
         let repo = create_test_repo().await;
 
         let first = repo
-            .upsert_ip_activity(1, "8.8.8.8", "UDP", 27015, "2026-01-25T10:00:00Z")
+            .upsert_ip_activity(1, "8.8.8.8", "UDP", 27015, "2026-01-25T10:00:00Z", None)
             .await
             .unwrap();
         assert!(first.is_new);
 
         let second = repo
-            .upsert_ip_activity(1, "8.8.8.8", "UDP", 27015, "2026-01-25T10:00:03Z")
+            .upsert_ip_activity(1, "8.8.8.8", "UDP", 27015, "2026-01-25T10:00:03Z", None)
             .await
             .unwrap();
         assert!(!second.is_new);
@@ -339,17 +341,70 @@ mod tests {
         let repo = create_test_repo().await;
 
         let first = repo
-            .upsert_ip_activity(1, "8.8.8.8", "TCP", 443, "2026-01-25T10:00:00Z")
+            .upsert_ip_activity(1, "8.8.8.8", "TCP", 443, "2026-01-25T10:00:00Z", None)
             .await
             .unwrap();
         assert!(first.is_new);
 
         let second = repo
-            .upsert_ip_activity(1, "8.8.8.8", "TCP", 443, "2026-01-25T10:00:10Z")
+            .upsert_ip_activity(1, "8.8.8.8", "TCP", 443, "2026-01-25T10:00:10Z", None)
             .await
             .unwrap();
         assert!(second.is_new);
         assert_ne!(first.period_id, second.period_id);
+    }
+
+    #[tokio::test]
+    async fn test_upsert_accumulates_real_packet_counts() {
+        let repo = create_test_repo().await;
+
+        for (ts, packets) in [
+            ("2026-01-25T10:00:00Z", 384),
+            ("2026-01-25T10:00:05Z", 391),
+            ("2026-01-25T10:00:10Z", 12),
+        ] {
+            repo.upsert_ip_activity(1, "162.249.72.5", "UDP", 7032, ts, Some(packets))
+                .await
+                .unwrap();
+        }
+
+        let period = repo.get_latest_period_for_ip(1, "162.249.72.5").await.unwrap().unwrap();
+        assert_eq!(period.packet_count, 787);
+
+        let summaries = repo.get_ip_summaries_for_session(1).await.unwrap();
+        assert_eq!(summaries[0].total_packet_count, 787);
+    }
+
+    #[tokio::test]
+    async fn test_upsert_counts_one_per_reading_without_packet_count() {
+        let repo = create_test_repo().await;
+
+        repo.upsert_ip_activity(1, "104.18.41.183", "TCP", 443, "2026-01-25T10:00:00Z", None)
+            .await
+            .unwrap();
+        repo.upsert_ip_activity(1, "104.18.41.183", "TCP", 443, "2026-01-25T10:00:05Z", None)
+            .await
+            .unwrap();
+        repo.upsert_ip_activity(1, "104.18.41.183", "TCP", 443, "2026-01-25T10:00:10Z", Some(40))
+            .await
+            .unwrap();
+
+        let period = repo.get_latest_period_for_ip(1, "104.18.41.183").await.unwrap().unwrap();
+        assert_eq!(period.packet_count, 42);
+    }
+
+    #[tokio::test]
+    async fn test_packet_volume_does_not_make_a_game_server() {
+        let repo = create_test_repo().await;
+
+        for sec in (0..=25).step_by(5) {
+            let ts = format!("2026-01-25T10:00:{:02}Z", sec);
+            let outcome = repo
+                .upsert_ip_activity(1, "162.249.72.5", "UDP", 7032, &ts, Some(50_000))
+                .await
+                .unwrap();
+            assert!(!outcome.became_game_server);
+        }
     }
 
     async fn feed_udp(repo: &IpPeriodRepository, ip: &str, port: i32, from_sec: u32, to_sec: u32) -> Vec<IpActivityUpsert> {
@@ -357,7 +412,7 @@ mod tests {
         let mut sec = from_sec;
         while sec <= to_sec {
             let ts = format!("2026-01-25T10:{:02}:{:02}Z", sec / 60, sec % 60);
-            outcomes.push(repo.upsert_ip_activity(1, ip, "UDP", port, &ts).await.unwrap());
+            outcomes.push(repo.upsert_ip_activity(1, ip, "UDP", port, &ts, Some(380)).await.unwrap());
             sec += 5;
         }
         outcomes
@@ -384,7 +439,7 @@ mod tests {
 
         for sec in (0..=60).step_by(5) {
             let ts = format!("2026-01-25T10:{:02}:{:02}Z", sec / 60, sec % 60);
-            let outcome = repo.upsert_ip_activity(1, "104.18.41.183", "TCP", 443, &ts).await.unwrap();
+            let outcome = repo.upsert_ip_activity(1, "104.18.41.183", "TCP", 443, &ts, None).await.unwrap();
             assert!(!outcome.became_game_server);
         }
     }
@@ -440,14 +495,14 @@ mod tests {
     async fn test_trace_candidates_prefer_game_server_period() {
         let repo = create_test_repo().await;
 
-        repo.upsert_ip_activity(1, "162.249.72.5", "UDP", 8181, "2026-01-25T10:00:00Z")
+        repo.upsert_ip_activity(1, "162.249.72.5", "UDP", 8181, "2026-01-25T10:00:00Z", None)
             .await
             .unwrap();
         feed_udp(&repo, "162.249.72.5", 7032, 30, 90).await;
-        repo.upsert_ip_activity(1, "162.249.72.5", "UDP", 8181, "2026-01-25T10:05:00Z")
+        repo.upsert_ip_activity(1, "162.249.72.5", "UDP", 8181, "2026-01-25T10:05:00Z", None)
             .await
             .unwrap();
-        repo.upsert_ip_activity(1, "104.18.41.183", "TCP", 443, "2026-01-25T10:00:01Z")
+        repo.upsert_ip_activity(1, "104.18.41.183", "TCP", 443, "2026-01-25T10:00:01Z", None)
             .await
             .unwrap();
 
@@ -468,13 +523,13 @@ mod tests {
     async fn test_get_periods_for_session() {
         let repo = create_test_repo().await;
 
-        repo.upsert_ip_activity(1, "1.1.1.1", "TCP", 80, "2026-01-25T10:00:00Z")
+        repo.upsert_ip_activity(1, "1.1.1.1", "TCP", 80, "2026-01-25T10:00:00Z", None)
             .await
             .unwrap();
-        repo.upsert_ip_activity(1, "2.2.2.2", "UDP", 27015, "2026-01-25T10:00:05Z")
+        repo.upsert_ip_activity(1, "2.2.2.2", "UDP", 27015, "2026-01-25T10:00:05Z", None)
             .await
             .unwrap();
-        repo.upsert_ip_activity(1, "1.1.1.1", "TCP", 80, "2026-01-25T10:01:00Z")
+        repo.upsert_ip_activity(1, "1.1.1.1", "TCP", 80, "2026-01-25T10:01:00Z", None)
             .await
             .unwrap();
 
@@ -486,13 +541,13 @@ mod tests {
     async fn test_get_unique_ips() {
         let repo = create_test_repo().await;
 
-        repo.upsert_ip_activity(1, "1.1.1.1", "TCP", 80, "2026-01-25T10:00:00Z")
+        repo.upsert_ip_activity(1, "1.1.1.1", "TCP", 80, "2026-01-25T10:00:00Z", None)
             .await
             .unwrap();
-        repo.upsert_ip_activity(1, "2.2.2.2", "UDP", 27015, "2026-01-25T10:00:05Z")
+        repo.upsert_ip_activity(1, "2.2.2.2", "UDP", 27015, "2026-01-25T10:00:05Z", None)
             .await
             .unwrap();
-        repo.upsert_ip_activity(1, "1.1.1.1", "TCP", 80, "2026-01-25T10:01:00Z")
+        repo.upsert_ip_activity(1, "1.1.1.1", "TCP", 80, "2026-01-25T10:01:00Z", None)
             .await
             .unwrap();
 
@@ -508,11 +563,11 @@ mod tests {
         let repo = create_test_repo().await;
 
         let result = repo
-            .upsert_ip_activity(1, "not-an-ip", "TCP", 80, "2026-01-25T10:00:00Z")
+            .upsert_ip_activity(1, "not-an-ip", "TCP", 80, "2026-01-25T10:00:00Z", None)
             .await;
         assert!(result.is_err());
 
-        let result = repo.upsert_ip_activity(1, "", "TCP", 80, "2026-01-25T10:00:00Z").await;
+        let result = repo.upsert_ip_activity(1, "", "TCP", 80, "2026-01-25T10:00:00Z", None).await;
         assert!(result.is_err());
     }
 }

@@ -90,6 +90,7 @@ fn make_on_ip_captured(
         let protocol = event.protocol.clone();
         let port = event.port as i32;
         let captured_at = event.captured_at.clone();
+        let packet_count = event.packet_count;
         let app_for_trace = app.clone();
         let service = traceroute_service.clone();
         tokio::spawn(async move {
@@ -101,7 +102,7 @@ fn make_on_ip_captured(
             if let Some(session_id) = session_id {
                 if let Some(ip_period_repo) = get_ip_period_repository() {
                     match ip_period_repo
-                        .upsert_ip_activity(session_id, &ip_clone, &protocol, port, &captured_at)
+                        .upsert_ip_activity(session_id, &ip_clone, &protocol, port, &captured_at, packet_count)
                         .await
                     {
                         Ok(outcome) => {
