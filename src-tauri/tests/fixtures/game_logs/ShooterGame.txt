@@ -1,0 +1,13 @@
+Log file open, 10/04/26 15:02:14
+[2026.10.04-13.02.19:618][  0]LogShooter: Display: CI server version: release-13.06-shipping-18-5590001
+[2026.10.04-13.02.38:459][213]LogPingManager: Warning: Failure to ping endpoint aresriot.aws-euw3-prod.eu-gp-paris-1, not reporting stats.
+[2026.10.04-13.02.40:389][482]LogTravelManager: Beginning travel to /Game/Maps/Menu/MainMenuV2
+[2026.10.04-13.03.00:000][  1]LogAresNetDriver: Warning: [Client] Burst Loss Detected!  6 packets dropped this second (>= 3)
+[2026.10.04-13.13.11:009][912]LogPlatformCommon: Platform HTTP Query End. QueryName: [Party_FetchPlayer], URL [GET https://glz-eu-1.eu.a.pvp.net/parties/v1/players/00000000-0000-0000-0000-000000000000?aresriot.aws-euc1-prod.eu-gp-frankfurt-1=13&aresriot.aws-euw2-prod.eu-gp-london-1=14&aresriot.aws-euw3-prod.eu-gp-paris-1=4&preferredgamepods=aresriot.aws-euw2-prod.eu-gp-london-1,aresriot.aws-euc1-prod.eu-gp-frankfurt-1], @trace_id:00000000000000000000000000000000 Response Code: [200], Seconds Since Query [0.097000]
+[2026.10.04-13.15.50:352][266]LogTravelManager: Beginning travel to 162.249.72.1:7097
+[2026.10.04-13.15.56:177][303]LogAresNetDriver: Warning: [Client] Burst Loss Detected!  15 packets dropped this second (>= 3)
+[2026.10.04-13.15.56:950][423]LogAresNetDriver: Warning: Burst Loss no longer detected.
+[2026.10.04-13.18.46:693][535]LogAresNetDriver: Warning: [Client] Burst Loss Detected!  3 packets dropped this second (>= 3)
+[2026.10.04-13.18.47:699][688]LogAresNetDriver: Warning: Burst Loss no longer detected.
+[2026.10.04-13.40.00:000][  2]LogTravelManager: Beginning travel to /Game/Maps/Menu/MainMenuV2
+[2026.10.04-13.41.00:000][  3]LogAresNetDriver: Warning: [Client] Burst Loss Detected!  4 packets dropped this second (>= 3)
