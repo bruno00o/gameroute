@@ -1,23 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
-import type { DbHop, SessionDetail, SessionMatch, TracerouteWithHops } from '@/types/backend'
-import {
-  at,
-  measure,
-  riotRoute,
-  sessionDetail,
-  sessionMatches,
-  trace,
-  RIOT,
-} from '@/test/session-fixtures'
+import type { SessionMatch } from '@/types/backend'
+import { gameMeasuredCase, lossyCase, regionContextCase, sources } from '@/test/report-fixtures'
+import { measure, sessionDetail, sessionMatches } from '@/test/session-fixtures'
 import {
   defaultReportSelection,
   reportCandidateKey,
   reportIspName,
   reportPublisherName,
+  renderReportText,
+  reportDocument,
   reportText as buildReport,
   type ReportCandidate,
-  type ReportSource,
 } from './report'
 
 const NOW = new Date(2026, 9, 8, 14, 32)
@@ -27,129 +21,6 @@ function reportText(...args: Parameters<typeof buildReport>) {
     new RegExp(`[${String.fromCharCode(0xa0, 0x202f)}]`, 'g'),
     ' '
   )
-}
-
-function sources(detail: SessionDetail, matches: SessionMatch[], numbers: number[]) {
-  return numbers.map((number): ReportSource => ({
-    detail,
-    matches,
-    match: matches.find(match => match.number === number)!,
-  }))
-}
-
-function hop(overrides: Partial<DbHop> & Pick<DbHop, 'hopNumber'>): DbHop {
-  return {
-    id: overrides.hopNumber,
-    tracerouteId: 21,
-    ip: null,
-    hostname: null,
-    latencyMin: null,
-    latencyAvg: null,
-    latencyMax: null,
-    packetLoss: 100,
-    isProblemHop: false,
-    source: null,
-    lossStatus: null,
-    ...overrides,
-  }
-}
-
-function lossyTrace(): TracerouteWithHops {
-  const route = riotRoute('critical')
-  route.segments[2].lastHop = 6
-  route.segments[2].hops = 4
-  route.lastRespondingHop = 6
-  route.totalMs = 38.4
-  const lossy = { packetLoss: 33.3, lossStatus: 'critical' } as const
-  return {
-    ...trace(21, RIOT, at(15, 48), route),
-    hops: [
-      hop({ hopNumber: 1, ip: '192.168.1.254', latencyAvg: 0.6, latencyMax: 0.9, packetLoss: 0 }),
-      hop({
-        hopNumber: 2,
-        ip: '77.136.10.6',
-        hostname: 'bas1.paris.sfr.net',
-        latencyAvg: 4.4,
-        latencyMax: 5,
-        packetLoss: 33.3,
-      }),
-      hop({
-        hopNumber: 3,
-        ip: '87.245.233.46',
-        hostname: 'ae1-9.rt.th2.par.fr.retn.net',
-        latencyAvg: 18.5,
-        latencyMax: 19,
-        ...lossy,
-      }),
-      hop({ hopNumber: 4, ip: '87.245.240.1', latencyAvg: 20.1, latencyMax: 21, ...lossy }),
-      hop({ hopNumber: 5 }),
-      hop({ hopNumber: 6, ip: '87.245.250.9', latencyAvg: 38.4, latencyMax: 40, ...lossy }),
-    ],
-    status: 'critical',
-  }
-}
-
-function gameMeasuredCase() {
-  const matches = sessionMatches().map(match =>
-    match.number === 1
-      ? {
-          ...match,
-          voice: null,
-          game: {
-            measuredAt: at(15, 51),
-            sampleCount: 142,
-            pingMs: 13.2,
-            jitterMs: 2.4,
-            lossPct: 0.5,
-            packetsLost: 3,
-            usual: { medianMs: 12.3, sampleCount: 20 },
-          },
-        }
-      : match
-  )
-  return { detail: sessionDetail({ gameName: 'League of Legends' }), matches }
-}
-
-function regionContextCase() {
-  const matches = sessionMatches().map(match =>
-    match.number === 2
-      ? {
-          ...match,
-          regionPings: {
-            measuredAt: at(15, 50),
-            pings: [
-              { region: 'Paris', pingMs: 4 },
-              { region: 'Frankfurt', pingMs: 13 },
-              { region: 'London', pingMs: 14 },
-              { region: 'Madrid', pingMs: 31 },
-            ],
-          },
-        }
-      : match
-  )
-  return { detail: sessionDetail(), matches }
-}
-
-function lossyCase() {
-  const matches = sessionMatches()
-  matches[0] = {
-    ...matches[0],
-    status: 'critical',
-    trace: measure({
-      tracerouteId: 21,
-      startedAt: at(15, 48),
-      offsetSecs: 180,
-      measuredHop: 6,
-      pingMs: 38.4,
-      lossPct: 33.3,
-      jitterMs: 6.8,
-      usual: { medianMs: 17.6, sampleCount: 12 },
-    }),
-  }
-  const detail = sessionDetail({
-    traceroutes: [lossyTrace(), trace(11, RIOT, at(15, 45, 41), riotRoute())],
-  })
-  return { detail, matches }
 }
 
 const full = {
@@ -796,6 +667,57 @@ describe('reportText with a ping measured by the game', () => {
     )
     expect(en).not.toContain('Madrid')
     expect(en).toContain('Ping: ≥ 18 ms')
+  })
+})
+
+describe('reportDocument', () => {
+  const lossy = () => {
+    const { detail, matches } = lossyCase()
+    return sources(detail, matches, [1, 3])
+  }
+
+  it('renders to the text of the report, so the PDF and the text share one source', () => {
+    const document = reportDocument(lossy(), { ...full, locale: 'fr' })
+
+    expect(renderReportText(document)).toBe(buildReport(lossy(), { ...full, locale: 'fr' }))
+  })
+
+  it('carries the figures of each match for the comparison table', () => {
+    const [lossyMatch, unmeasured] = reportDocument(lossy(), { ...full, locale: 'en' }).matches
+
+    expect(lossyMatch.status).toBe('critical')
+    expect(lossyMatch.figures).toMatchObject({
+      loss: '33%',
+      jitter: expect.stringMatching(/^6\.8\sms$/),
+    })
+    expect(lossyMatch.figures?.ping).toContain('≥')
+    expect(unmeasured.status).toBe('unmeasured')
+    expect(unmeasured.figures).toBeNull()
+    expect(unmeasured.route).toBeNull()
+    expect(unmeasured.hops).toBeNull()
+  })
+
+  it('carries the route by operator with the status and the note of the segment that loses', () => {
+    const [match] = reportDocument(lossy(), { ...full, locale: 'en' }).matches
+    const segments = match.route!.segments
+
+    expect(segments.map(segment => segment.name)).toEqual([null, 'SFR', 'RETN'])
+    expect(segments[2]).toMatchObject({ status: 'critical', asn: 9002 })
+    expect(segments[2].note).toContain('33%')
+    expect(segments[0].note).toBeNull()
+    expect(match.route!.destination.silent).toBe(true)
+    expect(match.route!.total).toContain('≥')
+  })
+
+  it('carries the hops with the persistent loss and the silent destination, without the home address', () => {
+    const [match] = reportDocument(lossy(), { ...full, locale: 'en' }).matches
+    const rows = match.hops!.rows
+
+    expect(rows[0]).toMatchObject({ number: 1, zone: 'Your home', address: null })
+    expect(rows[2]).toMatchObject({ number: 3, status: 'critical' })
+    expect(rows[2].note).toContain('persistent')
+    expect(rows[4]).toMatchObject({ number: 5, silent: true, latency: null })
+    expect(rows[rows.length - 1]).toMatchObject({ number: null, silent: true })
   })
 })
 
