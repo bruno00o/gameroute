@@ -63,8 +63,18 @@ describe('Help', () => {
     expect(definition.textContent).toContain(`50${NB}ms`)
     expect(definition).toHaveTextContent('carries on to the destination')
 
-    expect(screen.getByText(/Quality \(Good, Watch, Degraded, Critical\)/)).toBeInTheDocument()
-    expect(screen.getByText(/lists the thresholds under “Why this status”/)).toBeInTheDocument()
+    const usual = screen.getByText('Usual ping').nextElementSibling!
+    expect(usual).toHaveTextContent('median of the last 20 measurements taken before the match')
+    expect(usual).toHaveTextContent('at least 5')
+    expect(usual).toHaveTextContent('A “≥” value is never mixed with a real round trip.')
+
+    const quality = screen.getByText(
+      'Quality (Good, Watch, Degraded, Critical)'
+    ).nextElementSibling!
+    expect(quality.textContent).toContain(`“Watch” at +20${NB}ms above it`)
+    expect(quality.textContent).toContain(`“Critical” at +100${NB}ms`)
+    expect(quality).toHaveTextContent('Without one, fixed thresholds apply to the ping.')
+    expect(quality).toHaveTextContent('under “Why this status”')
   })
 
   it('opens the first question and lets the others unfold', async () => {
