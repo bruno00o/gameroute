@@ -16,6 +16,7 @@ use crate::platform;
 use crate::services::asn_resolver::resolve_ip;
 use crate::services::flow_kind::{classify, is_known_game_server};
 use crate::services::severity;
+use crate::services::udp_capture;
 use crate::services::trace_targets::{is_traceable_game_server, select_session_targets, TraceTarget};
 use crate::services::traceroute::{persist_traceroute_result, TracerouteJob};
 use crate::services::{GameDetector, TracerouteService};
@@ -581,7 +582,17 @@ pub async fn list_running_processes() -> Result<Vec<RunningProcess>, CommandErro
 #[tauri::command]
 pub async fn list_running_apps() -> Result<Vec<RunningApp>, CommandError> {
     log::debug!("Listing running apps (grouped) for manual selection...");
-    let apps = platform::list_running_apps_grouped();
+    let apps = tokio::task::spawn_blocking(|| {
+        let mut apps = platform::list_running_apps_grouped();
+        let counts = udp_capture::udp_socket_counts();
+        for app in &mut apps {
+            app.udp_sockets = udp_capture::count_for_pids(&counts, &app.pids);
+        }
+        apps.sort_by_key(|app| (app.udp_sockets == 0, app.name.to_lowercase()));
+        apps
+    })
+    .await
+    .map_err(|e| CommandError::internal(e.to_string()))?;
     log::debug!("Found {} apps after grouping", apps.len());
     Ok(apps)
 }

@@ -122,6 +122,7 @@ struct GroupEntry {
     display_name: String,
     pid: u32,
     process_count: u32,
+    pids: Vec<u32>,
     exe_path: Option<String>,
     /// Length of the exe path for the chosen PID (shorter = main exe).
     exe_path_len: usize,
@@ -162,6 +163,7 @@ pub fn list_running_apps_grouped() -> Vec<RunningApp> {
         match groups.get_mut(&group_key) {
             Some(entry) => {
                 entry.process_count += 1;
+                entry.pids.push(pid_u32);
                 // Pick the PID with the shortest exe path (main exe vs helpers)
                 if path_len < entry.exe_path_len {
                     entry.pid = pid_u32;
@@ -178,6 +180,7 @@ pub fn list_running_apps_grouped() -> Vec<RunningApp> {
                         display_name: display,
                         pid: pid_u32,
                         process_count: 1,
+                        pids: vec![pid_u32],
                         exe_path: exe_path.clone(),
                         exe_path_len: path_len,
                     },
@@ -193,6 +196,8 @@ pub fn list_running_apps_grouped() -> Vec<RunningApp> {
             pid: entry.pid,
             process_count: entry.process_count,
             path: entry.exe_path,
+            pids: entry.pids,
+            udp_sockets: 0,
         })
         .collect();
 
