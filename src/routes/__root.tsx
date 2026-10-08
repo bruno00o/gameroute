@@ -13,6 +13,7 @@ import { Header } from '@/components/header'
 import { Notice } from '@/components/notice'
 import { AppSidebar } from '@/components/sidebar/app-sidebar'
 import { ThemeProvider } from '@/components/theme-provider'
+import { UpdateDialog } from '@/components/update-dialog'
 import { Button } from '@/components/ui/button'
 import { Toaster } from '@/components/ui/sonner'
 import { useAutoStartMonitoring } from '@/hooks/use-auto-start-monitoring'
@@ -112,6 +113,7 @@ function MainLayout() {
           </SidebarInset>
         </SidebarProvider>
       </ErrorBoundary>
+      <UpdateDialog />
       <Toaster />
     </ThemeProvider>
   )
