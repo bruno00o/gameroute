@@ -128,7 +128,7 @@ function DashboardPage() {
                 <Tooltip>
                   <TooltipTrigger render={<div className="text-center cursor-help" />}>
                       <div className={`text-lg font-bold ${latencyColor(networkStats.avgLatency)}`}>
-                        {formatMs(networkStats.avgLatency)} ms
+                        {formatMs(networkStats.avgLatency)}
                       </div>
                       <div className="text-muted-foreground text-xs underline decoration-dotted">
                         {advancedMode ? m.dashboard_avg_latency() : m.simple_avg_latency()}

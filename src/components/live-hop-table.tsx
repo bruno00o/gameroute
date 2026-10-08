@@ -48,7 +48,7 @@ export function LiveHopTable({
             )}
             <TableCell className="text-right tabular-nums">
               {hop.rttMs != null ? (
-                <span className={cn(latencyColor(hop.rttMs))}>{formatMs(hop.rttMs)}ms</span>
+                <span className={cn(latencyColor(hop.rttMs))}>{formatMs(hop.rttMs)}</span>
               ) : (
                 <span className="text-muted-foreground">-</span>
               )}

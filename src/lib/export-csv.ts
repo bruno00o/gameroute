@@ -45,7 +45,7 @@ export async function exportSessionsList(sessions: SessionListItem[]) {
     s.gameName,
     s.startedAt,
     s.endedAt ?? '',
-    formatDuration(computeDurationSecs(s.startedAt, s.endedAt)),
+    formatDuration(computeDurationSecs(s.startedAt, s.endedAt), 'en'),
     s.uniqueIpCount,
     s.tracerouteCount,
   ])

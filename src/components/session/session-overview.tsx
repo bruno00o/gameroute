@@ -17,7 +17,15 @@ import { toast } from 'sonner'
 
 import * as m from '@/paraglide/messages'
 import type { SessionDetail } from '@/types/backend'
-import { formatDate, formatDuration, formatMs, latencyColor, computeDurationSecs } from '@/lib/format'
+import {
+  formatDate,
+  formatDuration,
+  formatMs,
+  formatNumber,
+  formatPercent,
+  latencyColor,
+  computeDurationSecs,
+} from '@/lib/format'
 import { generateSessionExport } from '@/lib/export-llm'
 import { exportSessionDetail } from '@/lib/export-csv'
 import { getPreviousSessionId, getSessionDetail } from '@/lib/tauri'
@@ -74,10 +82,10 @@ function computeSessionStats(detail: SessionDetail): SessionStats {
   return { stability, problemHopCount, avgLatency }
 }
 
-function DeltaBadge({ current, previous, unit = '', invert = false }: {
+function DeltaBadge({ current, previous, unit, invert = false }: {
   current: number | null
   previous: number | null
-  unit?: string
+  unit?: 'ms' | '%'
   invert?: boolean
 }) {
   if (current == null || previous == null) return null
@@ -87,7 +95,14 @@ function DeltaBadge({ current, previous, unit = '', invert = false }: {
   const isPositive = diff > 0
   // For latency/problem hops, positive = bad. For stability, positive = good.
   const isGood = invert ? isPositive : !isPositive
-  const formatted = `${isPositive ? '+' : ''}${Number.isInteger(diff) ? diff : diff.toFixed(1)}${unit}`
+  const digits = Number.isInteger(diff) ? 0 : 1
+  const magnitude =
+    unit === 'ms'
+      ? formatMs(Math.abs(diff), { digits })
+      : unit === '%'
+        ? formatPercent(Math.abs(diff), { digits })
+        : formatNumber(Math.abs(diff), digits)
+  const formatted = `${isPositive ? '+' : '−'}${magnitude}`
 
   return (
     <span className={cn(
@@ -228,7 +243,7 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
             {stats.stability != null ? (
               <div className="flex items-baseline gap-2">
                 <p className={`text-lg font-medium ${stats.stability >= 90 ? 'text-ok' : stats.stability >= 70 ? 'text-watch' : 'text-destructive'}`}>
-                  {stats.stability}%
+                  {formatPercent(stats.stability)}
                 </p>
                 <DeltaBadge current={stats.stability} previous={prevStats?.stability ?? null} unit="%" invert />
               </div>
@@ -251,9 +266,9 @@ export function SessionOverview({ detail, onRetry, isRetrying }: SessionOverview
           <CardContent>
             <div className="flex items-baseline gap-2">
               <p className={`text-lg font-medium ${latencyColor(stats.avgLatency)}`}>
-                {stats.avgLatency != null ? `${formatMs(stats.avgLatency)} ms` : '-'}
+                {formatMs(stats.avgLatency)}
               </p>
-              <DeltaBadge current={stats.avgLatency} previous={prevStats?.avgLatency ?? null} unit=" ms" />
+              <DeltaBadge current={stats.avgLatency} previous={prevStats?.avgLatency ?? null} unit="ms" />
             </div>
           </CardContent>
         </Card>
