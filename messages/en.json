@@ -333,6 +333,8 @@
   "service_warning_fixing": "Restarting service…",
   "service_warning_fix_success": "Capture service restarted",
   "service_warning_fix_error": "Could not restart the service. Try reinstalling the app or running it as administrator.",
+  "toast_close": "Close",
+  "toast_region": "Notifications",
 
   "session_game_servers": "Game Servers",
   "session_game_servers_hint": "These are likely game servers based on UDP traffic lasting over 30 seconds. Compare durations with your actual play time to confirm.",
@@ -385,7 +387,7 @@
   "settings_check_updates": "Updates",
   "settings_check_updates_description": "Check if a new version of GameRoute is available.",
   "settings_check_updates_button": "Check for updates",
-  "settings_no_updates": "You're up to date!",
+  "settings_no_updates": "No update available",
   "updater_title": "GameRoute — Update available",
   "updater_update_now": "Update now",
   "updater_later": "Later",
