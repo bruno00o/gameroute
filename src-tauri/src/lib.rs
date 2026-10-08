@@ -21,6 +21,7 @@ use commands::insights::{
     get_week_hour_grid,
 };
 use commands::live_probe::{get_live_probe_config, get_live_probe_state, set_live_probe_config};
+use commands::live_status::{get_live_status, get_match_incidents};
 use commands::monitoring::{
     cancel_traceroute, get_monitoring_status, list_running_apps,
     start_manual_monitoring, start_monitoring, stop_monitoring, AppMonitoringState,
@@ -65,6 +66,7 @@ pub fn run() {
             Some(vec!["--hidden"]),
         ))
         .manage(AppMonitoringState::new())
+        .manage(std::sync::Arc::new(services::live_status::LiveStatusService::default()))
         .manage(TraySettings {
             minimize_to_tray: AtomicBool::new(true),
             tray_notified: AtomicBool::new(false),
@@ -317,6 +319,8 @@ pub fn run() {
             get_live_probe_config,
             set_live_probe_config,
             write_export_pdf,
+            get_live_status,
+            get_match_incidents,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

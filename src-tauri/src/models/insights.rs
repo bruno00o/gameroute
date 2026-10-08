@@ -90,6 +90,17 @@ pub struct UsualPing {
 pub enum IncidentCause {
     Latency,
     Loss,
+    Jitter,
+}
+
+impl IncidentCause {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Latency => "latency",
+            Self::Loss => "loss",
+            Self::Jitter => "jitter",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

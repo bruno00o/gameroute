@@ -19,6 +19,8 @@ use crate::services::game_logs::watch::follow_game_logs;
 use crate::services::live_probe::follow_live_probes;
 use crate::services::live_probe::store::LiveProbeService;
 use crate::services::route_model::assessed_trace;
+use crate::services::live_status::{follow_live_status, LiveStatusService};
+use crate::services::severity;
 use crate::services::udp_capture;
 use crate::services::trace_targets::{is_traceable_game_server, select_session_targets, TraceTarget};
 use crate::services::traceroute::{persist_traceroute_result, TracerouteJob};
@@ -85,18 +87,27 @@ fn make_on_game_ended(
     }
 }
 
+fn live_status(app: &AppHandle) -> Option<Arc<LiveStatusService>> {
+    app.try_state::<Arc<LiveStatusService>>()
+        .map(|service| service.inner().clone())
+}
+
 fn follow_game_pings(
     app: AppHandle,
     monitoring_state: Arc<RwLock<MonitoringState>>,
     session_id: i64,
     game: &DetectedGame,
 ) {
+    let status = live_status(&app);
     follow_game_logs(
         monitoring_state,
         session_id,
         &game.game_name,
         &game.detected_at,
         move |sample| {
+            if let Some(status) = &status {
+                status.observe_game(sample);
+            }
             if let Err(e) = app.emit("game-ping-sample", sample) {
                 log::warn!("Failed to emit game-ping-sample: {}", e);
             }
@@ -110,15 +121,33 @@ fn follow_live_samples(
     session_id: i64,
     game: &DetectedGame,
 ) {
+    if let Some(status) = live_status(&app) {
+        let emitter = app.clone();
+        follow_live_status(
+            status,
+            monitoring_state.clone(),
+            session_id,
+            &game.game_name,
+            move |status| {
+                if let Err(e) = emitter.emit("live-status", status) {
+                    log::warn!("Failed to emit live-status: {}", e);
+                }
+            },
+        );
+    }
     let Some(service) = app.try_state::<Arc<LiveProbeService>>() else {
         return;
     };
+    let status = live_status(&app);
     follow_live_probes(
         service.inner().clone(),
         monitoring_state,
         session_id,
         &game.game_name,
         move |sample| {
+            if let Some(status) = &status {
+                status.observe_probe(sample);
+            }
             if let Err(e) = app.emit("live-probe-sample", sample) {
                 log::warn!("Failed to emit live-probe-sample: {}", e);
             }
