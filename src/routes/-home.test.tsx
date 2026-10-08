@@ -173,8 +173,7 @@ function game(name: string, monitored = true): GameListItem {
     iconUrl: null,
     monitored,
     lastPlayedAt: null,
-    sessionCount: 0,
-    totalPlayTimeSecs: 0,
+    profile: null,
   }
 }
 

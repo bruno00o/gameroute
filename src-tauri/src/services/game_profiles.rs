@@ -51,7 +51,8 @@ const PROFILES: &[ProfileEntry] = &[
     },
 ];
 
-pub fn all_profiles() -> impl Iterator<Item = GameProfile> {
+#[cfg(test)]
+pub fn all_profiles()-> impl Iterator<Item = GameProfile> {
     PROFILES.iter().map(|entry| entry.profile)
 }
 
