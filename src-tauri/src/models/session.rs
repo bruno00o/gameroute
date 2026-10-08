@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::hop::ProbedHop;
+use super::insights::UsualPing;
 use super::ip_period::{IpPeriod, IpPeriodSummary};
 use super::severity::Severity;
 use super::traceroute_record::TracerouteWithHops;
@@ -98,6 +99,7 @@ pub struct TraceMeasure {
     pub ping_ms: Option<f64>,
     pub loss_pct: Option<f64>,
     pub jitter_ms: Option<f64>,
+    pub usual: Option<UsualPing>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -322,6 +324,10 @@ mod tests {
                 ping_ms: Some(17.6),
                 loss_pct: Some(0.0),
                 jitter_ms: Some(1.0),
+                usual: Some(UsualPing {
+                    median_ms: Some(17.2),
+                    sample_count: 20,
+                }),
             }),
             status: Severity::Ok,
         };
@@ -339,6 +345,8 @@ mod tests {
         assert_eq!(json["trace"]["offsetSecs"], 41);
         assert_eq!(json["trace"]["atDestination"], false);
         assert_eq!(json["trace"]["pingMs"], 17.6);
+        assert_eq!(json["trace"]["usual"]["medianMs"], 17.2);
+        assert_eq!(json["trace"]["usual"]["sampleCount"], 20);
         assert_eq!(json["status"], "ok");
         assert!(json["voice"].is_null());
         assert!(json.get("flow").is_none());

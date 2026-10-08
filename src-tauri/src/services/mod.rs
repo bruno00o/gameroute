@@ -15,6 +15,7 @@ pub mod trace_targets;
 pub mod traceroute;
 pub mod tracert_parser;
 pub mod udp_capture;
+pub mod usual;
 
 pub use game_detection::GameDetector;
 pub use traceroute::TracerouteService;

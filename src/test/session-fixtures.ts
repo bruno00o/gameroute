@@ -126,6 +126,7 @@ export function measure(overrides: Partial<TraceMeasure> = {}): TraceMeasure {
     pingMs: 17.6,
     lossPct: 0,
     jitterMs: 1,
+    usual: null,
     ...overrides,
   }
 }

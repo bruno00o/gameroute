@@ -1,5 +1,5 @@
 use super::severity::Severity;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
 #[serde(rename_all = "camelCase")]
@@ -50,6 +50,7 @@ pub struct PingBasis {
     pub at_destination: bool,
     pub measured_hop: Option<i32>,
     pub measured_asn: Option<u32>,
+    pub server_ip: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -60,7 +61,7 @@ pub struct RecentPing {
     pub sample_count: u32,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UsualPing {
     pub median_ms: Option<f64>,
@@ -85,7 +86,7 @@ pub struct ServerIncident {
     pub cause: IncidentCause,
     pub basis: PingBasis,
     pub ping_ms: f64,
-    pub usual_ms: Option<f64>,
+    pub usual: UsualPing,
     pub loss_pct: f64,
 }
 

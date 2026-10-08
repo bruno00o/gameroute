@@ -15,18 +15,6 @@ use crate::services::traceroute::persistent_loss_onset;
 use chrono::{DateTime, FixedOffset};
 use std::collections::HashMap;
 
-pub async fn session_matches(
-    periods: &IpPeriodRepository,
-    traceroutes: &TracerouteRepository,
-    session_id: i64,
-) -> Result<Vec<SessionMatch>, DbError> {
-    let flows = periods.get_flow_periods(session_id).await?;
-    let traces = traceroutes
-        .get_traceroutes_with_hops_for_session(session_id)
-        .await?;
-    Ok(build_matches(flows, &traces))
-}
-
 pub struct MatchedSession {
     pub matches: Vec<SessionMatch>,
     pub traces: Vec<TracerouteWithHops>,
@@ -60,18 +48,6 @@ pub async fn matched_sessions(
             let matches = build_matches(flows.remove(&id).unwrap_or_default(), &traces);
             (id, MatchedSession { matches, traces })
         })
-        .collect())
-}
-
-pub async fn session_summaries(
-    periods: &IpPeriodRepository,
-    traceroutes: &TracerouteRepository,
-    session_ids: &[i64],
-) -> Result<HashMap<i64, MatchSummary>, DbError> {
-    Ok(matched_sessions(periods, traceroutes, session_ids)
-        .await?
-        .into_iter()
-        .map(|(id, session)| (id, summarize(&session.matches)))
         .collect())
 }
 
@@ -211,6 +187,7 @@ fn trace_measure(trace: &TracerouteWithHops, flow_started_at: &str) -> TraceMeas
         jitter_ms: hop
             .and_then(ProbedHop::rtt_range)
             .map(|(min, max)| max - min),
+        usual: None,
     }
 }
 
@@ -254,6 +231,30 @@ mod tests {
     const RIOT: &str = "162.249.72.5";
     const RIOT_PARIS: &str = "185.40.64.1";
     const TEAM_VOICE: &str = "20.47.65.180";
+
+    async fn session_matches(
+        periods: &IpPeriodRepository,
+        traceroutes: &TracerouteRepository,
+        id: i64,
+    ) -> Result<Vec<SessionMatch>, DbError> {
+        Ok(matched_sessions(periods, traceroutes, &[id])
+            .await?
+            .remove(&id)
+            .map(|session| session.matches)
+            .unwrap_or_default())
+    }
+
+    async fn session_summaries(
+        periods: &IpPeriodRepository,
+        traceroutes: &TracerouteRepository,
+        ids: &[i64],
+    ) -> Result<HashMap<i64, MatchSummary>, DbError> {
+        Ok(matched_sessions(periods, traceroutes, ids)
+            .await?
+            .into_iter()
+            .map(|(id, session)| (id, summarize(&session.matches)))
+            .collect())
+    }
     const PARTY_VOICE: &str = "20.157.75.86";
 
     struct Session {
@@ -434,6 +435,7 @@ mod tests {
                 ping_ms: Some(17.6),
                 loss_pct: Some(0.0),
                 jitter_ms: Some(1.0),
+                usual: None,
             })
         );
         assert_eq!(game.flow.status, Severity::Ok);
