@@ -1,16 +1,18 @@
 import * as React from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link, useLocation } from '@tanstack/react-router'
 
-import { getNavigationData } from '@/lib/navigation'
+import { findNavItem, getNavigationGroups } from '@/lib/navigation'
 import * as m from '@/paraglide/messages'
+import { useServiceHealthCheck } from '@/hooks/use-service-health-check'
+import { selectLiveState, useMonitoringStore } from '@/stores/monitoring-store'
 import { LogoMark } from '@/components/logo-mark'
 import { MonitoringWidget } from '@/components/sidebar/monitoring-widget'
 import { NavMain } from '@/components/sidebar/nav-main'
-import { NavSecondary } from '@/components/sidebar/nav-secondary'
 import { SidebarSearch } from '@/components/sidebar/sidebar-search'
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -21,18 +23,28 @@ import {
 import { cn } from '@/lib/utils'
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { navMain, navAnalytics, navSecondary } = getNavigationData()
+  const { pathname } = useLocation()
+  const { isServiceRunning } = useServiceHealthCheck()
+  const liveState = useMonitoringStore(s => selectLiveState(s, isServiceRunning))
+  const groups = getNavigationGroups(liveState)
+  const activeKey = findNavItem(groups, pathname)?.key
 
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="flex flex-row items-center group-data-[collapsible=icon]:flex-col">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link to="/" />}>
-              <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-sm">
-                <LogoMark aria-hidden className="size-5" />
+            <SidebarMenuButton
+              size="lg"
+              className="rounded-sm group-data-[collapsible=icon]:mx-auto"
+              render={<Link to="/" />}
+            >
+              <div className="bg-primary text-primary-foreground flex size-7 shrink-0 items-center justify-center rounded-sm">
+                <LogoMark aria-hidden className="size-[19px]" />
               </div>
-              <span className="ml-1 truncate text-base font-semibold">{m.nav_company_name()}</span>
+              <span className="text-[15px] font-bold tracking-[-0.01em] [font-stretch:112%]">
+                {m.nav_company_name()}
+              </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -40,12 +52,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarSearch />
-        <NavMain group={navMain} />
-        <NavMain group={navAnalytics} />
-        <NavSecondary group={navSecondary} className="mt-auto">
-          <MonitoringWidget />
-        </NavSecondary>
+        <nav aria-label={m.nav_label()} className="flex flex-1 flex-col">
+          {groups.map(group => (
+            <NavMain
+              key={group.key}
+              group={group}
+              activeKey={activeKey}
+              className={cn(group.key === 'bottom' && 'mt-auto')}
+            />
+          ))}
+        </nav>
       </SidebarContent>
+      <SidebarFooter>
+        <MonitoringWidget />
+      </SidebarFooter>
     </Sidebar>
   )
 }

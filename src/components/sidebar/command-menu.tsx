@@ -1,6 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 
-import { getNavigationData } from '@/lib/navigation'
+import { getNavigationGroups } from '@/lib/navigation'
 import * as m from '@/paraglide/messages'
 import {
   Command,
@@ -21,8 +21,7 @@ export function CommandMenu({
   onOpenChange: (open: boolean) => void
 }) {
   const navigate = useNavigate()
-  const { navMain, navAnalytics, navSecondary } = getNavigationData()
-  const groups = [navMain, navAnalytics, navSecondary]
+  const groups = getNavigationGroups()
 
   return (
     <CommandDialog
@@ -36,12 +35,12 @@ export function CommandMenu({
         <CommandList>
           <CommandEmpty>{m.command_empty()}</CommandEmpty>
           {groups.map((group, index) => (
-            <div key={group.label}>
+            <div key={group.key}>
               {index > 0 && <CommandSeparator />}
               <CommandGroup heading={group.label}>
                 {group.items.map(item => (
                   <CommandItem
-                    key={item.to}
+                    key={item.key}
                     value={item.title}
                     onSelect={() => {
                       navigate({ to: item.to })

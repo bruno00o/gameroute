@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { LiveState } from '@/lib/live-state'
 import type { DetectedGame, MonitoringStatusResponse, ServerIpCapturedEvent } from '@/types/backend'
 
 type MonitoringStore = {
@@ -53,3 +54,12 @@ export const useMonitoringStore = create<MonitoringStore>(set => ({
       serverIpCount: 0,
     }),
 }))
+
+export function selectLiveState(
+  state: Pick<MonitoringStore, 'isMonitoring' | 'currentGame' | 'serverIpCount'>,
+  isServiceRunning = true
+): LiveState {
+  if (!state.isMonitoring || !state.currentGame) return 'idle'
+  if (!isServiceRunning) return 'stale'
+  return state.serverIpCount > 0 ? 'live' : 'measuring'
+}
