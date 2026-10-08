@@ -133,8 +133,8 @@ impl IcmpSocket {
                 unsafe { std::ptr::read_unaligned(buffer.as_ptr().cast::<ICMPV6_ECHO_REPLY_LH>()) };
             let words = reply.Address.sin6_addr;
             let mut bytes = [0u8; 16];
-            for (chunk, word) in bytes.chunks_exact_mut(2).zip(words) {
-                chunk.copy_from_slice(&word.to_ne_bytes());
+            for (chunk, word) in bytes.as_chunks_mut::<2>().0.iter_mut().zip(words) {
+                *chunk = word.to_ne_bytes();
             }
             (reply.Status, IpAddr::V6(Ipv6Addr::from(bytes)))
         } else {
