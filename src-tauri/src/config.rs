@@ -67,6 +67,14 @@ pub const SEVERITY_OVER_BASELINE_MS: [f64; 3] = [20.0, 50.0, 100.0];
 
 pub const SEVERITY_RTT_MS: [f64; 3] = [60.0, 100.0, 150.0];
 
+// ── Usual ping ──────────────────────────────────────────────────────────────
+
+pub const SERVER_SUMMARY_DAYS: u32 = 7;
+
+pub const USUAL_PING_SAMPLES: usize = 20;
+
+pub const USUAL_PING_MIN_SAMPLES: usize = 5;
+
 // ── Database ──────────────────────────────────────────────────────────────
 
 /// Timeout for acquiring a connection from the SQLite pool.

@@ -16,6 +16,7 @@ import type {
   RunningApp,
   ServerIpCapturedEvent,
   ServerStability,
+  ServerSummary,
   SessionDetail,
   SessionListFilter,
   SessionListPage,
@@ -85,6 +86,8 @@ export const getSeverityThresholds = () => invoke<SeverityThresholds>('get_sever
 export const getNetworkQualityOverTime = () =>
   invoke<SessionQualityPoint[]>('get_network_quality_over_time')
 export const getServerStability = () => invoke<ServerStability[]>('get_server_stability')
+export const getServerSummary = (days?: number) =>
+  invoke<ServerSummary>('get_server_summary', { days })
 export const getHourlyQuality = () => invoke<HourlyQuality[]>('get_hourly_quality')
 
 // ===== ASN / Cache =====

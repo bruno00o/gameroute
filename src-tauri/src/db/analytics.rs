@@ -124,6 +124,17 @@ impl AnalyticsRepository {
 
     // ===== Insights commands =====
 
+    pub async fn get_game_sessions(&self) -> Result<Vec<(i64, String)>, DbError> {
+        sqlx::query_as(
+            "SELECT s.id, s.game_name FROM sessions s
+             WHERE EXISTS (SELECT 1 FROM ip_periods p WHERE p.session_id = s.id AND p.is_game_server = 1)
+             ORDER BY s.started_at ASC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
     pub async fn get_network_quality_over_time(
         &self,
     ) -> Result<Vec<SessionQualityPoint>, DbError> {

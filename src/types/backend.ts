@@ -453,6 +453,63 @@ export type HourlyQuality = {
   problemHopRatio: number
 }
 
+export type PingSource = 'trace'
+
+export type PingBasis = {
+  source: PingSource
+  atDestination: boolean
+  measuredHop: number | null
+  measuredAsn: number | null
+}
+
+export type RecentPing = {
+  medianMs: number
+  lossPct: number
+  sampleCount: number
+}
+
+export type UsualPing = {
+  medianMs: number | null
+  sampleCount: number
+}
+
+export type IncidentCause = 'latency' | 'loss'
+
+export type ServerIncident = {
+  sessionId: number
+  matchNumber: number
+  startedAt: string
+  measuredAt: string
+  status: Severity
+  cause: IncidentCause
+  basis: PingBasis
+  pingMs: number
+  usualMs: number | null
+  lossPct: number
+}
+
+export type ServerSummaryItem = {
+  gameName: string
+  asn: number | null
+  operator: string | null
+  city: string | null
+  ips: string[]
+  matchCount: number
+  lastPlayedAt: string
+  basis: PingBasis | null
+  recent: RecentPing | null
+  usual: UsualPing
+  status: Severity | null
+  lastIncident: ServerIncident | null
+}
+
+export type ServerSummary = {
+  since: string
+  usualMaxSamples: number
+  usualMinSamples: number
+  servers: ServerSummaryItem[]
+}
+
 // ===== Service =====
 export type ServiceStatus = {
   running: boolean
