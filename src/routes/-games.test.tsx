@@ -90,7 +90,7 @@ const library: GameListItem[] = [
     id: 2,
     name: 'League of Legends',
     executableName: 'League of Legends.exe',
-    profile: { ...riotProfile, udpPorts: [5000, 5500], voiceSeparate: false },
+    profile: { ...riotProfile, voiceSeparate: false },
   }),
   game({
     id: 3,
@@ -205,7 +205,7 @@ describe('Games', () => {
 
     expect(cells(/VALORANT/)[2]).toHaveTextContent('Riot Games · AS6507')
     expect(cells(/VALORANT/)[2]).toHaveTextContent('game UDP 7000–7999 · voice separate')
-    expect(cells(/League of Legends/)[2]).toHaveTextContent('game UDP 5000–5500')
+    expect(cells(/League of Legends/)[2]).toHaveTextContent('game UDP 7000–7999')
     expect(cells(/League of Legends/)[2]).not.toHaveTextContent('voice')
     expect(cells(/Counter-Strike 2/)[2]).toHaveTextContent('Valve · relay')
     expect(cells(/Counter-Strike 2/)[2]).toHaveTextContent('the relay hides the match server')

@@ -1,7 +1,7 @@
 use crate::db::get_ip_period_repository;
 pub use crate::models::flow_kind::FlowKind;
 use crate::services::asn_resolver::get_resolver;
-use crate::services::game_profiles::{RIOT_ASN, VALORANT_UDP_PORTS};
+use crate::services::game_profiles::{RIOT_ASN, RIOT_UDP_PORTS};
 use std::net::IpAddr;
 use std::ops::RangeInclusive;
 
@@ -19,7 +19,7 @@ const FLOW_RULES: &[FlowRule] = &[
     },
     FlowRule {
         asns: &[RIOT_ASN],
-        ports: VALORANT_UDP_PORTS.0..=VALORANT_UDP_PORTS.1,
+        ports: RIOT_UDP_PORTS.0..=RIOT_UDP_PORTS.1,
         kind: FlowKind::Game,
     },
 ];
@@ -102,6 +102,24 @@ pub async fn backfill_match_periods() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_profile_with_an_asn_and_ports_is_recognised_as_a_game_server() {
+        let mut checked = 0;
+        for profile in crate::services::game_profiles::all_profiles() {
+            let (Some(asn), Some((from, to))) = (profile.asn, profile.udp_ports) else {
+                continue;
+            };
+            for port in [from, (from + to) / 2, to] {
+                assert_eq!(classify(Some(asn), "UDP", port), FlowKind::Game);
+                assert!(is_known_game_server(Some(asn), "UDP", port));
+            }
+            assert!(!is_known_game_server(Some(asn), "UDP", from - 1));
+            assert!(!is_known_game_server(Some(asn), "UDP", to + 1));
+            checked += 1;
+        }
+        assert!(checked >= 2);
+    }
 
     #[test]
     fn valorant_voice_on_azure_is_voice() {
