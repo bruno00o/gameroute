@@ -10,7 +10,7 @@ describe('getNavigationGroups', () => {
   it('follows the v2 order with the analysis group between the main and bottom entries', () => {
     expect(keysOf()).toEqual([
       ['main', ['home', 'live', 'sessions', 'games']],
-      ['analysis', ['route', 'history']],
+      ['analysis', ['route', 'history', 'reports']],
       ['bottom', ['settings', 'help']],
     ])
   })
@@ -37,6 +37,7 @@ describe('getNavigationGroups', () => {
       games: '/games',
       route: '/route',
       history: '/network',
+      reports: '/reports',
       settings: '/settings',
       help: '/help',
     })
@@ -75,6 +76,7 @@ describe('findNavItem', () => {
     expect(activeKey('/trace')).toBe('live')
     expect(activeKey('/route')).toBe('route')
     expect(activeKey('/network')).toBe('history')
+    expect(activeKey('/reports')).toBe('reports')
     expect(activeKey('/settings')).toBe('settings')
     expect(activeKey('/help')).toBe('help')
   })
