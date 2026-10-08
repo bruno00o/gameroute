@@ -3,7 +3,14 @@ import { RiMapPinLine } from '@remixicon/react'
 
 import * as m from '@/paraglide/messages'
 import type { IpPeriod, IpPeriodSummary, TracerouteWithHops } from '@/types/backend'
-import { formatDate, formatDuration, formatMs, latencyColor, computeDurationSecs } from '@/lib/format'
+import {
+  formatDate,
+  formatDuration,
+  formatMs,
+  formatNumber,
+  latencyColor,
+  computeDurationSecs,
+} from '@/lib/format'
 import { useAsnResolution } from '@/hooks/use-asn-resolution'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/settings-store'
@@ -127,7 +134,7 @@ export function PeriodDetail({
               </CardHeader>
               <CardContent>
                 <p className={`text-sm font-medium ${latencyColor(routeStats.serverLatency)}`}>
-                  {routeStats.serverLatency != null ? `${formatMs(routeStats.serverLatency)} ms` : '-'}
+                  {formatMs(routeStats.serverLatency)}
                 </p>
               </CardContent>
             </Card>
@@ -149,7 +156,7 @@ export function PeriodDetail({
               </CardHeader>
               <CardContent>
                 <p className="text-sm font-medium tabular-nums">
-                  {packetRate != null ? `${packetRate.toFixed(1)}/s` : '-'}
+                  {packetRate != null ? `${formatNumber(packetRate, 1)}/s` : '—'}
                 </p>
               </CardContent>
             </Card>

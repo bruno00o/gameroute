@@ -1,21 +1,48 @@
-import { describe, expect, it } from 'vitest'
-import { computeDurationSecs, formatDuration, formatLoss, formatMs, latencyColor } from './format'
+import { describe, expect, it, vi } from 'vitest'
+import {
+  computeDurationSecs,
+  formatDuration,
+  formatMs,
+  formatNumber,
+  formatPercent,
+} from './format'
+
+vi.mock('@/paraglide/runtime', () => ({ getLocale: () => 'fr' }))
+
+const NB = ' '
 
 describe('formatDuration', () => {
-  it('formats zero seconds', () => {
-    expect(formatDuration(0)).toBe('0m 0s')
-  })
-
   it('formats seconds only', () => {
-    expect(formatDuration(45)).toBe('0m 45s')
+    expect(formatDuration(0, 'en')).toBe(`0${NB}s`)
+    expect(formatDuration(45, 'en')).toBe(`45${NB}s`)
   })
 
   it('formats minutes and seconds', () => {
-    expect(formatDuration(125)).toBe('2m 5s')
+    expect(formatDuration(125, 'en')).toBe(`2${NB}min 5${NB}s`)
+    expect(formatDuration(60, 'es')).toBe(`1${NB}min 0${NB}s`)
   })
 
-  it('formats exact minutes', () => {
-    expect(formatDuration(60)).toBe('1m 0s')
+  it('formats hours and minutes', () => {
+    expect(formatDuration(3_780, 'fr')).toBe(`1${NB}h 3${NB}min`)
+  })
+
+  it('names days per language', () => {
+    const twoDaysFiveHours = 2 * 86_400 + 5 * 3_600
+    expect(formatDuration(twoDaysFiveHours, 'fr')).toBe(`2${NB}j 5${NB}h`)
+    expect(formatDuration(twoDaysFiveHours, 'en')).toBe(`2${NB}d 5${NB}h`)
+    expect(formatDuration(twoDaysFiveHours, 'es')).toBe(`2${NB}d 5${NB}h`)
+  })
+
+  it('drops fractions of a second', () => {
+    expect(formatDuration(12.7, 'en')).toBe(`12${NB}s`)
+  })
+
+  it('returns a dash for negative durations', () => {
+    expect(formatDuration(-1, 'en')).toBe('—')
+  })
+
+  it('uses the active language by default', () => {
+    expect(formatDuration(2 * 86_400)).toBe(`2${NB}j 0${NB}h`)
   })
 })
 
@@ -39,59 +66,59 @@ describe('computeDurationSecs', () => {
   })
 })
 
-describe('latencyColor', () => {
-  it('returns empty string for null', () => {
-    expect(latencyColor(null)).toBe('')
+describe('formatNumber', () => {
+  it('uses the decimal separator of each language', () => {
+    expect(formatNumber(0.4, 1, 'en')).toBe('0.4')
+    expect(formatNumber(0.4, 1, 'fr')).toBe('0,4')
+    expect(formatNumber(0.4, 1, 'es')).toBe('0,4')
   })
 
-  it('returns green for low latency', () => {
-    expect(latencyColor(10)).toBe('text-ok')
-    expect(latencyColor(29)).toBe('text-ok')
-  })
-
-  it('returns amber for moderate latency', () => {
-    expect(latencyColor(30)).toBe('text-watch')
-    expect(latencyColor(79)).toBe('text-watch')
-  })
-
-  it('returns destructive for high latency', () => {
-    expect(latencyColor(80)).toBe('text-destructive')
-    expect(latencyColor(200)).toBe('text-destructive')
+  it('returns a dash for missing values', () => {
+    expect(formatNumber(null)).toBe('—')
+    expect(formatNumber(Number.NaN)).toBe('—')
   })
 })
 
 describe('formatMs', () => {
-  it('returns dash for null', () => {
-    expect(formatMs(null)).toBe('-')
+  it('returns a dash for null', () => {
+    expect(formatMs(null)).toBe('—')
   })
 
-  it('formats with one decimal', () => {
-    expect(formatMs(12.345)).toBe('12.3')
+  it('keeps one decimal and a non-breaking space before the unit', () => {
+    expect(formatMs(12.345, { locale: 'en' })).toBe(`12.3${NB}ms`)
+    expect(formatMs(12.345, { locale: 'fr' })).toBe(`12,3${NB}ms`)
+    expect(formatMs(12.345, { locale: 'es' })).toBe(`12,3${NB}ms`)
   })
 
-  it('formats zero', () => {
-    expect(formatMs(0)).toBe('0.0')
+  it('rounds to whole milliseconds on request', () => {
+    expect(formatMs(17.6, { digits: 0, locale: 'en' })).toBe(`18${NB}ms`)
   })
 
-  it('formats integer', () => {
-    expect(formatMs(100)).toBe('100.0')
+  it('prefixes a silent destination with ≥', () => {
+    expect(formatMs(17, { digits: 0, atLeast: true, locale: 'fr' })).toBe(`≥${NB}17${NB}ms`)
+  })
+
+  it('uses the active language by default', () => {
+    expect(formatMs(0)).toBe(`0,0${NB}ms`)
   })
 })
 
-describe('formatLoss', () => {
-  it('returns dash for null', () => {
-    expect(formatLoss(null)).toBe('-')
+describe('formatPercent', () => {
+  it('returns a dash for null', () => {
+    expect(formatPercent(null)).toBe('—')
   })
 
-  it('formats zero loss', () => {
-    expect(formatLoss(0)).toBe('0%')
+  it('puts no space before % in English', () => {
+    expect(formatPercent(33.33, { locale: 'en' })).toBe('33%')
   })
 
-  it('formats fractional loss rounded', () => {
-    expect(formatLoss(33.33)).toBe('33%')
+  it('puts a non-breaking space before % in French and Spanish', () => {
+    expect(formatPercent(4, { locale: 'fr' })).toBe(`4${NB}%`)
+    expect(formatPercent(100, { locale: 'es' })).toBe(`100${NB}%`)
   })
 
-  it('formats 100% loss', () => {
-    expect(formatLoss(100)).toBe('100%')
+  it('keeps decimals with the local separator', () => {
+    expect(formatPercent(0.5, { digits: 1, locale: 'fr' })).toBe(`0,5${NB}%`)
+    expect(formatPercent(0.5, { digits: 1, locale: 'en' })).toBe('0.5%')
   })
 })

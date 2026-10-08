@@ -3,7 +3,7 @@ import { RiAlertLine } from '@remixicon/react'
 
 import * as m from '@/paraglide/messages'
 import type { DbHop, ResolvedIpData } from '@/types/backend'
-import { latencyColor, formatMs, formatLoss } from '@/lib/format'
+import { latencyColor, formatMs, formatPercent } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import {
   Table,
@@ -153,7 +153,7 @@ export function HopTable({
                 {hop.latencyAvg != null ? (
                   <Tooltip>
                     <TooltipTrigger className={cn('cursor-default', latencyColor(hop.latencyAvg))}>
-                      {formatMs(hop.latencyAvg)}ms
+                      {formatMs(hop.latencyAvg)}
                     </TooltipTrigger>
                     <TooltipContent>
                       {m.session_hop_latency_tooltip({
@@ -175,7 +175,7 @@ export function HopTable({
                       hop.packetLoss > 0 && hop.packetLoss <= 5 && 'text-watch',
                     )}
                   >
-                    {formatLoss(hop.packetLoss)}
+                    {formatPercent(hop.packetLoss)}
                   </span>
                 ) : (
                   <span className="text-muted-foreground">-</span>
@@ -304,7 +304,7 @@ function RouteMapContent({ points, coords }: { points: MapPoint[]; coords: [numb
                     <span className="font-mono">{h.ip}</span>
                     {h.latency != null && (
                       <span className={latencyColor(h.latency)}>
-                        {formatMs(h.latency)}ms
+                        {formatMs(h.latency)}
                       </span>
                     )}
                   </div>

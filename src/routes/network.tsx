@@ -50,7 +50,7 @@ import {
 import { toast } from 'sonner'
 
 import { useSettingsStore } from '@/stores/settings-store'
-import { formatMs, formatLoss, formatDate, latencyColor } from '@/lib/format'
+import { formatMs, formatPercent, formatDate, latencyColor } from '@/lib/format'
 import { generateNetworkExport } from '@/lib/export-llm'
 import { exportServerStability } from '@/lib/export-csv'
 import { cn } from '@/lib/utils'
@@ -223,13 +223,13 @@ function OverviewTab() {
         header: () => advancedMode ? m.network_col_avg_latency() : m.simple_latency(),
         cell: info => (
           <span className={latencyColor(info.getValue())}>
-            {formatMs(info.getValue())} ms
+            {formatMs(info.getValue())}
           </span>
         ),
       }),
       hopColumnHelper.accessor('avgPacketLoss', {
         header: () => advancedMode ? m.network_col_avg_loss() : m.simple_loss(),
-        cell: info => formatLoss(info.getValue()),
+        cell: info => formatPercent(info.getValue()),
       }),
     ],
     [advancedMode],
@@ -296,7 +296,7 @@ function OverviewTab() {
         />
         <StatCard
           title={advancedMode ? m.network_avg_latency() : m.simple_avg_latency()}
-          value={stats?.avgLatency != null ? `${stats.avgLatency.toFixed(1)} ms` : '-'}
+          value={formatMs(stats?.avgLatency)}
           icon={<RiTimeLine className="text-muted-foreground size-4" />}
           isLoading={statsLoading}
         />
@@ -546,13 +546,13 @@ function ServersTab() {
         header: () => m.insights_col_avg_latency(),
         cell: info => (
           <span className={latencyColor(info.getValue())}>
-            {formatMs(info.getValue())} ms
+            {formatMs(info.getValue())}
           </span>
         ),
       }),
       stabilityColumnHelper.accessor('avgPacketLoss', {
         header: () => m.insights_col_avg_loss(),
-        cell: info => formatLoss(info.getValue()),
+        cell: info => formatPercent(info.getValue()),
       }),
       stabilityColumnHelper.accessor('tracerouteCount', {
         header: () => m.insights_col_traceroutes(),
@@ -560,7 +560,7 @@ function ServersTab() {
       }),
       stabilityColumnHelper.accessor('problemHopRatio', {
         header: () => m.insights_col_problems(),
-        cell: info => `${(info.getValue() * 100).toFixed(0)}%`,
+        cell: info => formatPercent(info.getValue() * 100),
       }),
     ],
     [],
@@ -1029,7 +1029,7 @@ function StabilityMapContent({ servers }: { servers: ServerStability[] }) {
             )}
             <div className="flex items-center gap-3 pt-1 text-xs">
               <span className={latencyColor(selected.avgLatency)}>
-                {formatMs(selected.avgLatency)} ms
+                {formatMs(selected.avgLatency)}
               </span>
               <span className="text-muted-foreground">
                 {m.insights_map_problems({ percent: (selected.problemHopRatio * 100).toFixed(0) })}

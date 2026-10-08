@@ -7,6 +7,8 @@ import type {
 import { formatDuration, formatMs, computeDurationSecs } from '@/lib/format'
 import { getLocale } from '@/paraglide/runtime'
 
+const EN = 'en'
+
 function formatIsoShort(iso: string): string {
   return new Date(iso).toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC')
 }
@@ -28,7 +30,7 @@ export function generateSessionExport(detail: SessionDetail): string {
   // Session metadata
   lines.push('<session>')
   lines.push(`Game: ${detail.gameName}`)
-  lines.push(`Duration: ${formatDuration(durationSecs)}`)
+  lines.push(`Duration: ${formatDuration(durationSecs, EN)}`)
   lines.push(`Start: ${formatIsoShort(detail.startedAt)}`)
   if (detail.endedAt) {
     lines.push(`End: ${formatIsoShort(detail.endedAt)}`)
@@ -43,7 +45,7 @@ export function generateSessionExport(detail: SessionDetail): string {
     lines.push('<game-servers>')
     for (const s of gsServers) {
       lines.push(
-        `- ${s.ip} (${s.protocol}:${s.port}) — ${formatDuration(s.totalDurationSecs)}, ${s.totalPacketCount} packets, ${s.periodCount} period(s)`,
+        `- ${s.ip} (${s.protocol}:${s.port}) — ${formatDuration(s.totalDurationSecs, EN)}, ${s.totalPacketCount} packets, ${s.periodCount} period(s)`,
       )
     }
     lines.push('</game-servers>')
@@ -63,7 +65,7 @@ export function generateSessionExport(detail: SessionDetail): string {
     for (const hop of tr.hops) {
       const ip = hop.ip ?? '*'
       const hostname = hop.hostname ?? '-'
-      const rtt = hop.latencyAvg != null ? `${formatMs(hop.latencyAvg)} ms` : '*'
+      const rtt = hop.latencyAvg != null ? formatMs(hop.latencyAvg, { locale: EN }) : '*'
       const loss = hop.packetLoss != null ? `${hop.packetLoss.toFixed(0)}%` : '-'
       const problem = hop.isProblemHop ? 'YES' : '-'
       lines.push(`| ${hop.hopNumber} | ${ip} | ${hostname} | ${rtt} | ${loss} | ${problem} |`)
@@ -97,7 +99,7 @@ export function generateSessionExport(detail: SessionDetail): string {
     for (const h of allProblemHops) {
       const route = h.isGameServer ? 'game server route' : 'other route'
       lines.push(
-        `- Hop ${h.hopNumber} (${h.ip ?? 'unknown'}) on ${route} to ${h.targetIp}: ${h.latencyAvg != null ? `${formatMs(h.latencyAvg)} ms` : 'timeout'}${h.packetLoss != null && h.packetLoss > 0 ? `, ${h.packetLoss.toFixed(0)}% loss` : ''}`,
+        `- Hop ${h.hopNumber} (${h.ip ?? 'unknown'}) on ${route} to ${h.targetIp}: ${h.latencyAvg != null ? formatMs(h.latencyAvg, { locale: EN }) : 'timeout'}${h.packetLoss != null && h.packetLoss > 0 ? `, ${h.packetLoss.toFixed(0)}% loss` : ''}`,
       )
     }
     lines.push('</problem-hops>')
@@ -150,7 +152,7 @@ export function generateNetworkExport(
       for (const h of gsHops) {
         const provider = [h.isp, h.asn ? `(${h.asn})` : null].filter(Boolean).join(' ') || '-'
         lines.push(
-          `| ${h.ip} | ${provider} | ${h.occurrenceCount} | ${h.avgLatency != null ? `${formatMs(h.avgLatency)} ms` : '-'} | ${h.avgPacketLoss != null ? `${h.avgPacketLoss.toFixed(0)}%` : '-'} |`,
+          `| ${h.ip} | ${provider} | ${h.occurrenceCount} | ${h.avgLatency != null ? formatMs(h.avgLatency, { locale: EN }) : '-'} | ${h.avgPacketLoss != null ? `${h.avgPacketLoss.toFixed(0)}%` : '-'} |`,
         )
       }
       lines.push('')
@@ -162,7 +164,7 @@ export function generateNetworkExport(
       for (const h of otherHops) {
         const provider = [h.isp, h.asn ? `(${h.asn})` : null].filter(Boolean).join(' ') || '-'
         lines.push(
-          `| ${h.ip} | ${provider} | ${h.occurrenceCount} | ${h.avgLatency != null ? `${formatMs(h.avgLatency)} ms` : '-'} | ${h.avgPacketLoss != null ? `${h.avgPacketLoss.toFixed(0)}%` : '-'} |`,
+          `| ${h.ip} | ${provider} | ${h.occurrenceCount} | ${h.avgLatency != null ? formatMs(h.avgLatency, { locale: EN }) : '-'} | ${h.avgPacketLoss != null ? `${h.avgPacketLoss.toFixed(0)}%` : '-'} |`,
         )
       }
       lines.push('')
@@ -179,7 +181,7 @@ export function generateNetworkExport(
     for (const s of stability) {
       const provider = [s.isp, s.asn ? `(${s.asn})` : null].filter(Boolean).join(' ') || '-'
       lines.push(
-        `| ${s.ip} | ${provider} | ${s.country ?? '-'} | ${s.avgLatency != null ? `${formatMs(s.avgLatency)} ms` : '-'} | ${s.avgPacketLoss != null ? `${s.avgPacketLoss.toFixed(0)}%` : '-'} | ${s.tracerouteCount} | ${(s.problemHopRatio * 100).toFixed(0)}% |`,
+        `| ${s.ip} | ${provider} | ${s.country ?? '-'} | ${s.avgLatency != null ? formatMs(s.avgLatency, { locale: EN }) : '-'} | ${s.avgPacketLoss != null ? `${s.avgPacketLoss.toFixed(0)}%` : '-'} | ${s.tracerouteCount} | ${(s.problemHopRatio * 100).toFixed(0)}% |`,
       )
     }
     lines.push('</server-stability>')
