@@ -1,10 +1,9 @@
 import * as React from 'react'
 import { Link } from '@tanstack/react-router'
 
-import logoSvg from '@/assets/logo.svg'
-
 import { getNavigationData } from '@/lib/navigation'
 import * as m from '@/paraglide/messages'
+import { LogoMark } from '@/components/logo-mark'
 import { MonitoringWidget } from '@/components/sidebar/monitoring-widget'
 import { NavMain } from '@/components/sidebar/nav-main'
 import { NavSecondary } from '@/components/sidebar/nav-secondary'
@@ -30,8 +29,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link to="/" />}>
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-[#e63946]">
-                <img src={logoSvg} alt="" className="size-5" />
+              <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-sm">
+                <LogoMark aria-hidden className="size-5" />
               </div>
               <span className="ml-1 truncate text-base font-semibold">{m.nav_company_name()}</span>
             </SidebarMenuButton>
