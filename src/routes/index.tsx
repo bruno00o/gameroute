@@ -1,153 +1,181 @@
 import { useMemo } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { RiArrowRightSLine } from '@remixicon/react'
+import { RiArrowRightSLine, RiLoopLeftLine } from '@remixicon/react'
+import { toast } from 'sonner'
 
 import * as m from '@/paraglide/messages'
-import type { RecentSession } from '@/types/backend'
-import { useSettingsStore } from '@/stores/settings-store'
-import { getDashboardData, getNetworkOverviewStats } from '@/lib/tauri'
-import { formatDuration, formatDate, formatMs, computeDurationSecs } from '@/lib/format'
+import type { ServerSummary, SessionListPage } from '@/types/backend'
+import { getServerSummary, getSessionList, openLogDir } from '@/lib/tauri'
+import { formatDay, formatNumber } from '@/lib/format'
+import { homeVerdict } from '@/lib/server-summary'
+import { errorMessage } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { DataTable, type DataTableColumn } from '@/components/data-table'
+import { DataTable } from '@/components/data-table'
 import { EmptyState } from '@/components/empty-state'
-import { Fact, FactRow } from '@/components/fact-row'
+import { Notice } from '@/components/notice'
 import { Panel } from '@/components/panel'
-import { StatusPill } from '@/components/status/status-pill'
+import { FirstLaunch } from '@/components/home/first-launch'
+import { ServerTable } from '@/components/home/server-table'
+import { sessionColumns } from '@/components/session/session-columns'
+import { Verdict } from '@/components/session/verdict'
 
 export const Route = createFileRoute('/')({
-  component: DashboardPage,
+  component: HomePage,
 })
 
-function DashboardPage() {
-  const advancedMode = useSettingsStore(s => s.advancedMode)
-  const navigate = useNavigate()
+const DAYS = 7
+const RECENT_SESSIONS = 5
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: getDashboardData,
+function HomePage() {
+  const summaryQuery = useQuery({
+    queryKey: ['sessions', 'server-summary', DAYS],
+    queryFn: () => getServerSummary(DAYS),
+  })
+  const recentQuery = useQuery({
+    queryKey: ['sessions', 'recent', RECENT_SESSIONS],
+    queryFn: () => getSessionList({}, RECENT_SESSIONS, 0),
   })
 
-  const { data: networkStats, isLoading: networkLoading } = useQuery({
-    queryKey: ['network-overview-stats'],
-    queryFn: getNetworkOverviewStats,
-  })
-
-  const recentColumns = useMemo<DataTableColumn<RecentSession>[]>(
-    () => [
-      {
-        key: 'gameName',
-        label: m.dashboard_col_game(),
-        sortable: false,
-        render: session => <span className="font-medium">{session.gameName}</span>,
-      },
-      {
-        key: 'duration',
-        label: m.dashboard_col_duration(),
-        sortable: false,
-        align: 'end',
-        mono: true,
-        render: session => formatDuration(computeDurationSecs(session.startedAt, session.endedAt)),
-      },
-      {
-        key: 'startedAt',
-        label: m.dashboard_col_date(),
-        sortable: false,
-        render: session => formatDate(session.startedAt),
-      },
-    ],
-    []
-  )
-
-  const statValue = (value: string | number | undefined) =>
-    isLoading ? <Skeleton className="h-5 w-16" /> : value
+  const summary = summaryQuery.data
+  const recent = recentQuery.data
+  const failed = summaryQuery.isError || recentQuery.isError
+  const fresh = summary?.servers.length === 0 && recent?.recorded === 0
 
   return (
-    <div className="h-full overflow-y-auto p-4">
-      <h1 className="text-2xl font-bold">{m.page_dashboard_title()}</h1>
-      <p className="text-muted-foreground mt-2">{m.page_dashboard_description()}</p>
-
-      <FactRow className="mt-6">
-        <Fact label={m.dashboard_total_sessions()}>{statValue(data?.totalSessions)}</Fact>
-        <Fact label={m.dashboard_total_play_time()}>
-          {statValue(data ? formatDuration(data.totalPlayTimeSecs) : undefined)}
-        </Fact>
-        <Fact label={m.dashboard_unique_games()}>{statValue(data?.uniqueGames)}</Fact>
-      </FactRow>
-
-      <div className="mt-6 flex flex-col gap-6">
-        <Panel
-          label={m.dashboard_network_title()}
-          action={
-            <Button variant="ghost" size="sm" onClick={() => navigate({ to: '/network' })}>
-              {m.dashboard_network_details()}
-              <RiArrowRightSLine data-icon="inline-end" />
-            </Button>
-          }
-        >
-          {networkLoading ? (
-            <Skeleton className="h-10 w-full" />
-          ) : (
-            <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
-              <StatusPill status={networkStats?.status ?? 'unmeasured'} />
-              {networkStats && networkStats.totalTraceroutes > 0 && (
-                <FactRow>
-                  <Fact
-                    label={advancedMode ? m.dashboard_avg_latency() : m.simple_avg_latency()}
-                    hint={
-                      advancedMode
-                        ? m.dashboard_avg_latency_tooltip()
-                        : m.simple_dashboard_avg_latency_tooltip()
-                    }
-                  >
-                    {formatMs(networkStats.avgLatency)}
-                  </Fact>
-                  <Fact
-                    label={advancedMode ? m.dashboard_problem_hops() : m.simple_problem_hops()}
-                    hint={
-                      advancedMode
-                        ? m.dashboard_problem_hops_tooltip()
-                        : m.simple_dashboard_problem_hops_tooltip()
-                    }
-                  >
-                    {networkStats.totalProblemHops}
-                  </Fact>
-                </FactRow>
-              )}
-            </div>
-          )}
-        </Panel>
-
-        <Panel
-          label={m.dashboard_recent_activity()}
-          action={
-            <Button variant="ghost" size="sm" onClick={() => navigate({ to: '/sessions' })}>
-              {m.dashboard_view_all()}
-              <RiArrowRightSLine data-icon="inline-end" />
-            </Button>
-          }
-          flush
-        >
-          <DataTable
-            columns={recentColumns}
-            rows={data?.recentSessions ?? []}
-            loading={isLoading}
-            onRowClick={session =>
-              navigate({
-                to: '/sessions/$id',
-                params: { id: String(session.id) },
-                search: { period: undefined },
-              })
-            }
-            empty={
-              <EmptyState title={m.sessions_empty_title()}>
-                {m.sessions_empty_description()}
-              </EmptyState>
-            }
+    <div className="h-full overflow-y-auto">
+      <div className="flex flex-col gap-4 px-6 pt-5 pb-6">
+        <h1 className="text-title">{m.page_dashboard_title()}</h1>
+        {failed ? (
+          <LoadError
+            retrying={summaryQuery.isFetching || recentQuery.isFetching}
+            onRetry={() => {
+              summaryQuery.refetch()
+              recentQuery.refetch()
+            }}
           />
-        </Panel>
+        ) : fresh ? (
+          <FirstLaunch />
+        ) : (
+          <Overview summary={summary} recent={recent} />
+        )}
       </div>
     </div>
+  )
+}
+
+function Overview({ summary, recent }: { summary?: ServerSummary; recent?: SessionListPage }) {
+  const navigate = useNavigate()
+  const verdict = useMemo(() => summary && homeVerdict(summary.servers, DAYS), [summary])
+  const columns = useMemo(() => sessionColumns({ sortable: false }), [])
+  const lastServer = summary?.servers[0]
+
+  return (
+    <>
+      {!summary ? (
+        <Skeleton className="h-28 w-full" />
+      ) : verdict ? (
+        <Verdict status={verdict.status} title={verdict.title} scope={verdict.scope}>
+          {verdict.sentences.length > 0 ? verdict.sentences.join(' ') : null}
+        </Verdict>
+      ) : (
+        lastServer && (
+          <Panel>
+            <EmptyState title={m.home_idle_title({ count: String(DAYS) })}>
+              {m.home_idle_body({
+                date: formatDay(lastServer.lastPlayedAt),
+                game: lastServer.gameName,
+              })}
+            </EmptyState>
+          </Panel>
+        )
+      )}
+
+      <Panel
+        label={m.home_servers_label()}
+        flush={summary?.servers.length !== 0}
+        footer={
+          summary &&
+          summary.servers.length > 0 &&
+          m.home_servers_note({
+            days: String(DAYS),
+            max: String(summary.usualMaxSamples),
+            min: String(summary.usualMinSamples),
+          })
+        }
+      >
+        {summary?.servers.length === 0 ? (
+          <EmptyState compact title={m.home_servers_empty_title()}>
+            {m.home_servers_empty_body()}
+          </EmptyState>
+        ) : (
+          <ServerTable
+            servers={summary?.servers ?? []}
+            days={DAYS}
+            usualMinSamples={summary?.usualMinSamples ?? 0}
+            loading={!summary}
+          />
+        )}
+      </Panel>
+
+      <Panel
+        label={m.home_recent_label()}
+        flush
+        action={
+          recent &&
+          recent.recorded > RECENT_SESSIONS && (
+            <Button variant="ghost" size="sm" onClick={() => navigate({ to: '/sessions' })}>
+              {m.home_recent_all({ count: formatNumber(recent.recorded) })}
+              <RiArrowRightSLine data-icon="inline-end" />
+            </Button>
+          )
+        }
+      >
+        <DataTable
+          columns={columns}
+          rows={recent?.items ?? []}
+          loading={!recent}
+          onRowClick={session =>
+            navigate({
+              to: '/sessions/$id',
+              params: { id: String(session.id) },
+              search: { period: undefined },
+            })
+          }
+          empty={
+            <EmptyState compact title={m.sessions_empty_title()}>
+              {m.sessions_empty_description()}
+            </EmptyState>
+          }
+        />
+      </Panel>
+    </>
+  )
+}
+
+function LoadError({ retrying, onRetry }: { retrying: boolean; onRetry: () => void }) {
+  return (
+    <Notice
+      tone="critical"
+      title={m.sessions_error_title()}
+      action={
+        <>
+          <Button size="sm" loading={retrying} onClick={onRetry}>
+            <RiLoopLeftLine data-icon="inline-start" />
+            {m.sessions_error_retry()}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => openLogDir().catch(err => toast.error(errorMessage(err)))}
+          >
+            {m.sessions_error_logs()}
+          </Button>
+        </>
+      }
+    >
+      {m.sessions_error_body()}
+    </Notice>
   )
 }
