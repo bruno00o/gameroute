@@ -97,10 +97,17 @@ describe('AppSidebar', () => {
     expect(current.map(link => link.textContent)).toEqual(['Sessions'])
   })
 
-  it('shows the old trace screen as the live entry', async () => {
-    await renderSidebar('/trace')
+  it('marks the live entry on the live screen', async () => {
+    await renderSidebar('/live')
 
     expect(screen.getByRole('link', { name: 'Live' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('keeps the trace screen under the route entry', async () => {
+    await renderSidebar('/trace')
+
+    expect(screen.getByRole('link', { name: 'Live' })).not.toHaveAttribute('data-active')
+    expect(screen.getByRole('link', { name: 'Route' })).toHaveAttribute('data-active')
   })
 
   it('shows a single live dot, on the live entry, while a match is measured', async () => {

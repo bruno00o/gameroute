@@ -14,6 +14,7 @@ import { Route as RootRoute } from './__root'
 
 vi.mock('@/hooks/use-auto-start-monitoring', () => ({ useAutoStartMonitoring: vi.fn() }))
 vi.mock('@/hooks/use-monitoring-events', () => ({ useMonitoringEvents: vi.fn() }))
+vi.mock('@/hooks/use-live-samples', () => ({ useLiveSamples: vi.fn() }))
 vi.mock('@/hooks/use-traceroute-events', () => ({ useTracerouteEvents: vi.fn() }))
 vi.mock('@/hooks/use-sync-locale', () => ({ useSyncLocale: vi.fn() }))
 vi.mock('@/hooks/use-match-end-toast', () => ({ useMatchEndToast: vi.fn() }))

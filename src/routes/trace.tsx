@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -16,6 +16,7 @@ import {
   traceState,
   traceStateLabel,
 } from '@/lib/trace'
+import { useBreadcrumbStore } from '@/stores/breadcrumb-store'
 import { useMonitoringStore } from '@/stores/monitoring-store'
 import { useSettingsStore } from '@/stores/settings-store'
 import { useTraceStore, type TraceResult } from '@/stores/trace-store'
@@ -54,7 +55,13 @@ function TracePage() {
   const isRunning = useTraceStore(s => s.isRunning)
   const serverIps = useTraceStore(s => s.serverIps)
   const reset = useTraceStore(s => s.reset)
+  const setSegments = useBreadcrumbStore(s => s.setSegments)
   const { data: asnData } = useAsnResolution(serverIps)
+
+  useEffect(() => {
+    setSegments([{ label: m.route_page_traces() }])
+    return () => setSegments([])
+  }, [setSegments])
 
   const handleCancel = async () => {
     await cancelTraceroute().catch(() => undefined)

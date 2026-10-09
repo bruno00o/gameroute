@@ -40,7 +40,7 @@ export function getNavigationGroups(liveState: LiveState = 'idle'): NavGroup[] {
         {
           key: 'live',
           title: m.nav_live(),
-          to: '/trace',
+          to: '/live',
           icon: RiPulseLine,
           live: liveState === 'live',
         },
@@ -72,6 +72,12 @@ export function isNavItemActive(to: string, pathname: string): boolean {
   return pathname === to || pathname.startsWith(`${to}/`)
 }
 
+const NESTED_UNDER: Record<string, NavKey> = { '/trace': 'route' }
+
 export function findNavItem(groups: NavGroup[], pathname: string): NavItem | undefined {
-  return groups.flatMap(group => group.items).find(item => isNavItemActive(item.to, pathname))
+  const items = groups.flatMap(group => group.items)
+  const direct = items.find(item => isNavItemActive(item.to, pathname))
+  if (direct) return direct
+  const parent = Object.entries(NESTED_UNDER).find(([to]) => isNavItemActive(to, pathname))
+  return parent && items.find(item => item.key === parent[1])
 }

@@ -1,5 +1,4 @@
-import { useState } from 'react'
-
+import { useBeat } from '@/hooks/use-beat'
 import { liveStateLabel, type LiveState } from '@/lib/live-state'
 import { cn } from '@/lib/utils'
 
@@ -15,14 +14,6 @@ const ring: Record<LiveState, { opacity: number; dash?: string }> = {
   measuring: { opacity: 0.55, dash: '5 4' },
   idle: { opacity: 0.35 },
   stale: { opacity: 0.8, dash: '2 2' },
-}
-
-function useBeat(sample: unknown) {
-  const [seen, setSeen] = useState({ sample, beat: 0 })
-  if (Object.is(seen.sample, sample)) return seen.beat
-  const next = { sample, beat: seen.beat + 1 }
-  setSeen(next)
-  return next.beat
 }
 
 export function LiveOrb({
