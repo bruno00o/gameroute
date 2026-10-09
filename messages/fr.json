@@ -436,7 +436,7 @@
   "help_term_service_desc": "Le réseau qui héberge le serveur de la partie : celui de l'éditeur ou de son hébergeur.",
   "help_term_added_desc": "La part du ping ajoutée sur le réseau d'un opérateur, d'après la trace.",
   "help_term_asn": "AS",
-  "help_term_asn_desc": "Le numéro d'un réseau sur Internet, par exemple AS15557 pour SFR. GameRoute le lit hors ligne dans GeoLite2 pour nommer l'opérateur de chaque routeur.",
+  "help_term_asn_desc": "Le numéro d'un réseau sur Internet, par exemple AS9002 pour RETN. GameRoute le lit hors ligne dans GeoLite2 pour nommer l'opérateur de chaque routeur.",
   "help_term_status": "Qualité ({levels})",
   "help_term_status_desc": "Avec une habitude, le ping d'une partie passe « {watch} » à +20 ms au-dessus, « {degraded} » à +50 ms et « {critical} » à +100 ms. Sans habitude, des seuils fixes s'appliquent au ping. La perte qui continue jusqu'au dernier saut qui répond se compare toujours à des seuils fixes. L'écran d'une partie détaille le calcul dans « {why} ».",
   "help_term_usual": "Habitude",

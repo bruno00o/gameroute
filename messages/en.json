@@ -436,7 +436,7 @@
   "help_term_service_desc": "The network that hosts the match server: the publisher's own, or its host's.",
   "help_term_added_desc": "The part of the ping added on an operator's network, according to the trace.",
   "help_term_asn": "AS",
-  "help_term_asn_desc": "The number of a network on the internet, for example AS15557 for SFR. GameRoute reads it offline from GeoLite2 to name the operator of each router.",
+  "help_term_asn_desc": "The number of a network on the internet, for example AS9002 for RETN. GameRoute reads it offline from GeoLite2 to name the operator of each router.",
   "help_term_status": "Quality ({levels})",
   "help_term_status_desc": "With a usual ping, a match turns “{watch}” at +20 ms above it, “{degraded}” at +50 ms and “{critical}” at +100 ms. Without one, fixed thresholds apply to the ping. Loss that carries on to the last hop that answers is always compared with fixed thresholds. The match screen details the calculation under “{why}”.",
   "help_term_usual": "Usual ping",

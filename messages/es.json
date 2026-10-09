@@ -436,7 +436,7 @@
   "help_term_service_desc": "La red que aloja el servidor de la partida: la del editor o la de su proveedor de alojamiento.",
   "help_term_added_desc": "La parte del ping que se añade en la red de un operador, según la traza.",
   "help_term_asn": "AS",
-  "help_term_asn_desc": "El número de una red en internet, por ejemplo AS15557 para SFR. GameRoute lo lee sin conexión en GeoLite2 para nombrar al operador de cada router.",
+  "help_term_asn_desc": "El número de una red en internet, por ejemplo AS9002 para RETN. GameRoute lo lee sin conexión en GeoLite2 para nombrar al operador de cada router.",
   "help_term_status": "Calidad ({levels})",
   "help_term_status_desc": "Con un ping habitual, una partida pasa a «{watch}» a +20 ms por encima, a «{degraded}» a +50 ms y a «{critical}» a +100 ms. Sin él, se aplican umbrales fijos al ping. La pérdida que continúa hasta el último salto que responde siempre se compara con umbrales fijos. La pantalla de una partida detalla el cálculo en «{why}».",
   "help_term_usual": "Ping habitual",
