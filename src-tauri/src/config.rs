@@ -143,6 +143,14 @@ pub const LIVE_STATUS_MATCH_REFRESH_SECS: i64 = 5;
 
 pub const LIVE_STATUS_USUAL_DAYS: i64 = 90;
 
+// ── Alerts ─────────────────────────────────────────────────────────────────
+
+pub const ALERT_CRITICAL_SECS: i64 = 30;
+
+pub const ALERT_COOLDOWN_SECS: i64 = 600;
+
+pub const SUPPORTED_LOCALES: [&str; 3] = ["en", "fr", "es"];
+
 // ── Database ──────────────────────────────────────────────────────────────
 
 /// Timeout for acquiring a connection from the SQLite pool.

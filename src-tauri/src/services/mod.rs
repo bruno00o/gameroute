@@ -1,3 +1,5 @@
+pub mod alert_text;
+pub mod alerts;
 pub mod app_settings;
 pub mod asn_resolver;
 pub mod capture_client;

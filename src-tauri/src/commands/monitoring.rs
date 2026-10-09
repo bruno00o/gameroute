@@ -13,6 +13,7 @@ use crate::models::{
     TracerouteStartedEvent,
 };
 use crate::platform;
+use crate::services::alerts;
 use crate::services::asn_resolver::resolve_ip;
 use crate::services::flow_kind::{classify, is_known_game_server};
 use crate::services::game_logs::watch::follow_game_logs;
@@ -128,6 +129,9 @@ fn follow_live_samples(
             session_id,
             &game.game_name,
             move |status| {
+                if let Some(status) = status {
+                    alerts::watch(&emitter, status);
+                }
                 if let Err(e) = emitter.emit("live-status", status) {
                     log::warn!("Failed to emit live-status: {}", e);
                 }

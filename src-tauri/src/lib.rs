@@ -36,8 +36,8 @@ use commands::sessions::{
     get_session_matches, retry_traceroutes,
 };
 use commands::settings::{
-    delete_all_data, get_app_settings, get_storage_stats, set_minimize_to_tray,
-    set_session_retention,
+    delete_all_data, get_app_settings, get_storage_stats, set_alert_settings, set_locale,
+    set_minimize_to_tray, set_session_retention,
 };
 use config::{CACHE_MAX_TTL_DAYS, LIVE_PROBE_CONFIG_FILE_NAME, SETTINGS_FILE_NAME};
 use db::{get_ip_metadata_repository, get_session_repository};
@@ -123,6 +123,9 @@ pub fn run() {
                 .minimize_to_tray
                 .store(settings.minimize_to_tray, Ordering::Relaxed);
             app.manage(settings_store);
+            app.manage(services::alerts::AlertService::new(Box::new(
+                services::alerts::SystemNotifier::new(app.handle().clone()),
+            )));
             app.manage(std::sync::Arc::new(
                 services::live_probe::store::LiveProbeService::load(
                     app_data_dir.join(LIVE_PROBE_CONFIG_FILE_NAME),
@@ -312,6 +315,8 @@ pub fn run() {
             get_app_settings,
             set_minimize_to_tray,
             set_session_retention,
+            set_alert_settings,
+            set_locale,
             get_storage_stats,
             delete_all_data,
             write_export_file,

@@ -5,7 +5,7 @@ use tauri::State;
 use super::monitoring::AppMonitoringState;
 use super::CommandError;
 use crate::db::get_storage_repository;
-use crate::models::settings::{AppSettings, StorageStats};
+use crate::models::settings::{AlertSettings, AppSettings, StorageStats};
 use crate::services::app_settings::{SettingsError, SettingsStore};
 use crate::services::asn_resolver;
 use crate::TraySettings;
@@ -13,7 +13,9 @@ use crate::TraySettings;
 impl From<SettingsError> for CommandError {
     fn from(e: SettingsError) -> Self {
         match e {
-            SettingsError::UnsupportedRetention(_) => CommandError::validation(&e.to_string()),
+            SettingsError::UnsupportedRetention(_) | SettingsError::UnsupportedLocale(_) => {
+                CommandError::validation(&e.to_string())
+            }
             _ => CommandError::internal(format!("Failed to save settings: {e}")),
         }
     }
@@ -41,6 +43,22 @@ pub fn set_session_retention(
     store: State<'_, SettingsStore>,
 ) -> Result<AppSettings, CommandError> {
     Ok(store.update(|s| s.session_retention_days = days)?)
+}
+
+#[tauri::command]
+pub fn set_alert_settings(
+    alerts: AlertSettings,
+    store: State<'_, SettingsStore>,
+) -> Result<AppSettings, CommandError> {
+    Ok(store.update(|s| s.alerts = alerts)?)
+}
+
+#[tauri::command]
+pub fn set_locale(
+    locale: String,
+    store: State<'_, SettingsStore>,
+) -> Result<AppSettings, CommandError> {
+    Ok(store.update(|s| s.locale = Some(locale))?)
 }
 
 #[tauri::command]
