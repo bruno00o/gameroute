@@ -165,6 +165,23 @@ describe('Live probe settings', () => {
       )
     )
   })
+
+  it('saves the switch for the router and ISP router probes', async () => {
+    vi.mocked(getLiveProbeConfig).mockResolvedValue(config)
+    vi.mocked(setLiveProbeConfig).mockImplementation(async c => c)
+    renderRoute(CaptureRoute)
+
+    const zones = await screen.findByRole('switch', { name: /Router and ISP router probes/ })
+    await waitFor(() => expect(zones).toBeChecked())
+    await userEvent.click(zones)
+
+    await waitFor(() =>
+      expect(setLiveProbeConfig).toHaveBeenCalledWith(
+        { ...config, zones: false },
+        expect.anything()
+      )
+    )
+  })
 })
 
 describe('Privacy settings', () => {

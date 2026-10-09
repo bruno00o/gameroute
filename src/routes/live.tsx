@@ -1,8 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 
 import * as m from '@/paraglide/messages'
 import { currentMatch, currentTrace, liveScreen } from '@/lib/live'
 import { flowServerLabel } from '@/lib/matches'
+import { getMatchIncidents } from '@/lib/tauri'
 import { useServiceHealthCheck } from '@/hooks/use-service-health-check'
 import { useSessionData } from '@/hooks/use-session-data'
 import { useLiveStore } from '@/stores/live-store'
@@ -13,6 +15,8 @@ import { LiveMatch } from '@/components/live/live-match'
 import { LiveWaiting } from '@/components/live/live-waiting'
 import { Panel } from '@/components/panel'
 import { SessionHeader } from '@/components/session/session-screen'
+
+const INCIDENTS_REFRESH_MS = 5_000
 
 export const Route = createFileRoute('/live')({
   component: LivePage,
@@ -30,6 +34,13 @@ function LivePage() {
   const sessionId = status?.sessionId ?? currentSessionId ?? 0
   const { detailQuery, matchesQuery } = useSessionData(screen === 'idle' ? 0 : sessionId)
   const matches = matchesQuery.data
+  const measured = screen === 'live' || screen === 'frozen'
+  const { data: incidents } = useQuery({
+    queryKey: ['live', 'incidents', sessionId],
+    queryFn: () => getMatchIncidents(sessionId),
+    enabled: measured && sessionId > 0,
+    refetchInterval: screen === 'live' ? INCIDENTS_REFRESH_MS : false,
+  })
 
   if (screen === 'idle') {
     return (
@@ -69,7 +80,13 @@ function LivePage() {
         {screen === 'frozen' && (
           <FrozenNotice status={status} serviceBanner={!isServiceRunning && !isLoading} />
         )}
-        <LiveMatch status={status} series={series} match={match} trace={trace} />
+        <LiveMatch
+          status={status}
+          series={series}
+          incidents={incidents}
+          match={match}
+          trace={trace}
+        />
       </div>
     </div>
   )

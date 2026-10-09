@@ -247,7 +247,7 @@ describe('Welcome flow', () => {
     expect(
       screen.getByText(/connects to GitHub for updates, Steam for game images and CARTO/)
     ).toBeInTheDocument()
-    expect(screen.getByText(/one per second to the last router of your ISP/)).toBeInTheDocument()
+    expect(screen.getByText(/your router.*to the last router of your ISP/)).toBeInTheDocument()
     expect(screen.getAllByRole('switch')).toHaveLength(2)
     expect(screen.getByRole('switch', { name: 'Start GameRoute with Windows' })).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: 'Detailed view' })).toBeInTheDocument()
