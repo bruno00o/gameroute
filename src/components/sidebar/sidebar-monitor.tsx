@@ -8,7 +8,9 @@ import { friendlyError } from '@/lib/errors'
 import { monitorLabel, type LiveState } from '@/lib/live-state'
 import { startMonitoring, stopMonitoring } from '@/lib/tauri'
 import { cn } from '@/lib/utils'
+import { useLiveStore } from '@/stores/live-store'
 import { useMonitoringStore } from '@/stores/monitoring-store'
+import { useBeat } from '@/hooks/use-beat'
 import { LiveBadge, LiveOrb } from '@/components/live-badge'
 import { ProcessSelector } from '@/components/process-selector'
 import { Button } from '@/components/ui/button'
@@ -22,6 +24,8 @@ export function SidebarMonitor({ liveState }: { liveState: LiveState }) {
   const gameName = useMonitoringStore(s => s.currentGame?.gameName)
   const sessionId = useMonitoringStore(s => s.currentSessionId)
   const server = useMonitoringStore(s => s.lastServer)
+  const sample = useLiveStore(s => s.beat)
+  const pulse = useBeat(sample)
   const [processOpen, setProcessOpen] = useState(false)
   const [isToggling, setIsToggling] = useState(false)
 
@@ -62,7 +66,7 @@ export function SidebarMonitor({ liveState }: { liveState: LiveState }) {
             />
           }
         >
-          <LiveOrb state={liveState} />
+          <LiveOrb state={liveState} beat={pulse} />
         </TooltipTrigger>
         <TooltipContent side="right">{summary}</TooltipContent>
       </Tooltip>
@@ -74,7 +78,7 @@ export function SidebarMonitor({ liveState }: { liveState: LiveState }) {
       data-slot="sidebar-monitor"
       className="bg-surface-sunken flex flex-col items-start gap-1.5 rounded-sm border p-3"
     >
-      <LiveBadge state={liveState} label={label} />
+      <LiveBadge state={liveState} label={label} sample={sample} />
       {isMonitoring && (
         <p
           className={cn(

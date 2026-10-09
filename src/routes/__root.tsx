@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Toaster } from '@/components/ui/sonner'
 import { useAutoStartMonitoring } from '@/hooks/use-auto-start-monitoring'
 import { useMatchEndToast } from '@/hooks/use-match-end-toast'
+import { useLiveSamples } from '@/hooks/use-live-samples'
 import { useMonitoringEvents } from '@/hooks/use-monitoring-events'
 import { useServiceHealthCheck } from '@/hooks/use-service-health-check'
 import { useSyncLocale } from '@/hooks/use-sync-locale'
@@ -62,6 +63,7 @@ function MainLayout() {
   const queryClient = useQueryClient()
   const [isFixing, setIsFixing] = useState(false)
   useMonitoringEvents()
+  useLiveSamples()
   useTracerouteEvents()
   useAutoStartMonitoring()
   useSyncLocale()

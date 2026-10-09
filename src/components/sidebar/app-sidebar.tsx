@@ -4,6 +4,7 @@ import { Link, useLocation } from '@tanstack/react-router'
 import { findNavItem, getNavigationGroups } from '@/lib/navigation'
 import * as m from '@/paraglide/messages'
 import { useServiceHealthCheck } from '@/hooks/use-service-health-check'
+import { useLiveStore } from '@/stores/live-store'
 import { selectLiveState, useMonitoringStore } from '@/stores/monitoring-store'
 import { LogoMark } from '@/components/logo-mark'
 import { NavMain } from '@/components/sidebar/nav-main'
@@ -25,7 +26,8 @@ import { cn } from '@/lib/utils'
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { pathname } = useLocation()
   const { isServiceRunning } = useServiceHealthCheck()
-  const liveState = useMonitoringStore(s => selectLiveState(s, isServiceRunning))
+  const frozen = useLiveStore(s => s.status?.state === 'frozen')
+  const liveState = useMonitoringStore(s => selectLiveState(s, isServiceRunning && !frozen))
   const groups = getNavigationGroups(liveState)
   const activeKey = findNavItem(groups, pathname)?.key
 
