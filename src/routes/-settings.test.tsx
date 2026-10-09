@@ -49,7 +49,12 @@ vi.mock('@tauri-apps/plugin-autostart', () => ({
 vi.mock('@tauri-apps/plugin-updater', () => ({ check: vi.fn() }))
 vi.mock('@tauri-apps/plugin-process', () => ({ relaunch: vi.fn() }))
 
-const settings: AppSettings = { minimizeToTray: true, sessionRetentionDays: 365 }
+const settings: AppSettings = {
+  minimizeToTray: true,
+  sessionRetentionDays: 365,
+  locale: null,
+  alerts: { criticalAlert: true, doNotDisturb: false, recap: 'changed' },
+}
 
 function renderRoute(route: { options: { component?: unknown } }) {
   const Screen = route.options.component as React.ComponentType

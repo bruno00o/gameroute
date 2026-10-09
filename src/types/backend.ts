@@ -354,9 +354,19 @@ export type PruneCacheResult = {
 }
 
 // ===== Settings =====
+export type RecapMode = 'always' | 'changed' | 'never'
+
+export type AlertSettings = {
+  criticalAlert: boolean
+  doNotDisturb: boolean
+  recap: RecapMode
+}
+
 export type AppSettings = {
   minimizeToTray: boolean
   sessionRetentionDays: number | null
+  locale: string | null
+  alerts: AlertSettings
 }
 
 export type StorageStats = {

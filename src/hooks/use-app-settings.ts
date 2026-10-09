@@ -5,7 +5,7 @@ import * as m from '@/paraglide/messages'
 import type { AppSettings } from '@/types/backend'
 import { getAppSettings } from '@/lib/tauri'
 
-const APP_SETTINGS_KEY = ['app-settings'] as const
+export const APP_SETTINGS_KEY = ['app-settings'] as const
 
 export function useAppSettings() {
   return useQuery({ queryKey: APP_SETTINGS_KEY, queryFn: getAppSettings, staleTime: Infinity })

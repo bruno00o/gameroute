@@ -116,7 +116,12 @@ beforeEach(() => {
   vi.mocked(checkCaptureServiceStatus).mockResolvedValue({ running: true, error: null })
   vi.mocked(getGames).mockResolvedValue(GAMES)
   vi.mocked(toggleGameMonitored).mockResolvedValue(undefined)
-  vi.mocked(getAppSettings).mockResolvedValue({ minimizeToTray: true, sessionRetentionDays: 365 })
+  vi.mocked(getAppSettings).mockResolvedValue({
+    minimizeToTray: true,
+    sessionRetentionDays: 365,
+    locale: null,
+    alerts: { criticalAlert: true, doNotDisturb: false, recap: 'changed' },
+  })
 })
 
 afterEach(() => {
