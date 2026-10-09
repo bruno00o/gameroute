@@ -1,7 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
 
-import { getMonitoringStatus, onGameDetected, onGameEnded, onServerIpCaptured } from '@/lib/tauri'
+import {
+  getMonitoringStatus,
+  onGameDetected,
+  onGameEnded,
+  onMonitoringChanged,
+  onServerIpCaptured,
+} from '@/lib/tauri'
 import { useMonitoringStore } from '@/stores/monitoring-store'
 
 const SESSION_POLL_INTERVAL_MS = 300
@@ -71,6 +77,16 @@ export function useMonitoringEvents() {
       onServerIpCaptured(event => {
         useMonitoringStore.getState().addCapturedIp(event)
       }),
+      onMonitoringChanged(() => {
+        getMonitoringStatus()
+          .then(status => {
+            if (status.isMonitoring) setStatus(status)
+            else useMonitoringStore.getState().reset()
+          })
+          .catch(e => {
+            console.warn('[monitoring] Failed to refresh status:', e)
+          })
+      }),
     ]
 
     return () => {
@@ -79,5 +95,5 @@ export function useMonitoringEvents() {
         unlisten.then(fn => fn()).catch(() => {})
       }
     }
-  }, [queryClient])
+  }, [queryClient, setStatus])
 }

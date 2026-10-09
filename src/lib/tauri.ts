@@ -14,6 +14,7 @@ import type {
   LiveStatus,
   MatchIncident,
   MatchRecap,
+  MiniState,
   MonitoringStatusResponse,
   NetworkOverviewStats,
   PruneCacheResult,
@@ -137,6 +138,15 @@ export const getMatchIncidents = (sessionId: number) =>
 export const getMatchRecap = (sessionId: number, periodId: number) =>
   invoke<MatchRecap | null>('get_match_recap', { sessionId, periodId })
 
+// ===== Mini window and tray =====
+export const getMiniState = () => invoke<MiniState>('get_mini_state')
+export const showMiniWindow = () => invoke<MiniState>('show_mini_window')
+export const hideMiniWindow = () => invoke<MiniState>('hide_mini_window')
+export const setMiniCollapsed = (collapsed: boolean) =>
+  invoke<MiniState>('set_mini_collapsed', { collapsed })
+export const setMiniAlwaysOnTop = (enabled: boolean) =>
+  invoke<MiniState>('set_mini_always_on_top', { enabled })
+
 // ===== Export =====
 export const writeExportFile = (path: string, content: string) =>
   invoke<void>('write_export_file', { path, content })
@@ -173,3 +183,5 @@ export const onLiveProbeSample = (cb: (sample: LiveProbeSample) => void): Promis
   listen<LiveProbeSample>('live-probe-sample', e => cb(e.payload))
 export const onLiveStatus = (cb: (status: LiveStatus | null) => void): Promise<UnlistenFn> =>
   listen<LiveStatus | null>('live-status', e => cb(e.payload))
+export const onMonitoringChanged = (cb: () => void): Promise<UnlistenFn> =>
+  listen('monitoring-changed', () => cb())
