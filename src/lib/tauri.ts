@@ -13,6 +13,7 @@ import type {
   LiveProbeState,
   LiveStatus,
   MatchIncident,
+  MatchRecap,
   MonitoringStatusResponse,
   NetworkOverviewStats,
   PruneCacheResult,
@@ -133,6 +134,8 @@ export const setLiveProbeConfig = (config: LiveProbeConfig) =>
 export const getLiveStatus = () => invoke<LiveStatus | null>('get_live_status')
 export const getMatchIncidents = (sessionId: number) =>
   invoke<MatchIncident[]>('get_match_incidents', { sessionId })
+export const getMatchRecap = (sessionId: number, periodId: number) =>
+  invoke<MatchRecap | null>('get_match_recap', { sessionId, periodId })
 
 // ===== Export =====
 export const writeExportFile = (path: string, content: string) =>

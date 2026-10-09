@@ -1,5 +1,9 @@
 import type {
   DbHop,
+  MatchIncident,
+  MatchRecap,
+  RecapPoint,
+  TimelineCell,
   IpPeriod,
   MeasuredFlow,
   OperatorRoute,
@@ -261,6 +265,109 @@ export function sessionDetail(overrides: Partial<SessionDetail> = {}): SessionDe
       trace(11, RIOT, at(15, 45, 41), riotRoute()),
       trace(12, TEAM_VOICE, at(15, 47), null),
     ],
+    ...overrides,
+  }
+}
+
+export function recapPoint(overrides: Partial<RecapPoint> = {}): RecapPoint {
+  return {
+    point: 'game',
+    basis: {
+      source: 'game',
+      atDestination: true,
+      measuredHop: null,
+      measuredAsn: null,
+      serverIp: RIOT,
+    },
+    atLeast: false,
+    hopIp: RIOT,
+    sampleCount: 38,
+    sent: 7600,
+    lost: 30,
+    lossPct: 0.4,
+    pingMs: 13.2,
+    jitterMs: 2.1,
+    jitterPeak: { value: 9.4, at: at(15, 57, 10) },
+    worst: { value: 52, at: at(15, 57, 48) },
+    ...overrides,
+  }
+}
+
+export function recapIncident(overrides: Partial<MatchIncident> = {}): MatchIncident {
+  return {
+    id: 1,
+    sessionId: 1,
+    serverIp: RIOT,
+    serverPort: 7323,
+    matchStartedAt: at(15, 54),
+    startedAt: at(16, 6, 31),
+    endedAt: at(16, 7, 11),
+    status: 'degraded',
+    cause: 'loss',
+    basis: {
+      source: 'floor',
+      atDestination: false,
+      measuredHop: 5,
+      measuredAsn: null,
+      serverIp: null,
+    },
+    atLeast: true,
+    pingMs: 31,
+    usualMs: 18,
+    lossPct: 4,
+    jitterMs: null,
+    zone: 'isp',
+    afterHop: null,
+    atHop: 5,
+    asn: null,
+    operator: null,
+    ...overrides,
+  }
+}
+
+export function recapCells(count: number, flagged: number[] = []): TimelineCell[] {
+  return Array.from({ length: count }, (_, i) => ({
+    offsetSecs: i * 30,
+    status: flagged.includes(i) ? 'degraded' : i === 0 ? 'unmeasured' : 'ok',
+    pingMs: i === 0 ? null : 13 + (i % 3),
+  }))
+}
+
+export function matchRecap(overrides: Partial<MatchRecap> = {}): MatchRecap {
+  return {
+    sessionId: 1,
+    periodId: 102,
+    serverIp: RIOT,
+    serverPort: 7323,
+    startedAt: at(15, 54),
+    endedAt: at(16, 25, 12),
+    durationSecs: 1872,
+    bucketSecs: 30,
+    primary: 'game',
+    points: [
+      recapPoint({
+        point: 'floor',
+        basis: {
+          source: 'floor',
+          atDestination: false,
+          measuredHop: 5,
+          measuredAsn: null,
+          serverIp: null,
+        },
+        atLeast: true,
+        hopIp: '194.6.150.68',
+        sent: 18720,
+        lost: 75,
+        lossPct: 0.4,
+        pingMs: 4.7,
+        jitterMs: 0.8,
+        jitterPeak: null,
+        worst: { value: 21, at: at(16, 6, 40) },
+      }),
+      recapPoint(),
+    ],
+    cells: recapCells(63, [25, 26]),
+    incidents: [recapIncident()],
     ...overrides,
   }
 }
