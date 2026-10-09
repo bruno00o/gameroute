@@ -15,6 +15,7 @@ import {
   incidentSecs,
   incidentValues,
   incidentWhere,
+  matchStartingAt,
   pointLabel,
   pointVolume,
   recapHeadline,
@@ -164,5 +165,18 @@ describe('recentMatch', () => {
     expect(recentMatch(matches, end + 10 * 60_000)).toBe(last)
     expect(recentMatch(matches, end + 90 * 60_000)).toBeUndefined()
     expect(recentMatch([], end)).toBeUndefined()
+  })
+})
+
+describe('matchStartingAt', () => {
+  it('finds the match closest to the start the live status reported', () => {
+    const matches = sessionMatches()
+
+    expect(matchStartingAt(matches, matches[1].startedAt)?.number).toBe(2)
+    expect(
+      matchStartingAt(matches, new Date(Date.parse(matches[2].startedAt) + 800).toISOString())
+        ?.number
+    ).toBe(3)
+    expect(matchStartingAt([], matches[0].startedAt)).toBeUndefined()
   })
 })
