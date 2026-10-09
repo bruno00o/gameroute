@@ -13,6 +13,7 @@ pub mod live_probe;
 pub mod live_status;
 pub mod matches;
 pub mod network_capture;
+pub mod recap;
 pub mod riot_scanner;
 pub mod route_history;
 pub mod route_model;

@@ -12,6 +12,7 @@ pub mod live_status;
 pub mod ip_metadata;
 pub mod ip_period;
 pub mod network;
+pub mod recap;
 pub mod route_history;
 pub mod server_ip;
 pub mod session;

@@ -177,16 +177,25 @@ fn round(value: f64) -> f64 {
     (value * 10.0).round() / 10.0
 }
 
-fn reported_at_server(period: &IpPeriod, pings: &[GamePingSample]) -> Option<GameMeasure> {
+pub fn game_samples_at<'a>(
+    period: &IpPeriod,
+    pings: &'a [GamePingSample],
+) -> Vec<&'a GamePingSample> {
     let grace = Duration::seconds(GAME_PING_MATCH_GRACE_SECS);
-    let from = utc(&period.started_at)? - grace;
-    let to = utc(&period.ended_at)? + grace;
-    let timed: Vec<&GamePingSample> = pings
+    let (Some(from), Some(to)) = (utc(&period.started_at), utc(&period.ended_at)) else {
+        return Vec::new();
+    };
+    let (from, to) = (from - grace, to + grace);
+    pings
         .iter()
         .filter(|sample| sample.source == PingSource::Game && sample.rtt_ms.is_some())
         .filter(|sample| sample.has_peer(&period.ip, period.port))
         .filter(|sample| sample.at().is_some_and(|at| from <= at && at <= to))
-        .collect();
+        .collect()
+}
+
+fn reported_at_server(period: &IpPeriod, pings: &[GamePingSample]) -> Option<GameMeasure> {
+    let timed = game_samples_at(period, pings);
     let first = timed.first()?;
     let sent: i64 = timed.iter().filter_map(|sample| sample.packets_sent).sum();
     let lost: i64 = timed.iter().filter_map(|sample| sample.packets_lost).sum();
