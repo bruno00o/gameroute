@@ -3,8 +3,9 @@ import { useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'
 
 import * as m from '@/paraglide/messages'
-import { getAppSettings, getMatchIncidents, onLiveStatus } from '@/lib/tauri'
+import { getAppSettings, getMatchIncidents, getSessionMatches, onLiveStatus } from '@/lib/tauri'
 import { matchEndMessage, shouldAnnounce, summarizeMatch } from '@/lib/match-end'
+import { matchStartingAt } from '@/lib/recap'
 
 const TOAST_MS = 30_000
 
@@ -15,6 +16,26 @@ export function useMatchEndToast() {
 
   useEffect(() => {
     let current: Match | null = null
+
+    const openRecap = async (match: Match) => {
+      const id = String(match.sessionId)
+      try {
+        const target = matchStartingAt(
+          await getSessionMatches(match.sessionId),
+          match.matchStartedAt
+        )
+        if (target) {
+          await navigate({
+            to: '/sessions/$id/matches/$n/recap',
+            params: { id, n: String(target.number) },
+          })
+          return
+        }
+      } catch (e) {
+        console.warn('[live] Could not find the match to summarise:', e)
+      }
+      await navigate({ to: '/sessions/$id', params: { id } })
+    }
 
     const announce = async (match: Match) => {
       try {
@@ -31,8 +52,7 @@ export function useMatchEndToast() {
           duration: TOAST_MS,
           action: {
             label: m.match_end_open(),
-            onClick: () =>
-              navigate({ to: '/sessions/$id', params: { id: String(match.sessionId) } }),
+            onClick: () => void openRecap(match),
           },
         })
       } catch (e) {

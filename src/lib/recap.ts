@@ -168,3 +168,14 @@ export function recentMatch(
   const age = now - Date.parse(last.endedAt)
   return age >= -60_000 && age <= RECENT_MATCH_MS ? last : undefined
 }
+
+export function matchStartingAt(
+  matches: SessionMatch[],
+  startedAt: string
+): SessionMatch | undefined {
+  const target = Date.parse(startedAt)
+  return matches.reduce<SessionMatch | undefined>((best, match) => {
+    const gap = Math.abs(Date.parse(match.startedAt) - target)
+    return !best || gap < Math.abs(Date.parse(best.startedAt) - target) ? match : best
+  }, undefined)
+}
