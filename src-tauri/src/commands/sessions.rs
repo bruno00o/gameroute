@@ -5,12 +5,14 @@ use crate::db::sessions::SessionRepository;
 use crate::db::traceroutes::TracerouteRepository;
 use crate::db::{
     get_analytics_repository, get_game_ping_repository, get_ip_metadata_repository,
-    get_ip_period_repository, get_live_probe_repository, get_session_repository,
-    get_traceroute_repository, DbError,
+    get_ip_period_repository, get_live_probe_repository, get_match_incident_repository,
+    get_session_repository, get_traceroute_repository, DbError,
 };
-use crate::services::live_probe::{self, attach::attach_live_measures};
+use crate::models::recap::MatchRecap;
 use crate::models::session::{SessionDetail, SessionListFilter, SessionListPage, SessionMatch};
 use crate::models::traceroute_record::TracerouteWithHops;
+use crate::services::live_probe::{self, attach::attach_live_measures};
+use crate::services::recap::{build_recap, RecapInput};
 use crate::services::trace_targets::select_session_targets;
 use crate::services::usual::{match_history, MatchHistory};
 use crate::services::{matches, route_model, severity};
@@ -204,6 +206,59 @@ pub async fn get_session_matches(id: i64) -> Result<Vec<SessionMatch>, CommandEr
         }
     }
     Ok(matches)
+}
+
+#[tauri::command]
+pub async fn get_match_recap(
+    session_id: i64,
+    period_id: i64,
+) -> Result<Option<MatchRecap>, CommandError> {
+    if session_id <= 0 || period_id <= 0 {
+        return Err(CommandError::validation("Invalid session or period ID"));
+    }
+
+    let periods =
+        get_ip_period_repository().ok_or_else(|| CommandError::repo_not_initialized("IpPeriod"))?;
+    let flows = periods
+        .get_flow_periods(session_id)
+        .await
+        .map_err(|e| CommandError::internal(e.to_string()))?;
+    let Some(flow) = flows.into_iter().find(|flow| flow.period.id == period_id) else {
+        return Ok(None);
+    };
+
+    let pings = match get_game_ping_repository() {
+        Some(repo) => repo
+            .get_samples_for_sessions(&[session_id])
+            .await
+            .map_err(|e| CommandError::internal(e.to_string()))?,
+        None => Vec::new(),
+    };
+    let slices = match get_live_probe_repository() {
+        Some(repo) => repo
+            .get_slices_for_session(session_id)
+            .await
+            .map_err(|e| CommandError::internal(e.to_string()))?,
+        None => Vec::new(),
+    };
+    let incidents = match get_match_incident_repository() {
+        Some(repo) => repo
+            .get_for_session(session_id)
+            .await
+            .map_err(|e| CommandError::internal(e.to_string()))?,
+        None => Vec::new(),
+    };
+
+    Ok(build_recap(
+        RecapInput {
+            session_id,
+            period: &flow.period,
+            pings: &pings,
+            slices: &slices,
+            incidents: &incidents,
+        },
+        live_probe::asn_of,
+    ))
 }
 
 #[tauri::command]

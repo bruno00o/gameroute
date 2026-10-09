@@ -32,8 +32,8 @@ use commands::network::{
 };
 use commands::service::{check_capture_service_status, open_log_dir, restart_capture_service};
 use commands::sessions::{
-    delete_session, get_previous_session_id, get_session_detail, get_session_list,
-    get_session_matches, retry_traceroutes,
+    delete_session, get_match_recap, get_previous_session_id, get_session_detail,
+    get_session_list, get_session_matches, retry_traceroutes,
 };
 use commands::settings::{
     delete_all_data, get_app_settings, get_storage_stats, set_alert_settings, set_locale,
@@ -283,6 +283,7 @@ pub fn run() {
             get_session_list,
             get_session_detail,
             get_session_matches,
+            get_match_recap,
             get_previous_session_id,
             delete_session,
             retry_traceroutes,
