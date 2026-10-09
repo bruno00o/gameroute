@@ -5,6 +5,7 @@ use sysinfo::{Pid, ProcessRefreshKind, RefreshKind, System, UpdateKind};
 use crate::models::{DetectedGame, MonitoredGameEntry, RunningApp};
 
 pub mod icmp;
+pub mod shell;
 mod windows;
 use windows as os;
 
