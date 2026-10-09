@@ -17,8 +17,10 @@ import { UpdateDialog } from '@/components/update-dialog'
 import { Button } from '@/components/ui/button'
 import { Toaster } from '@/components/ui/sonner'
 import { useAutoStartMonitoring } from '@/hooks/use-auto-start-monitoring'
+import { useMatchEndToast } from '@/hooks/use-match-end-toast'
 import { useMonitoringEvents } from '@/hooks/use-monitoring-events'
 import { useServiceHealthCheck } from '@/hooks/use-service-health-check'
+import { useSyncLocale } from '@/hooks/use-sync-locale'
 import { useTracerouteEvents } from '@/hooks/use-traceroute-events'
 import { useSettingsStore } from '@/stores/settings-store'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
@@ -62,6 +64,8 @@ function MainLayout() {
   useMonitoringEvents()
   useTracerouteEvents()
   useAutoStartMonitoring()
+  useSyncLocale()
+  useMatchEndToast()
 
   useEffect(() => {
     checkForAppUpdatesOnStartup()
