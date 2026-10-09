@@ -822,6 +822,13 @@ export type RouteChange = {
   returned: boolean
 }
 
+// ===== Mini window =====
+export type MiniState = {
+  open: boolean
+  collapsed: boolean
+  alwaysOnTop: boolean
+}
+
 // ===== Service =====
 export type ServiceStatus = {
   running: boolean
