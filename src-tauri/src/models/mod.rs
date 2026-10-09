@@ -18,6 +18,7 @@ pub mod server_ip;
 pub mod session;
 pub mod settings;
 pub mod severity;
+pub mod shell;
 pub mod traceroute;
 pub mod traceroute_record;
 

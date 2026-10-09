@@ -169,6 +169,24 @@ pub const DEFAULT_SESSION_RETENTION_DAYS: u32 = 365;
 
 pub const SESSION_RETENTION_CHOICES_DAYS: [u32; 4] = [90, 180, 365, 730];
 
+// ── Mini window and tray ───────────────────────────────────────────────────
+
+pub const SHELL_SETTINGS_FILE_NAME: &str = "shell.json";
+
+pub const MINI_WINDOW_LABEL: &str = "mini";
+
+pub const MINI_WINDOW_URL: &str = "mini.html";
+
+pub const MINI_EXPANDED_SIZE: (f64, f64) = (320.0, 192.0);
+
+pub const MINI_COLLAPSED_SIZE: (f64, f64) = (264.0, 40.0);
+
+pub const MINI_SCREEN_MARGIN_PX: i32 = 16;
+
+pub const TRAY_REFRESH_MS: u64 = 1000;
+
+pub const TRAY_TOOLTIP_MAX_CHARS: usize = 120;
+
 // ── Pagination ─────────────────────────────────────────────────────────────
 
 /// Default page size when the caller provides <= 0.

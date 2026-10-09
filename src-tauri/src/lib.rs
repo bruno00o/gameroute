@@ -22,6 +22,10 @@ use commands::insights::{
 };
 use commands::live_probe::{get_live_probe_config, get_live_probe_state, set_live_probe_config};
 use commands::live_status::{get_live_status, get_match_incidents};
+use commands::mini::{
+    get_mini_state, hide_mini_window, set_mini_always_on_top, set_mini_collapsed,
+    show_mini_window,
+};
 use commands::monitoring::{
     cancel_traceroute, get_monitoring_status, list_running_apps,
     start_manual_monitoring, start_monitoring, stop_monitoring, AppMonitoringState,
@@ -39,14 +43,17 @@ use commands::settings::{
     delete_all_data, get_app_settings, get_storage_stats, set_alert_settings, set_locale,
     set_minimize_to_tray, set_session_retention,
 };
-use config::{CACHE_MAX_TTL_DAYS, LIVE_PROBE_CONFIG_FILE_NAME, SETTINGS_FILE_NAME};
+use config::{
+    CACHE_MAX_TTL_DAYS, LIVE_PROBE_CONFIG_FILE_NAME, MINI_WINDOW_LABEL, SETTINGS_FILE_NAME,
+    SHELL_SETTINGS_FILE_NAME,
+};
 use db::{get_ip_metadata_repository, get_session_repository};
 use services::app_settings::SettingsStore;
-use services::{asn_resolver, flow_kind, game_logs};
+use services::mini_window::MiniWindowState;
+use services::shell_settings::ShellSettingsStore;
+use services::{asn_resolver, flow_kind, game_logs, mini_window, tray, tray_view};
 use tauri::path::BaseDirectory;
 use tauri::Manager;
-use tauri::menu::{MenuBuilder, MenuItemBuilder};
-use tauri::tray::TrayIconBuilder;
 
 pub struct TraySettings {
     pub minimize_to_tray: AtomicBool,
@@ -126,6 +133,10 @@ pub fn run() {
             app.manage(services::alerts::AlertService::new(Box::new(
                 services::alerts::SystemNotifier::new(app.handle().clone()),
             )));
+            app.manage(ShellSettingsStore::load(
+                app_data_dir.join(SHELL_SETTINGS_FILE_NAME),
+            ));
+            app.manage(MiniWindowState::default());
             app.manage(std::sync::Arc::new(
                 services::live_probe::store::LiveProbeService::load(
                     app_data_dir.join(LIVE_PROBE_CONFIG_FILE_NAME),
@@ -207,15 +218,6 @@ pub fn run() {
                 }
             }
 
-            // Build system tray
-            let show = MenuItemBuilder::with_id("show", "Show GameRoute").build(app)?;
-            let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
-            let menu = MenuBuilder::new(app)
-                .item(&show)
-                .separator()
-                .item(&quit)
-                .build()?;
-
             let launched_hidden = std::env::args().any(|a| a == "--hidden");
             if launched_hidden {
                 if let Some(w) = app.get_webview_window("main") {
@@ -224,32 +226,15 @@ pub fn run() {
                 log::info!("Launched with --hidden, window kept in tray");
             }
 
-            TrayIconBuilder::new()
-                .icon(app.default_window_icon().expect("default window icon must be set in tauri.conf.json").clone())
-                .menu(&menu)
-                .on_menu_event(|app, event| match event.id().as_ref() {
-                    "show" => {
-                        if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.set_focus();
-                        }
-                    }
-                    "quit" => app.exit(0),
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let tauri::tray::TrayIconEvent::Click { .. } = event {
-                        if let Some(w) = tray.app_handle().get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.set_focus();
-                        }
-                    }
-                })
-                .build(app)?;
+            tray::setup(app)?;
 
             Ok(())
         })
         .on_window_event(|window, event| {
+            if window.label() == MINI_WINDOW_LABEL {
+                mini_window::on_window_event(window, event);
+                return;
+            }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let tray_settings = window.state::<TraySettings>();
                 if tray_settings.minimize_to_tray.load(Ordering::Relaxed) {
@@ -258,14 +243,16 @@ pub fn run() {
 
                     if !tray_settings.tray_notified.swap(true, Ordering::Relaxed) {
                         use tauri_plugin_notification::NotificationExt;
-                        let _ = window
-                            .app_handle()
+                        let app = window.app_handle();
+                        let _ = app
                             .notification()
                             .builder()
                             .title("GameRoute")
-                            .body("GameRoute is still running in the system tray.")
+                            .body(tray_view::still_running(tray::language(app)))
                             .show();
                     }
+                } else {
+                    mini_window::close(window.app_handle());
                 }
             }
         })
@@ -327,6 +314,11 @@ pub fn run() {
             write_export_pdf,
             get_live_status,
             get_match_incidents,
+            get_mini_state,
+            show_mini_window,
+            hide_mini_window,
+            set_mini_collapsed,
+            set_mini_always_on_top,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
