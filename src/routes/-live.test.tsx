@@ -19,6 +19,7 @@ import {
   checkCaptureServiceStatus,
   getLiveProbeState,
   getLiveStatus,
+  getIgnoredConnectionCount,
   getMatchIncidents,
   getSessionDetail,
   getSessionMatches,
@@ -36,10 +37,13 @@ import { riotRoute, sessionMatches, thresholds, trace } from '@/test/session-fix
 import {
   atMatch,
   gameReading,
+  homeFault,
+  incident,
   liveStatus,
   MATCH_START,
   probeSample,
   SERVER,
+  transitFault,
   waitingStatus,
 } from '@/test/live-fixtures'
 import { Route as LiveScreen } from './live'
@@ -144,6 +148,7 @@ beforeEach(() => {
   vi.mocked(getLiveStatus).mockResolvedValue(null)
   vi.mocked(getLiveProbeState).mockResolvedValue(noProbes)
   vi.mocked(getMatchIncidents).mockResolvedValue([])
+  vi.mocked(getIgnoredConnectionCount).mockResolvedValue(0)
   vi.mocked(getSessionDetail).mockResolvedValue(sessionDetail())
   vi.mocked(getSessionMatches).mockResolvedValue([])
   vi.mocked(getSeverityThresholds).mockResolvedValue(thresholds())
@@ -356,7 +361,7 @@ describe('Live samples', () => {
     renderLive()
     await waitFor(() => expect(listeners.probe).toBeDefined())
     emit(liveStatus())
-    await screen.findByText(/measured up to hop 8/)
+    await screen.findByText('measured up to hop 8 (RETN)', { selector: '[data-slot=live-basis]' })
 
     act(() => listeners.probe?.(probeSample({ second: 598, rttMs: 18 })))
     act(() => listeners.probe?.(probeSample({ second: 599, rttMs: 21 })))
@@ -364,5 +369,171 @@ describe('Live samples', () => {
     await waitFor(() => expect(document.querySelectorAll('[data-slot=spark-last]')).toHaveLength(1))
     expect(useLiveStore.getState().series.floor.map(point => point.v)).toEqual([18, 21])
     expect(useLiveStore.getState().beat).toBe(2)
+  })
+})
+
+const slot = (name: string) => document.querySelector<HTMLElement>(`[data-slot=${name}]`)
+const plain = (text: string | null | undefined) => text?.replace(/\u00a0/g, ' ')
+
+describe('Live verdict', () => {
+  it('states the figures of a healthy match in the verdict title', async () => {
+    monitor()
+    renderLive()
+    await waitFor(() => expect(listeners.status).toBeDefined())
+    emit(liveStatus())
+
+    const title = await screen.findByRole('heading', { name: /against .* usually, 0% loss/ })
+    expect(plain(title.textContent)).toBe('≥ 18 ms against ≥ 17 ms usually, 0% loss')
+    expect(slot('verdict')).toHaveAttribute('data-status', 'ok')
+    expect(slot('live-advice')).toBeNull()
+  })
+
+  it('locates a loss on the transit, with the time it started and what to do', async () => {
+    monitor()
+    renderLive()
+    await waitFor(() => expect(listeners.status).toBeDefined())
+    emit(liveStatus(transitFault()))
+
+    expect(
+      await screen.findByRole('heading', { name: '4% loss at RETN since 5:00, not at your end' })
+    ).toBeVisible()
+    const verdict = slot('verdict')!
+    expect(verdict).toHaveAttribute('data-status', 'degraded')
+    expect(verdict.querySelector('[data-zone=transit]')).toHaveAttribute('aria-current', 'true')
+    expect(verdict.querySelector('[data-zone=home]')).not.toHaveAttribute('aria-current')
+    expect(within(slot('live-advice')!).getByText(/network are not involved/)).toBeVisible()
+  })
+
+  it('hides the rest of the route behind the box when it loses packets', async () => {
+    monitor()
+    renderLive()
+    await waitFor(() => expect(listeners.status).toBeDefined())
+    emit(liveStatus(homeFault()))
+
+    expect(await screen.findByRole('heading', { name: '3% loss at home since 3:10' })).toBeVisible()
+    const verdict = slot('verdict')!
+    for (const zone of ['isp', 'transit', 'service']) {
+      expect(
+        within(verdict.querySelector<HTMLElement>(`[data-zone=${zone}]`)!).getByText(
+          'Hidden by the router'
+        )
+      ).toBeVisible()
+    }
+    expect(screen.getByText(/nothing can be said about the rest of the route/)).toBeVisible()
+    expect(slot('live-points')!.querySelectorAll('[data-kind=masked]')).toHaveLength(3)
+  })
+
+  it('stops rating the match once the signal is frozen', async () => {
+    monitor()
+    renderLive()
+    await waitFor(() => expect(listeners.status).toBeDefined())
+    emit(liveStatus({ ...transitFault(), state: 'frozen', frozenReason: 'no_samples' }))
+
+    await screen.findByText(/No new measurement for/)
+    expect(slot('verdict')).toBeNull()
+    expect(slot('live-points')!.querySelector('[data-point=floor]')).toHaveAttribute(
+      'data-status',
+      'unmeasured'
+    )
+  })
+})
+
+describe('Live points and flows', () => {
+  it('shows the measured points, not a curve per hop', async () => {
+    monitor()
+    renderLive()
+    await waitFor(() => expect(listeners.status).toBeDefined())
+    emit(liveStatus(transitFault()))
+
+    const points = await waitFor(() => {
+      const found = slot('live-points')
+      expect(found).not.toBeNull()
+      return found!
+    })
+    expect(
+      [...points.querySelectorAll('tbody tr')].map(row => row.getAttribute('data-point'))
+    ).toEqual(['gateway', 'floor'])
+    expect(points.textContent).toContain('Last router that answers · hop 8 · RETN')
+    expect(plain(points.textContent)).toContain('≥ 38 ms')
+    expect(points.querySelector('[data-slot=sparkline]')).toBeNull()
+    expect(document.querySelectorAll('[data-slot=sparkline]')).toHaveLength(1)
+  })
+
+  it('lists the game and voice flows and the ignored launcher connections', async () => {
+    monitor()
+    vi.mocked(getSessionMatches).mockResolvedValue(
+      sessionMatches().map(match =>
+        match.number === 1 ? { ...match, startedAt: MATCH_START } : match
+      )
+    )
+    vi.mocked(getIgnoredConnectionCount).mockResolvedValue(34)
+    renderLive()
+    await waitFor(() => expect(listeners.status).toBeDefined())
+    emit(liveStatus())
+
+    expect(await screen.findByText(/34 web connections from the launcher ignored/)).toBeVisible()
+    const flows = slot('live-flows')!
+    expect(within(flows).getByText('Game server')).toBeVisible()
+    expect(within(flows).getByText('Team and group voice')).toBeVisible()
+    expect(plain(flows.textContent)).toContain('≥ 18 ms')
+    expect(getIgnoredConnectionCount).toHaveBeenCalledWith(7)
+  })
+
+  it('keeps the flows free of an empty ignored line', async () => {
+    monitor()
+    renderLive()
+    await waitFor(() => expect(listeners.status).toBeDefined())
+    emit(liveStatus())
+
+    await screen.findByText('Game server')
+    expect(slot('live-ignored')).toBeNull()
+  })
+})
+
+describe('Live timeline', () => {
+  it('draws one cell per 30 seconds and the incidents of this match', async () => {
+    monitor()
+    vi.mocked(getMatchIncidents).mockResolvedValue([incident()])
+    renderLive()
+    await waitFor(() => expect(listeners.status).toBeDefined())
+    emit(liveStatus(transitFault()))
+
+    expect(await screen.findByText('1 incident in 10:00')).toBeVisible()
+    const timeline = slot('match-timeline')!
+    const cells = [...timeline.querySelectorAll('[data-slot=timeline-cell]')]
+    expect(cells).toHaveLength(20)
+    expect(cells.map(cell => cell.getAttribute('data-status')).slice(8, 14)).toEqual([
+      'ok',
+      'ok',
+      'degraded',
+      'degraded',
+      'ok',
+      'ok',
+    ])
+    expect(within(timeline).getByText('5:00 – 6:00')).toBeVisible()
+    expect(within(timeline).getByText('4% loss at RETN')).toBeVisible()
+    expect(within(timeline).getByText('now · 10:00')).toBeVisible()
+    expect(getMatchIncidents).toHaveBeenCalledWith(7)
+  })
+
+  it('says nothing happened when there is no incident', async () => {
+    monitor()
+    renderLive()
+    await waitFor(() => expect(listeners.status).toBeDefined())
+    emit(liveStatus())
+
+    expect(await screen.findByText('No incident in 10:00')).toBeVisible()
+  })
+
+  it('shows no timeline while the first measure is pending', async () => {
+    monitor()
+    renderLive()
+    await waitFor(() => expect(listeners.status).toBeDefined())
+    emit(liveStatus({ state: 'measuring', status: 'unmeasured', primary: null, zones: [] }))
+
+    await screen.findByText('First measurement in a few seconds.')
+    expect(slot('match-timeline')).toBeNull()
+    expect(slot('verdict')).toBeNull()
+    expect(getMatchIncidents).not.toHaveBeenCalled()
   })
 })

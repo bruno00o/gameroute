@@ -3,6 +3,7 @@ import type {
   LiveProbeSample,
   LiveReading,
   LiveStatus,
+  MatchIncident,
   PingBasis,
   RouteZone,
   Severity,
@@ -206,5 +207,104 @@ export function probeSample(
     atDestination: false,
     recent: { sent: 10, received: 10, lossPct: 0, medianMs: 18, jitterMs: 1 },
     ...rest,
+  }
+}
+
+export function incident(overrides: Partial<MatchIncident> = {}): MatchIncident {
+  return {
+    id: 1,
+    sessionId: 7,
+    serverIp: SERVER,
+    serverPort: 7220,
+    matchStartedAt: MATCH_START,
+    startedAt: atMatch(300),
+    endedAt: atMatch(360),
+    status: 'degraded',
+    cause: 'loss',
+    basis: floorBasis(),
+    atLeast: true,
+    pingMs: 38,
+    usualMs: 31,
+    lossPct: 4,
+    jitterMs: 6,
+    zone: 'transit',
+    afterHop: 5,
+    atHop: 6,
+    asn: 9002,
+    operator: 'RETN Limited',
+    ...overrides,
+  }
+}
+
+export function transitFault(): Pick<
+  LiveStatus,
+  'status' | 'statusSince' | 'cause' | 'primary' | 'points' | 'zones' | 'fault'
+> {
+  const floor = pointReading('floor', {
+    status: 'degraded',
+    cause: 'loss',
+    lossPct: 4,
+    lossFloorPct: 3,
+    medianMs: 38,
+  })
+  return {
+    status: 'degraded',
+    statusSince: atMatch(300),
+    cause: 'loss',
+    primary: floor,
+    points: [pointReading('gateway', { medianMs: 0.6, operator: null, asn: null }), floor],
+    zones: [
+      zone('home', 'clear', { point: 'gateway' }),
+      zone('isp', 'clear', { point: 'isp_edge' }),
+      zone('transit', 'fault', { point: 'floor' }),
+      zone('service', 'unmeasured', { silent: true }),
+    ],
+    fault: {
+      zone: 'transit',
+      zones: ['transit'],
+      cause: 'loss',
+      afterPoint: 'isp_edge',
+      afterHop: 4,
+      atPoint: 'floor',
+      atHop: 8,
+      asn: 9002,
+      operator: 'RETN Limited',
+    },
+  }
+}
+
+export function homeFault(): ReturnType<typeof transitFault> {
+  const gateway = pointReading('gateway', {
+    status: 'degraded',
+    cause: 'loss',
+    lossPct: 3,
+    lossFloorPct: 2,
+    medianMs: 9,
+    atLeast: false,
+    operator: null,
+  })
+  return {
+    status: 'degraded',
+    statusSince: atMatch(190),
+    cause: 'loss',
+    primary: gateway,
+    points: [gateway],
+    zones: [
+      zone('home', 'fault', { point: 'gateway' }),
+      zone('isp', 'masked'),
+      zone('transit', 'masked'),
+      zone('service', 'masked'),
+    ],
+    fault: {
+      zone: 'home',
+      zones: ['home'],
+      cause: 'loss',
+      afterPoint: null,
+      afterHop: null,
+      atPoint: 'gateway',
+      atHop: 1,
+      asn: null,
+      operator: null,
+    },
   }
 }

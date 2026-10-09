@@ -56,6 +56,13 @@ function LiveProbeSettings() {
         }
         disabled={!config}
       />
+      <SwitchField
+        label={m.settings_probes_zones()}
+        description={m.settings_probes_zones_description()}
+        checked={!!config && config.enabled && config.zones}
+        onCheckedChange={value => update(value ? { enabled: true, zones: true } : { zones: false })}
+        disabled={!config}
+      />
       {advancedMode && config && config.beacons.length > 0 && (
         <div className="flex flex-col gap-3">
           <h3 className="text-label text-muted-foreground font-stretch-[92%]">
