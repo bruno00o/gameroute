@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import type {
+  AlertSettings,
   AppSettings,
   DetectedGame,
   GameEndedEvent,
@@ -116,6 +117,9 @@ export const setMinimizeToTray = (enabled: boolean) =>
   invoke<AppSettings>('set_minimize_to_tray', { enabled })
 export const setSessionRetention = (days: number | null) =>
   invoke<AppSettings>('set_session_retention', { days })
+export const setAlertSettings = (alerts: AlertSettings) =>
+  invoke<AppSettings>('set_alert_settings', { alerts })
+export const setLocale = (locale: string) => invoke<AppSettings>('set_locale', { locale })
 export const getStorageStats = () => invoke<StorageStats>('get_storage_stats')
 export const deleteAllData = () => invoke<void>('delete_all_data')
 

@@ -11,6 +11,7 @@ export const Route = createFileRoute('/settings')({
 const sections = [
   { to: '/settings', label: m.settings_section_general },
   { to: '/settings/capture', label: m.settings_section_capture },
+  { to: '/settings/alerts', label: m.settings_section_alerts },
   { to: '/settings/privacy', label: m.settings_section_privacy },
 ] as const
 
