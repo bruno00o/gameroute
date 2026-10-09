@@ -4,12 +4,15 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use thiserror::Error;
 
-use crate::models::settings::{is_supported_retention, AppSettings};
+use crate::models::settings::{is_supported_locale, is_supported_retention, AppSettings};
 
 #[derive(Debug, Error)]
 pub enum SettingsError {
     #[error("Unsupported session retention: {0:?} days")]
     UnsupportedRetention(Option<u32>),
+
+    #[error("Unsupported locale: {0:?}")]
+    UnsupportedLocale(String),
 
     #[error("{0}")]
     Io(#[from] std::io::Error),
@@ -48,6 +51,9 @@ impl SettingsStore {
                 next.session_retention_days,
             ));
         }
+        if let Some(locale) = next.locale.as_deref().filter(|l| !is_supported_locale(l)) {
+            return Err(SettingsError::UnsupportedLocale(locale.to_string()));
+        }
         write_settings(&self.path, &next)?;
         *settings = next.clone();
         Ok(next)
@@ -75,6 +81,13 @@ fn read_settings(path: &Path) -> AppSettings {
             path.display()
         );
         settings.session_retention_days = AppSettings::default().session_retention_days;
+    }
+    if settings
+        .locale
+        .as_deref()
+        .is_some_and(|l| !is_supported_locale(l))
+    {
+        settings.locale = None;
     }
     settings
 }
@@ -107,6 +120,7 @@ mod tests {
     use crate::config::DEFAULT_SESSION_RETENTION_DAYS;
     use crate::db::create_test_pool;
     use crate::db::sessions::SessionRepository;
+    use crate::models::settings::{AlertSettings, RecapMode};
     use chrono::{Duration, Utc};
 
     fn settings_path(dir: &tempfile::TempDir) -> PathBuf {
@@ -123,6 +137,12 @@ mod tests {
             AppSettings {
                 minimize_to_tray: true,
                 session_retention_days: Some(DEFAULT_SESSION_RETENTION_DAYS),
+                locale: None,
+                alerts: AlertSettings {
+                    critical_alert: true,
+                    do_not_disturb: false,
+                    recap: RecapMode::Changed,
+                },
             }
         );
         assert_eq!(DEFAULT_SESSION_RETENTION_DAYS, 365);
@@ -143,6 +163,7 @@ mod tests {
             AppSettings {
                 minimize_to_tray: false,
                 session_retention_days: Some(180),
+                ..AppSettings::default()
             }
         );
 
@@ -150,8 +171,8 @@ mod tests {
         assert_eq!(
             SettingsStore::load(path.clone()).get(),
             AppSettings {
-                minimize_to_tray: true,
                 session_retention_days: None,
+                ..AppSettings::default()
             }
         );
 
@@ -199,6 +220,7 @@ mod tests {
             AppSettings {
                 minimize_to_tray: false,
                 session_retention_days: None,
+                ..AppSettings::default()
             }
         );
         assert_eq!(SettingsStore::load(path.clone()).get(), saved);
@@ -219,6 +241,46 @@ mod tests {
         ));
         assert_eq!(store.get(), AppSettings::default());
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn alerts_default_to_critical_only_and_old_files_still_load() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = settings_path(&dir);
+        std::fs::write(&path, r#"{"minimizeToTray":false}"#).unwrap();
+
+        let settings = SettingsStore::load(path.clone()).get();
+        assert!(settings.alerts.critical_alert);
+        assert!(!settings.alerts.do_not_disturb);
+        assert_eq!(settings.alerts.recap, RecapMode::Changed);
+        assert_eq!(settings.locale, None);
+
+        std::fs::write(
+            &path,
+            r#"{"locale":"fr","alerts":{"criticalAlert":false,"recap":"never"}}"#,
+        )
+        .unwrap();
+        let settings = SettingsStore::load(path.clone()).get();
+        assert_eq!(settings.locale.as_deref(), Some("fr"));
+        assert!(!settings.alerts.critical_alert);
+        assert!(!settings.alerts.do_not_disturb);
+        assert_eq!(settings.alerts.recap, RecapMode::Never);
+
+        std::fs::write(&path, r#"{"locale":"xx"}"#).unwrap();
+        assert_eq!(SettingsStore::load(path).get().locale, None);
+    }
+
+    #[test]
+    fn update_rejects_unsupported_locale() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = SettingsStore::load(settings_path(&dir));
+
+        assert!(store.update(|s| s.locale = Some("es".to_string())).is_ok());
+        assert!(matches!(
+            store.update(|s| s.locale = Some("de".to_string())),
+            Err(SettingsError::UnsupportedLocale(_))
+        ));
+        assert_eq!(store.get().locale.as_deref(), Some("es"));
     }
 
     async fn session_aged(repo: &SessionRepository, days: i64) -> i64 {
