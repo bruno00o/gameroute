@@ -15,8 +15,8 @@ export const EXAMPLE_ROUTE: OperatorRoute = {
     },
     {
       zone: 'isp',
-      asn: 15557,
-      name: 'SFR',
+      asn: null,
+      name: null,
       firstHop: 3,
       lastHop: 5,
       hops: 3,
