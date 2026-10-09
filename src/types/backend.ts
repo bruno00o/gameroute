@@ -838,3 +838,45 @@ export type AsnCommandError = {
   code: string
   message: string
 }
+
+// ===== Match recap =====
+export type RecapPeak = {
+  value: number
+  at: string
+}
+
+export type RecapPoint = {
+  point: LivePoint
+  basis: PingBasis
+  atLeast: boolean
+  hopIp: string | null
+  sampleCount: number
+  sent: number
+  lost: number
+  lossPct: number | null
+  pingMs: number | null
+  jitterMs: number | null
+  jitterPeak: RecapPeak | null
+  worst: RecapPeak | null
+}
+
+export type TimelineCell = {
+  offsetSecs: number
+  status: Severity
+  pingMs: number | null
+}
+
+export type MatchRecap = {
+  sessionId: number
+  periodId: number
+  serverIp: string
+  serverPort: number
+  startedAt: string
+  endedAt: string
+  durationSecs: number
+  bucketSecs: number
+  primary: LivePoint | null
+  points: RecapPoint[]
+  cells: TimelineCell[]
+  incidents: MatchIncident[]
+}

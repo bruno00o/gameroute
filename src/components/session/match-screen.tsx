@@ -3,6 +3,7 @@ import { RiArrowLeftSLine, RiArrowRightSLine } from '@remixicon/react'
 
 import * as m from '@/paraglide/messages'
 import type {
+  MatchRecap,
   MeasuredFlow,
   SessionDetail,
   SessionMatch,
@@ -28,6 +29,7 @@ import {
   usualPing,
   type TraceTiming,
 } from '@/lib/matches'
+import { hasRecap } from '@/lib/recap'
 import { formatRouteMs, hopCount, routeMapPoints } from '@/lib/route'
 import { cn } from '@/lib/utils'
 import { useAsnResolution } from '@/hooks/use-asn-resolution'
@@ -38,6 +40,7 @@ import { Panel } from '@/components/panel'
 import { HopList } from '@/components/route/hop-list'
 import { RouteMap } from '@/components/route/route-map'
 import { RouteStrip } from '@/components/route/route-strip'
+import { RecapTimelinePanel } from '@/components/session/recap-panels'
 import { SessionHeader } from '@/components/session/session-screen'
 import { StatusPill } from '@/components/status/status-pill'
 
@@ -47,7 +50,9 @@ type MatchScreenProps = {
   match: SessionMatch
   thresholds?: SeverityThresholds | null
   detailed?: boolean
+  recap?: MatchRecap | null
   onSelectMatch?: (match: SessionMatch) => void
+  onOpenRecap?: () => void
 }
 
 const IGNORED_TARGETS =
@@ -338,7 +343,9 @@ function MatchScreen({
   match,
   thresholds,
   detailed = false,
+  recap,
   onSelectMatch,
+  onOpenRecap,
 }: MatchScreenProps) {
   const index = matches.findIndex(item => item.periodId === match.periodId)
   const previous = index > 0 ? matches[index - 1] : undefined
@@ -357,6 +364,11 @@ function MatchScreen({
         actions={
           <>
             <StatusPill status={match.status} />
+            {onOpenRecap && hasRecap(recap) && (
+              <Button size="sm" variant="secondary" onClick={onOpenRecap}>
+                {m.recap_open()}
+              </Button>
+            )}
             {onSelectMatch && (
               <>
                 <Button
@@ -395,6 +407,7 @@ function MatchScreen({
           pending={detail.endedAt === null && !matchMeasure(match)}
           context={regionPingsText(match, detail.gameName)}
         />
+        {hasRecap(recap) && <RecapTimelinePanel recap={recap} />}
         <div className="flex flex-wrap items-start gap-4">
           <MatchRoute
             className="flex-[999_1_520px]"

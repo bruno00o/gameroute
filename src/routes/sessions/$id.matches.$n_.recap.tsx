@@ -3,58 +3,51 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 
 import * as m from '@/paraglide/messages'
-import type { SessionMatch } from '@/types/backend'
 import { formatDay } from '@/lib/format'
 import { useMatchRecap } from '@/hooks/use-match-recap'
 import { useSessionData } from '@/hooks/use-session-data'
 import { useBreadcrumbStore } from '@/stores/breadcrumb-store'
-import { useSettingsStore } from '@/stores/settings-store'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/empty-state'
 import { DetailSkeleton } from '@/components/session/detail-skeleton'
-import { MatchScreen } from '@/components/session/match-screen'
+import { RecapScreen } from '@/components/session/recap-screen'
 import { SessionGone, SessionLoadError } from '@/components/session/session-states'
 
-export const Route = createFileRoute('/sessions/$id/matches/$n')({
-  component: MatchPage,
+export const Route = createFileRoute('/sessions/$id/matches/$n_/recap')({
+  component: RecapPage,
 })
 
-function MatchPage() {
+function RecapPage() {
   const { id, n } = Route.useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const setSegments = useBreadcrumbStore(s => s.setSegments)
-  const detailed = useSettingsStore(s => s.advancedMode)
 
   const sessionId = Number(id)
-  const { valid, ongoing, detailQuery, matchesQuery, thresholds } = useSessionData(sessionId)
+  const { valid, ongoing, detailQuery, matchesQuery } = useSessionData(sessionId)
   const detail = detailQuery.data
   const matches = matchesQuery.data
   const match = matches?.find(item => String(item.number) === n)
-  const { data: recap } = useMatchRecap(sessionId, match?.periodId, ongoing)
+  const recapQuery = useMatchRecap(sessionId, match?.periodId, ongoing)
 
   const backToSession = useCallback(
-    () => navigate({ to: '/sessions/$id', params: { id } }),
+    () => navigate({ to: '/sessions/$id', params: { id }, search: { period: undefined } }),
     [navigate, id]
   )
-  const openRecap = useCallback(
-    () => navigate({ to: '/sessions/$id/matches/$n/recap', params: { id, n } }),
+  const openMatch = useCallback(
+    () => navigate({ to: '/sessions/$id/matches/$n', params: { id, n } }),
     [navigate, id, n]
-  )
-  const selectMatch = useCallback(
-    (target: SessionMatch) =>
-      navigate({ to: '/sessions/$id/matches/$n', params: { id, n: String(target.number) } }),
-    [navigate, id]
   )
 
   useEffect(() => {
     if (!detail) return
     setSegments([
       { label: formatDay(detail.startedAt, { weekday: true }), onClick: backToSession },
-      { label: m.match_title({ number: n }) },
+      { label: m.match_title({ number: n }), onClick: openMatch },
+      { label: m.recap_scope() },
     ])
     return () => setSegments([])
-  }, [detail, n, backToSession, setSegments])
+  }, [detail, n, backToSession, openMatch, setSegments])
 
   if (!valid || detail === null) {
     return <SessionGone onBack={() => navigate({ to: '/sessions' })} />
@@ -81,17 +74,17 @@ function MatchPage() {
     )
   }
 
+  if (recapQuery.isPending && !recapQuery.isError) return <DetailSkeleton />
+
   return (
     <div className="h-full overflow-y-auto">
-      <MatchScreen
+      <RecapScreen
         detail={detail}
         matches={matches}
         match={match}
-        thresholds={thresholds}
-        detailed={detailed}
-        recap={recap}
-        onSelectMatch={selectMatch}
-        onOpenRecap={openRecap}
+        recap={recapQuery.data}
+        onOpenMatch={openMatch}
+        onPrepareReport={() => navigate({ to: '/reports', search: { session: sessionId } })}
       />
     </div>
   )

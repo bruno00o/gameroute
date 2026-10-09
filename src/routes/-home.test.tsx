@@ -19,12 +19,20 @@ import type {
   SessionListItem,
   SessionListPage,
 } from '@/types/backend'
-import { checkCaptureServiceStatus, getGames, getServerSummary, getSessionList } from '@/lib/tauri'
+import {
+  checkCaptureServiceStatus,
+  getGames,
+  getServerSummary,
+  getSessionList,
+  getSessionMatches,
+} from '@/lib/tauri'
+import { sessionMatches } from '@/test/session-fixtures'
 import { Route as HomeRoute } from './index'
 
 vi.mock('@/lib/tauri', () => ({
   getServerSummary: vi.fn(),
   getSessionList: vi.fn(),
+  getSessionMatches: vi.fn(),
   getGames: vi.fn(),
   checkCaptureServiceStatus: vi.fn(),
   openLogDir: vi.fn(() => Promise.resolve()),
@@ -49,6 +57,7 @@ const routeTree = rootRoute.addChildren([
   stub('/sessions'),
   stub('/sessions/$id'),
   stub('/sessions/$id/matches/$n'),
+  stub('/sessions/$id/matches/$n/recap'),
 ])
 
 function basis(atDestination: boolean): PingBasis {
@@ -202,6 +211,7 @@ beforeEach(() => {
     page([session({}), session({ id: 188, gameName: 'League of Legends', status: 'ok' })], 12)
   )
   vi.mocked(getGames).mockResolvedValue([])
+  vi.mocked(getSessionMatches).mockReset().mockResolvedValue([])
   vi.mocked(checkCaptureServiceStatus).mockResolvedValue({ running: true, error: null })
 })
 
@@ -344,5 +354,44 @@ describe('Home', () => {
 
     expect(await screen.findByText('The capture service is not responding.')).toBeInTheDocument()
     expect(await screen.findByText('No monitored game yet.')).toBeInTheDocument()
+  })
+
+  describe('after a match', () => {
+    const MINUTE = 60_000
+
+    function recentSession(endedMinutesAgo: number) {
+      const ended = Date.now() - endedMinutesAgo * MINUTE
+      const matches = sessionMatches()
+      const last = matches[matches.length - 1]
+      vi.mocked(getSessionList).mockResolvedValue(
+        page([session({ id: 1, endedAt: new Date(ended).toISOString() })], 12)
+      )
+      vi.mocked(getSessionMatches).mockResolvedValue([
+        ...matches.slice(0, -1),
+        { ...last, endedAt: new Date(ended).toISOString() },
+      ])
+    }
+
+    it('points to the summary of the match that just ended', async () => {
+      recentSession(10)
+      const user = userEvent.setup()
+      const router = renderHome()
+
+      expect(await screen.findByText(/Match 3 of VALORANT ended at/)).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'View the summary' }))
+
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe('/sessions/1/matches/3/recap')
+      )
+    })
+
+    it('says nothing once the match is old', async () => {
+      recentSession(180)
+      renderHome()
+
+      await screen.findByText('Last 7 days · 9 matches · 3 game servers')
+      expect(screen.queryByText(/ended at/)).not.toBeInTheDocument()
+      expect(getSessionMatches).not.toHaveBeenCalled()
+    })
   })
 })

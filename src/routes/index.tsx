@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/empty-state'
 import { Panel } from '@/components/panel'
 import { LoadError } from '@/components/load-error'
 import { FirstLaunch } from '@/components/home/first-launch'
+import { RecapNotice } from '@/components/home/recap-notice'
 import { ServerTable } from '@/components/home/server-table'
 import { sessionColumns } from '@/components/session/session-columns'
 import { Verdict } from '@/components/session/verdict'
@@ -72,6 +73,7 @@ function Overview({ summary, recent }: { summary?: ServerSummary; recent?: Sessi
 
   return (
     <>
+      <RecapNotice session={recent?.items[0]} />
       {!summary ? (
         <Skeleton className="h-28 w-full" />
       ) : verdict ? (
