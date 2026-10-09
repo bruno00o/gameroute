@@ -10,6 +10,7 @@ import {
 
 import { useSettingsStore } from '@/stores/settings-store'
 import { useAutoStartMonitoring } from '@/hooks/use-auto-start-monitoring'
+import { showMiniWindow } from '@/lib/tauri'
 import { Route as RootRoute } from './__root'
 
 vi.mock('@/hooks/use-auto-start-monitoring', () => ({ useAutoStartMonitoring: vi.fn() }))
@@ -25,7 +26,10 @@ vi.mock('@/components/sidebar/app-sidebar', () => ({ AppSidebar: () => null }))
 vi.mock('@/components/header', () => ({ Header: () => null }))
 vi.mock('@/components/update-dialog', () => ({ UpdateDialog: () => null }))
 vi.mock('@/lib/updater', () => ({ checkForAppUpdatesOnStartup: vi.fn() }))
-vi.mock('@/lib/tauri', () => ({ restartCaptureService: vi.fn() }))
+vi.mock('@/lib/tauri', () => ({
+  restartCaptureService: vi.fn(),
+  showMiniWindow: vi.fn(),
+}))
 
 function renderApp(initialPath: string) {
   const homeRoute = createRoute({
@@ -90,6 +94,14 @@ describe('First launch', () => {
     expect(await screen.findByText('Home screen')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/')
     expect(useAutoStartMonitoring).toHaveBeenCalled()
+  })
+
+  it('never opens the mini window by itself', async () => {
+    useSettingsStore.setState({ onboardingCompleted: true })
+    renderApp('/')
+
+    expect(await screen.findByText('Home screen')).toBeInTheDocument()
+    expect(showMiniWindow).not.toHaveBeenCalled()
   })
 
   it('leaves the welcome flow for the home screen when it is already completed', async () => {

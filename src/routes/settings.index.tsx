@@ -17,6 +17,7 @@ import { useTheme } from '@/components/use-theme'
 import { Button } from '@/components/ui/button'
 import { Segmented } from '@/components/ui/segmented'
 import { SwitchField } from '@/components/ui/switch'
+import { MiniWindowSettings } from '@/components/settings/mini-window-settings'
 import { SettingRow, SettingsSection } from '@/components/settings/settings-section'
 
 export const Route = createFileRoute('/settings/')({
@@ -44,6 +45,7 @@ function GeneralSettings() {
         <AutoStartSetting />
         <MinimizeToTraySetting />
       </SettingsSection>
+      <MiniWindowSettings />
       <SettingsSection title={m.settings_maintenance_title()}>
         <VersionSetting />
         <ReplayOnboardingSetting />

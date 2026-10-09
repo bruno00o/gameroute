@@ -33,6 +33,9 @@ vi.mock('@/lib/tauri', () => ({
   getAppSettings: vi.fn(),
   setMinimizeToTray: vi.fn(),
   openLogDir: vi.fn(),
+  getMiniState: vi.fn(() => new Promise(() => {})),
+  showMiniWindow: vi.fn(),
+  setMiniAlwaysOnTop: vi.fn(),
 }))
 
 vi.mock('@tauri-apps/plugin-autostart', () => ({

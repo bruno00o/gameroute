@@ -3,16 +3,19 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-import type { AppSettings } from '@/types/backend'
+import type { AppSettings, MiniState } from '@/types/backend'
 import {
   deleteAllData,
   getAppSettings,
   getIpMetadataStats,
   getLiveProbeConfig,
+  getMiniState,
   getStorageStats,
   setLiveProbeConfig,
+  setMiniAlwaysOnTop,
   setMinimizeToTray,
   setSessionRetention,
+  showMiniWindow,
 } from '@/lib/tauri'
 import { useMonitoringStore } from '@/stores/monitoring-store'
 import { Route as GeneralRoute } from './settings.index'
@@ -38,6 +41,9 @@ vi.mock('@/lib/tauri', () => ({
   setLiveProbeConfig: vi.fn(),
   restartCaptureService: vi.fn(),
   checkCaptureServiceStatus: vi.fn(() => Promise.resolve({ running: true, error: null })),
+  getMiniState: vi.fn(),
+  showMiniWindow: vi.fn(),
+  setMiniAlwaysOnTop: vi.fn(),
 }))
 
 vi.mock('@tauri-apps/api/app', () => ({ getVersion: () => Promise.resolve('0.1.18') }))
@@ -55,6 +61,7 @@ const settings: AppSettings = {
   locale: null,
   alerts: { criticalAlert: true, doNotDisturb: false, recap: 'changed' },
 }
+const miniState: MiniState = { open: false, collapsed: false, alwaysOnTop: false }
 
 function renderRoute(route: { options: { component?: unknown } }) {
   const Screen = route.options.component as React.ComponentType
@@ -68,6 +75,7 @@ function renderRoute(route: { options: { component?: unknown } }) {
 
 beforeEach(() => {
   vi.mocked(getAppSettings).mockResolvedValue(settings)
+  vi.mocked(getMiniState).mockResolvedValue(miniState)
   vi.mocked(getStorageStats).mockResolvedValue({
     databaseBytes: 10_400_000,
     sessionCount: 70,
@@ -96,6 +104,7 @@ describe('General settings', () => {
     expect(screen.getAllByRole('heading', { level: 2 }).map(h => h.textContent)).toEqual([
       'Language and display',
       'Startup',
+      'Mini window',
       'Updates and troubleshooting',
     ])
     expect(document.querySelector('[data-slot=card], [data-slot=panel]')).toBeNull()
@@ -125,6 +134,38 @@ describe('General settings', () => {
 
     expect(vi.mocked(setMinimizeToTray).mock.calls[0][0]).toBe(false)
     await waitFor(() => expect(toggle).not.toBeChecked())
+  })
+})
+
+describe('Mini window settings', () => {
+  it('opens the mini window only when asked', async () => {
+    vi.mocked(showMiniWindow).mockResolvedValue({ ...miniState, open: true })
+    renderRoute(GeneralRoute)
+
+    const button = screen.getByRole('button', { name: 'Show the mini window' })
+    await waitFor(() => expect(getMiniState).toHaveBeenCalled())
+    expect(showMiniWindow).not.toHaveBeenCalled()
+
+    await userEvent.click(button)
+
+    expect(showMiniWindow).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the mini window under games unless asked, and says why', async () => {
+    vi.mocked(setMiniAlwaysOnTop).mockResolvedValue({ ...miniState, alwaysOnTop: true })
+    renderRoute(GeneralRoute)
+
+    const toggle = screen.getByRole('switch', { name: 'Keep above other windows' })
+    await waitFor(() => expect(toggle).toBeEnabled())
+    expect(toggle).not.toBeChecked()
+    expect(
+      screen.getByText(/In exclusive fullscreen, Windows may minimize the game/)
+    ).toBeInTheDocument()
+
+    await userEvent.click(toggle)
+
+    expect(vi.mocked(setMiniAlwaysOnTop).mock.calls[0][0]).toBe(true)
+    await waitFor(() => expect(toggle).toBeChecked())
   })
 })
 
