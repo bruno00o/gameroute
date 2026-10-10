@@ -260,6 +260,27 @@ describe('History screen', () => {
     ])
   })
 
+  it('ramps each class of gap to its own step, up to the status colour', async () => {
+    renderHistory()
+
+    await screen.findByText(/Largest gap/)
+    const legend = screen.getByRole('list', { name: 'Legend' })
+    const swatches = within(legend)
+      .getAllByRole('listitem')
+      .slice(0, 5)
+      .map(item => item.querySelector('[aria-hidden]')!.className)
+    expect(swatches.map(name => name.match(/bg-heat-\w+/)?.[0])).toEqual([
+      'bg-heat-0',
+      'bg-heat-1',
+      'bg-heat-2',
+      'bg-heat-3',
+      'bg-heat-watch',
+    ])
+    expect(cellAt(4, 21)).toHaveClass('bg-heat-0')
+    expect(cellAt(3, 20)).toHaveClass('bg-heat-2')
+    expect(cellAt(6, 15)).toHaveClass('bg-heat-watch')
+  })
+
   it('hatches the hours that were never played and dashes the ones without comparison', async () => {
     renderHistory()
 
