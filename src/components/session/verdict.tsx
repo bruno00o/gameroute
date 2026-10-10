@@ -62,7 +62,7 @@ function Verdict({ status, title, scope, zone, zones, action, children, classNam
           aria-label={m.verdict_locator()}
           className="grid grid-cols-4 gap-0.5 self-end max-[420px]:grid-cols-2"
         >
-          {ZONES.map((key, i) => {
+          {ZONES.map(key => {
             const view = zones[key]
             const guilty = zone === key
             return (
@@ -80,7 +80,7 @@ function Verdict({ status, title, scope, zone, zones, action, children, classNam
                   aria-hidden="true"
                   className={cn(
                     '-mx-2.5 mb-2 block h-1',
-                    (view.status && barColor[view.status]) || (i % 2 ? 'bg-route-b' : 'bg-route-a')
+                    (view.status && barColor[view.status]) || 'bg-(--zone)'
                   )}
                 />
                 <span className="text-label text-foreground font-semibold font-stretch-[92%] [overflow-wrap:anywhere] hyphens-auto">

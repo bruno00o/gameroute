@@ -395,6 +395,23 @@ describe('RouteStrip', () => {
     expect(stops[1].querySelector('.bg-critical, .bg-degraded, .bg-watch')).toBeNull()
   })
 
+  it('paints each segment in its zone hue unless a status takes over', () => {
+    render(
+      <RouteStrip
+        route={sfrRetnRiotRoute('critical')}
+        destination={destination}
+        persistentLoss={20}
+      />
+    )
+
+    const stops = within(screen.getByRole('list')).getAllByRole('listitem')
+    const pipe = (stop: HTMLElement) => stop.querySelector('[aria-hidden="true"] > :last-child')!
+    expect(pipe(stops[0])).toHaveClass('bg-(--zone)')
+    expect(pipe(stops[1])).toHaveClass('bg-(--zone)')
+    expect(pipe(stops[2])).toHaveClass('bg-critical')
+    expect(pipe(stops[2])).not.toHaveClass('bg-(--zone)')
+  })
+
   it('stacks vertically when its container is narrow', () => {
     vi.stubGlobal(
       'ResizeObserver',

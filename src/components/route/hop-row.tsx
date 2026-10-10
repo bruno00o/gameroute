@@ -12,7 +12,7 @@ type HopRail = 'route' | 'hatched' | 'watch' | 'degraded' | 'critical'
 type HopNode = 'hop' | 'silent' | 'destination' | 'destination-silent'
 
 const railLine: Record<HopRail, string> = {
-  route: 'before:bg-route-a',
+  route: 'before:bg-[var(--zone,var(--route-a))]',
   hatched:
     'before:bg-[repeating-linear-gradient(180deg,var(--ink-subtle)_0_3px,transparent_3px_6px)]',
   watch: 'before:bg-watch',
@@ -21,7 +21,7 @@ const railLine: Record<HopRail, string> = {
 }
 
 const nodeRing: Record<HopRail, string> = {
-  route: 'shadow-[inset_0_0_0_2px_var(--route-a)]',
+  route: 'shadow-[inset_0_0_0_2px_var(--zone,var(--route-a))]',
   hatched: 'shadow-[inset_0_0_0_2px_var(--route-a)]',
   watch: 'shadow-[inset_0_0_0_2px_var(--watch)]',
   degraded: 'shadow-[inset_0_0_0_2px_var(--degraded)]',

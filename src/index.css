@@ -34,6 +34,10 @@
   --route-b: #81878d;
   --measured: #d3d7dc;
   --viz-2: #81878d;
+  --zone-home: #6d767f;
+  --zone-isp: #57659d;
+  --zone-transit: #855e8d;
+  --zone-service: #34807a;
   --scrim: #151a2166;
   --overlay-shadow: 0 12px 32px -8px #151a2133, 0 0 0 1px var(--line);
   --secondary: var(--surface-sunken);
@@ -69,6 +73,10 @@
   --route-b: #6d747d;
   --measured: #363c44;
   --viz-2: #8a9199;
+  --zone-home: #96a0a9;
+  --zone-isp: #8c9bd4;
+  --zone-transit: #b68dc0;
+  --zone-service: #6fb3ad;
   --scrim: #0a0c10b3;
   --overlay-shadow: 0 16px 40px -12px #000000cc, 0 0 0 1px var(--line);
   --secondary: var(--surface-raised);
@@ -250,6 +258,19 @@
 
   html {
     @apply font-sans;
+  }
+
+  [data-zone='home'] {
+    --zone: var(--zone-home);
+  }
+  [data-zone='isp'] {
+    --zone: var(--zone-isp);
+  }
+  [data-zone='transit'] {
+    --zone: var(--zone-transit);
+  }
+  [data-zone='service'] {
+    --zone: var(--zone-service);
   }
   .maplibregl-popup-content {
     @apply bg-transparent! shadow-none! p-0! rounded-none!;

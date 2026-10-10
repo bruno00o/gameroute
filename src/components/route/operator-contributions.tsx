@@ -72,7 +72,7 @@ function OperatorContributions({ usual, highlight, className }: OperatorContribu
             </div>
             <div aria-hidden="true" className="bg-muted h-2">
               <div
-                className={cn('h-full', (status && barColor[status]) || 'bg-route-a')}
+                className={cn('h-full', (status && barColor[status]) || 'bg-(--zone)')}
                 style={{ width: `${(Math.max(segment.addedMs, 0) / largest) * 100}%` }}
               />
             </div>
