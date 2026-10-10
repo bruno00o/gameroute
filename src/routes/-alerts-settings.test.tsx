@@ -57,10 +57,14 @@ describe('Alert settings', () => {
   it('warns on critical by default and says what critical means', async () => {
     renderScreen()
 
-    const toggle = screen.getByRole('switch', { name: 'Warn me when the connection turns critical' })
+    const toggle = screen.getByRole('switch', {
+      name: 'Warn me when the connection turns critical',
+    })
     await waitFor(() => expect(toggle).toBeEnabled())
     expect(toggle).toBeChecked()
-    expect(screen.getByRole('switch', { name: 'Do not disturb during the match' })).not.toBeChecked()
+    expect(
+      screen.getByRole('switch', { name: 'Do not disturb during the match' })
+    ).not.toBeChecked()
     expect(
       await screen.findByText(
         /after 30 s in the critical state: loss of at least 5%, jitter of at least 30 ms or ping 100 ms above your usual/
@@ -80,7 +84,9 @@ describe('Alert settings', () => {
     vi.mocked(setAlertSettings).mockImplementation(async alerts => ({ ...settings, alerts }))
     renderScreen()
 
-    const toggle = screen.getByRole('switch', { name: 'Warn me when the connection turns critical' })
+    const toggle = screen.getByRole('switch', {
+      name: 'Warn me when the connection turns critical',
+    })
     await waitFor(() => expect(toggle).toBeEnabled())
     await userEvent.click(toggle)
 

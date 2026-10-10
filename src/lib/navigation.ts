@@ -15,7 +15,15 @@ import * as m from '@/paraglide/messages'
 import type { LiveState } from '@/lib/live-state'
 
 export type NavKey =
-  'home' | 'live' | 'sessions' | 'games' | 'route' | 'history' | 'reports' | 'settings' | 'help'
+  | 'home'
+  | 'live'
+  | 'sessions'
+  | 'games'
+  | 'route'
+  | 'history'
+  | 'reports'
+  | 'settings'
+  | 'help'
 
 export type NavItem = {
   key: NavKey
