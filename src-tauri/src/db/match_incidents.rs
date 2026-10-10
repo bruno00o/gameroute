@@ -204,6 +204,29 @@ impl MatchIncidentRepository {
         .await?;
         rows.into_iter().map(MatchIncident::try_from).collect()
     }
+
+    pub async fn get_closed_router_incidents(&self) -> Result<Vec<MatchIncident>, DbError> {
+        let rows = sqlx::query_as::<_, IncidentRow>(
+            "SELECT id, session_id, server_ip, server_port, match_started_at, started_at, ended_at,
+                    status, cause, source, at_destination, measured_hop, measured_asn,
+                    basis_server_ip, ping_ms, usual_ms, loss_pct, jitter_ms, zone, after_hop,
+                    at_hop, asn, operator
+             FROM match_incidents
+             WHERE source = 'floor' AND at_destination = 0 AND ended_at IS NOT NULL
+             ORDER BY session_id ASC, started_at ASC, id ASC",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter().map(MatchIncident::try_from).collect()
+    }
+
+    pub async fn delete(&self, id: i64) -> Result<(), DbError> {
+        sqlx::query("DELETE FROM match_incidents WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
 }
 
 static MATCH_INCIDENT_REPOSITORY: OnceLock<Arc<MatchIncidentRepository>> = OnceLock::new();
@@ -283,5 +306,37 @@ mod tests {
 
         sessions.delete_session(id).await.unwrap();
         assert!(repo.get_for_session(id).await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn closed_router_incidents_can_be_listed_and_removed() {
+        let pool = create_test_pool().await;
+        let repo = MatchIncidentRepository::new(pool.clone());
+        let id = SessionRepository::new(pool)
+            .insert_session("VALORANT", "2026-10-08T20:00:00Z")
+            .await
+            .unwrap();
+
+        let mut open = incident(id);
+        open.id = repo.insert(&open).await.unwrap();
+        let mut closed = MatchIncident {
+            ended_at: Some("2026-10-08T20:26:00.000Z".to_string()),
+            ..incident(id)
+        };
+        closed.id = repo.insert(&closed).await.unwrap();
+        let mut server = MatchIncident {
+            ended_at: closed.ended_at.clone(),
+            ..incident(id)
+        };
+        server.basis.at_destination = true;
+        server.at_least = false;
+        server.id = repo.insert(&server).await.unwrap();
+
+        assert_eq!(
+            repo.get_closed_router_incidents().await.unwrap(),
+            vec![closed.clone()]
+        );
+        repo.delete(closed.id).await.unwrap();
+        assert_eq!(repo.get_for_session(id).await.unwrap(), vec![open, server]);
     }
 }

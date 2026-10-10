@@ -204,6 +204,10 @@ pub fn run() {
 
                     tauri::async_runtime::spawn(traceroute::recheck_problem_hops());
 
+                    tauri::async_runtime::spawn(
+                        services::live_status::recheck::recheck_router_incidents(),
+                    );
+
                     tauri::async_runtime::spawn(game_logs::import::backfill_game_pings());
 
                     tauri::async_runtime::spawn(async {

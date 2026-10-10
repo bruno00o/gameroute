@@ -1,6 +1,7 @@
 pub mod fault;
 pub mod history;
 pub mod machine;
+pub mod recheck;
 pub mod window;
 
 use crate::config::{
