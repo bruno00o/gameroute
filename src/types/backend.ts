@@ -18,6 +18,11 @@ export type ResolvedIpData = {
   geo: GeoLocation
 }
 
+export type HostnameEntry = {
+  ip: string
+  hostname: string | null
+}
+
 // ===== Severity =====
 export type Severity = 'ok' | 'watch' | 'degraded' | 'critical' | 'unmeasured'
 

@@ -2,6 +2,7 @@ use super::CommandError;
 use crate::db::get_ip_metadata_repository;
 use crate::models::ResolvedIpData;
 use crate::services::asn_resolver;
+use crate::services::reverse_dns::{self, HostnameEntry};
 use std::net::IpAddr;
 
 const MAX_RESOLVE_BATCH: usize = 500;
@@ -49,6 +50,11 @@ pub async fn resolve_asn(ips: Vec<String>) -> Result<Vec<ResolvedIpData>, Comman
 
     log::info!("ASN resolution complete: {} results", result.len());
     Ok(result)
+}
+
+#[tauri::command]
+pub async fn resolve_hostnames(ips: Vec<String>) -> Result<Vec<HostnameEntry>, CommandError> {
+    Ok(reverse_dns::get_reverse_dns().resolve(&ips).await)
 }
 
 #[tauri::command]

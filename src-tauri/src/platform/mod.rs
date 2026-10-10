@@ -4,6 +4,7 @@ use sysinfo::{Pid, ProcessRefreshKind, RefreshKind, System, UpdateKind};
 
 use crate::models::{DetectedGame, MonitoredGameEntry, RunningApp};
 
+pub mod dns;
 pub mod icmp;
 pub mod shell;
 mod windows;
