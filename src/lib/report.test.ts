@@ -178,12 +178,12 @@ describe('reportText', () => {
         Route: Your home +0.6 ms → Your ISP, SFR (AS15557) +3.0 ms → Transit, RETN (AS9002) +14 ms → Riot Games (doesn't answer pings) = ≥ 38 ms
         Hops:
           1. Your home, 0.6 ms
-          2. SFR, bas1.paris.sfr.net (77.136.10.6), 4.4 ms, Ignores some pings, which is normal
+          2. SFR, bas1.paris.sfr.net (77.136.10.6), 4.4 ms. Ignores some pings, which is normal.
           3. RETN, ae1-9.rt.th2.par.fr.retn.net (87.245.233.46), 18.5 ms, loss 33% (persistent)
           4. RETN, 87.245.240.1, 20.1 ms, loss 33% (persistent)
-          5. RETN, This router doesn't answer pings, which is normal
+          5. RETN. This router doesn't answer pings, which is normal.
           6. RETN, 87.245.250.9, 38.4 ms, loss 33% (persistent)
-          Game server, 162.249.72.5, This router doesn't answer pings, which is normal
+          Game server, 162.249.72.5. This router doesn't answer pings, which is normal.
 
       VALORANT, Sep 13, match 2
         Time: 15:54 → 16:25 (31 min 12 s)
@@ -197,8 +197,8 @@ describe('reportText', () => {
           1. Your home, 0.6 ms
           2. SFR, 77.136.10.6, 3.6 ms
           3. RETN, 87.245.233.46, 17.6 ms
-          4. RETN, This router doesn't answer pings, which is normal
-          Game server, 162.249.72.5, This router doesn't answer pings, which is normal
+          4. RETN. This router doesn't answer pings, which is normal.
+          Game server, 162.249.72.5. This router doesn't answer pings, which is normal.
 
       Measurement limits
       Each figure comes from one trace per server (3 probes per hop) started during the session, not from continuous measurement. Ping is the round trip to the last responding router; jitter is the spread of the 3 probes.
@@ -239,12 +239,12 @@ describe('reportText', () => {
         Route : Chez vous +0,6 ms → Votre FAI, SFR (AS15557) +3,0 ms → Transit, RETN (AS9002) +14 ms → Riot Games (ne répond pas aux pings) = ≥ 38 ms
         Sauts :
           1. Chez vous, 0,6 ms
-          2. SFR, bas1.paris.sfr.net (77.136.10.6), 4,4 ms, Ignore une partie des pings, c'est normal
+          2. SFR, bas1.paris.sfr.net (77.136.10.6), 4,4 ms. Ignore une partie des pings, c'est normal.
           3. RETN, ae1-9.rt.th2.par.fr.retn.net (87.245.233.46), 18,5 ms, perte 33 % (persistante)
           4. RETN, 87.245.240.1, 20,1 ms, perte 33 % (persistante)
-          5. RETN, Ce routeur ne répond pas aux pings, c'est normal
+          5. RETN. Ce routeur ne répond pas aux pings, c'est normal.
           6. RETN, 87.245.250.9, 38,4 ms, perte 33 % (persistante)
-          Serveur du jeu, 162.249.72.5, Ce routeur ne répond pas aux pings, c'est normal
+          Serveur du jeu, 162.249.72.5. Ce routeur ne répond pas aux pings, c'est normal.
 
       VALORANT, 13 sept., partie 2
         Heure : 15:54 → 16:25 (31 min 12 s)
@@ -258,8 +258,8 @@ describe('reportText', () => {
           1. Chez vous, 0,6 ms
           2. SFR, 77.136.10.6, 3,6 ms
           3. RETN, 87.245.233.46, 17,6 ms
-          4. RETN, Ce routeur ne répond pas aux pings, c'est normal
-          Serveur du jeu, 162.249.72.5, Ce routeur ne répond pas aux pings, c'est normal
+          4. RETN. Ce routeur ne répond pas aux pings, c'est normal.
+          Serveur du jeu, 162.249.72.5. Ce routeur ne répond pas aux pings, c'est normal.
 
       Limites de la mesure
       Chaque chiffre vient d'une trace par serveur (3 sondes par saut) lancée pendant la session, pas d'une mesure continue. Le ping est l'aller-retour jusqu'au dernier routeur qui répond ; la gigue est l'écart entre les 3 sondes.
@@ -300,12 +300,12 @@ describe('reportText', () => {
         Ruta: Tu casa +0,6 ms → Tu proveedor, SFR (AS15557) +3,0 ms → Tránsito, RETN (AS9002) +14 ms → Riot Games (no responde a los pings) = ≥ 38 ms
         Saltos:
           1. Tu casa, 0,6 ms
-          2. SFR, bas1.paris.sfr.net (77.136.10.6), 4,4 ms, Ignora parte de los pings, es normal
+          2. SFR, bas1.paris.sfr.net (77.136.10.6), 4,4 ms. Ignora parte de los pings, es normal.
           3. RETN, ae1-9.rt.th2.par.fr.retn.net (87.245.233.46), 18,5 ms, pérdida 33 % (persistente)
           4. RETN, 87.245.240.1, 20,1 ms, pérdida 33 % (persistente)
-          5. RETN, Este router no responde a los pings, es normal
+          5. RETN. Este router no responde a los pings, es normal.
           6. RETN, 87.245.250.9, 38,4 ms, pérdida 33 % (persistente)
-          Servidor del juego, 162.249.72.5, Este router no responde a los pings, es normal
+          Servidor del juego, 162.249.72.5. Este router no responde a los pings, es normal.
 
       VALORANT, 13 sept, partida 2
         Hora: 15:54 → 16:25 (31 min 12 s)
@@ -319,8 +319,8 @@ describe('reportText', () => {
           1. Tu casa, 0,6 ms
           2. SFR, 77.136.10.6, 3,6 ms
           3. RETN, 87.245.233.46, 17,6 ms
-          4. RETN, Este router no responde a los pings, es normal
-          Servidor del juego, 162.249.72.5, Este router no responde a los pings, es normal
+          4. RETN. Este router no responde a los pings, es normal.
+          Servidor del juego, 162.249.72.5. Este router no responde a los pings, es normal.
 
       Límites de la medición
       Cada cifra viene de una traza por servidor (3 sondeos por salto) lanzada durante la sesión, no de una medición continua. El ping es la ida y vuelta hasta el último router que responde; el jitter es la diferencia entre los 3 sondeos.
@@ -560,8 +560,8 @@ describe('reportText with a ping measured by the game', () => {
           1. Your home, 0.6 ms
           2. SFR, 77.136.10.6, 3.6 ms
           3. RETN, 87.245.233.46, 17.6 ms
-          4. RETN, This router doesn't answer pings, which is normal
-          Game server, 162.249.72.5, This router doesn't answer pings, which is normal
+          4. RETN. This router doesn't answer pings, which is normal.
+          Game server, 162.249.72.5. This router doesn't answer pings, which is normal.
 
       Measurement limits
       Values marked “measured by the game” are readings taken by the game during the match: round-trip ping to the server (median of the readings), jitter and lost packets.
@@ -605,8 +605,8 @@ describe('reportText with a ping measured by the game', () => {
           1. Chez vous, 0,6 ms
           2. SFR, 77.136.10.6, 3,6 ms
           3. RETN, 87.245.233.46, 17,6 ms
-          4. RETN, Ce routeur ne répond pas aux pings, c'est normal
-          Serveur du jeu, 162.249.72.5, Ce routeur ne répond pas aux pings, c'est normal
+          4. RETN. Ce routeur ne répond pas aux pings, c'est normal.
+          Serveur du jeu, 162.249.72.5. Ce routeur ne répond pas aux pings, c'est normal.
 
       Limites de la mesure
       Les valeurs « mesuré par le jeu » sont des relevés du jeu pendant la partie : ping aller-retour jusqu'au serveur (médiane des relevés), gigue et paquets perdus.
