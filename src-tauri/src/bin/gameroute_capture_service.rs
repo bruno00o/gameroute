@@ -456,7 +456,11 @@ mod service {
     ) -> Result<(), Box<dyn std::error::Error>> {
         // Read the length prefix (4 bytes, little-endian)
         let mut len_buf = [0u8; 4];
-        conn.read_exact(&mut len_buf)?;
+        let first = match conn.read(&mut len_buf) {
+            Ok(0) => return Ok(()),
+            result => result?,
+        };
+        conn.read_exact(&mut len_buf[first..])?;
 
         let msg_len = u32::from_le_bytes(len_buf) as usize;
         if msg_len > 1024 * 1024 {
@@ -999,6 +1003,50 @@ mod service {
         slog!("ETW capture complete: {} endpoints found", endpoints.len());
 
         Ok(endpoints)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::handle_client_request;
+        use std::io::{Cursor, Read, Write};
+
+        struct Conn {
+            input: Cursor<Vec<u8>>,
+            output: Vec<u8>,
+        }
+
+        impl Read for Conn {
+            fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+                self.input.read(buf)
+            }
+        }
+
+        impl Write for Conn {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                self.output.write(buf)
+            }
+
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+
+        fn conn(input: &[u8]) -> Conn {
+            Conn { input: Cursor::new(input.to_vec()), output: Vec::new() }
+        }
+
+        #[test]
+        fn a_status_check_without_a_request_is_not_an_error() {
+            let mut c = conn(&[]);
+            assert!(handle_client_request(&mut c).is_ok());
+            assert!(c.output.is_empty());
+        }
+
+        #[test]
+        fn a_truncated_request_is_still_an_error() {
+            assert!(handle_client_request(&mut conn(&[8, 0])).is_err());
+            assert!(handle_client_request(&mut conn(&[8, 0, 0, 0, b'{'])).is_err());
+        }
     }
 }
 
