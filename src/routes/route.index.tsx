@@ -233,6 +233,7 @@ function RoutePage() {
                 servers.length > 0 &&
                 m.home_servers_note({
                   days: String(ROUTE_DAYS),
+                  recent: String(summaryQuery.data.recentDays),
                   max: String(summaryQuery.data.usualMaxSamples),
                   min: String(summaryQuery.data.usualMinSamples),
                 })
@@ -242,6 +243,7 @@ function RoutePage() {
                 servers={servers}
                 days={ROUTE_DAYS}
                 usualMinSamples={summaryQuery.data?.usualMinSamples ?? 0}
+                recentDays={summaryQuery.data?.recentDays}
                 loading={summaryQuery.isLoading}
                 showGame={false}
               />

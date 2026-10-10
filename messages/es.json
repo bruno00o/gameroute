@@ -306,7 +306,7 @@
   "home_idle_title": "Ninguna partida en los últimos {count} días",
   "home_idle_body": "Última partida el {date}, en {game}.",
   "home_servers_label": "Servidores",
-  "home_servers_note": "Ping y pérdida: mediana de las partidas de los últimos {days} días. El valor habitual es la mediana de hasta {max} partidas anteriores, medidas en el mismo punto; hacen falta {min} para fijarlo.",
+  "home_servers_note": "Ping y pérdida: mediana de las partidas de los últimos {days} días. Calidad: mediana de las partidas de los últimos {recent} días, comparada con el valor habitual, la mediana de hasta {max} partidas jugadas antes de esos {recent} días y medidas en el mismo punto; hacen falta {min} para fijarlo.",
   "home_servers_empty_title": "Todavía no se ha reconocido ningún servidor de juego",
   "home_servers_empty_body": "Un servidor aparece aquí en cuanto una partida se conecta a él.",
   "home_col_usual": "Habitual",

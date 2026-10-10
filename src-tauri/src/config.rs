@@ -71,6 +71,9 @@ pub const SEVERITY_RTT_MS: [f64; 3] = [60.0, 100.0, 150.0];
 
 pub const SERVER_SUMMARY_DAYS: u32 = 7;
 
+/// Days of matches a server's status compares with its usual ping.
+pub const SERVER_RECENT_DAYS: u32 = 7;
+
 pub const ROUTE_HISTORY_DAYS: u32 = 30;
 
 pub const WEEK_HOUR_GRID_DAYS: u32 = 90;

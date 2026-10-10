@@ -32,13 +32,15 @@ pub async fn get_server_summary(days: Option<u32>) -> Result<ServerSummary, Comm
     let game_pings = get_game_ping_repository();
 
     let days = days.unwrap_or(SERVER_SUMMARY_DAYS).clamp(1, 3650);
+    let now = Utc::now();
     server_summary::server_summary(
         &analytics,
         &periods,
         &traceroutes,
         game_pings.as_deref(),
         metadata.as_deref(),
-        Utc::now() - Duration::days(i64::from(days)),
+        now - Duration::days(i64::from(days)),
+        now,
     )
     .await
     .map_err(|e| CommandError::internal(e.to_string()))

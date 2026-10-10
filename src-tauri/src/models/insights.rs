@@ -139,6 +139,7 @@ pub struct ServerSummaryItem {
 #[serde(rename_all = "camelCase")]
 pub struct ServerSummary {
     pub since: String,
+    pub recent_days: u32,
     pub usual_max_samples: u32,
     pub usual_min_samples: u32,
     pub servers: Vec<ServerSummaryItem>,

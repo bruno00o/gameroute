@@ -306,7 +306,7 @@
   "home_idle_title": "No match in the last {count} days",
   "home_idle_body": "Last match on {date}, in {game}.",
   "home_servers_label": "Servers",
-  "home_servers_note": "Ping and loss: median of the matches from the last {days} days. The usual value is the median of up to {max} previous matches, measured at the same point; it takes {min} to set it.",
+  "home_servers_note": "Ping and loss: median of the matches from the last {days} days. Quality: median of the matches from the last {recent} days, compared with the usual value, the median of up to {max} matches played before those {recent} days and measured at the same point; it takes {min} to set it.",
   "home_servers_empty_title": "No game server recognized yet",
   "home_servers_empty_body": "A server shows up here as soon as a match connects to it.",
   "home_col_usual": "Usual",
