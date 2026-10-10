@@ -128,6 +128,13 @@ describe('routeLimitNote', () => {
     })
     expect(routeLimitNote(route)).toContain('(hop 5, Your ISP)')
   })
+
+  it('gives the last stretch deduced from the game ping when there is one', () => {
+    const route = { ...usual(), gamePing: { medianMs: 12.4, matchCount: 42, deducedMs: 7.9 } }
+    expect(routeLimitNote(route)).toBe(
+      'Riot Games doesn’t answer pings, which is normal. Traces stop at the last router that answers (hop 8, RETN); the last stretch, +7.9 ms, is deduced from the ping measured by the game.'
+    )
+  })
 })
 
 describe('hasSilentServer', () => {
