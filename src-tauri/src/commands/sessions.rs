@@ -663,6 +663,7 @@ mod tests {
             None,
             None,
             Utc.with_ymd_and_hms(2026, 9, 21, 0, 0, 0).unwrap(),
+            Utc.with_ymd_and_hms(2026, 9, 28, 0, 0, 0).unwrap(),
         )
         .await
         .unwrap();

@@ -306,7 +306,7 @@
   "home_idle_title": "Aucune partie ces {count} derniers jours",
   "home_idle_body": "Dernière partie le {date}, sur {game}.",
   "home_servers_label": "Serveurs",
-  "home_servers_note": "Ping et perte : médiane des parties des {days} derniers jours. L’habitude est la médiane d’au plus {max} parties précédentes, mesurées au même point ; il en faut {min} pour l’établir.",
+  "home_servers_note": "Ping et perte : médiane des parties des {days} derniers jours. Qualité : médiane des parties des {recent} derniers jours, comparée à l’habitude, la médiane d’au plus {max} parties jouées avant ces {recent} jours et mesurées au même point ; il en faut {min} pour l’établir.",
   "home_servers_empty_title": "Aucun serveur de jeu reconnu pour l’instant",
   "home_servers_empty_body": "Un serveur s’ajoute ici dès qu’une partie s’y connecte.",
   "home_col_usual": "Habitude",

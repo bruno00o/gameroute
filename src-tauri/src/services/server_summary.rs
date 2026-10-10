@@ -1,4 +1,4 @@
-use crate::config::{USUAL_PING_MIN_SAMPLES, USUAL_PING_SAMPLES};
+use crate::config::{SERVER_RECENT_DAYS, USUAL_PING_MIN_SAMPLES, USUAL_PING_SAMPLES};
 use crate::db::analytics::AnalyticsRepository;
 use crate::db::game_pings::GamePingRepository;
 use crate::db::ip_metadata::IpMetadataRepository;
@@ -14,7 +14,7 @@ use crate::services::usual::{
     assess, assessments, match_history, parse, pools, usual_ping, Assessment, PingSample, SampleId,
     ServerMatch,
 };
-use chrono::{DateTime, FixedOffset, SecondsFormat, Utc};
+use chrono::{DateTime, Duration, FixedOffset, SecondsFormat, Utc};
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, HashMap};
 
@@ -56,11 +56,27 @@ fn last_incident(
     })
 }
 
+fn ping_over(samples: &[&PingSample]) -> Option<RecentPing> {
+    median(samples.iter().map(|sample| sample.ping_ms).collect()).map(|median_ms| RecentPing {
+        median_ms,
+        loss_pct: median(samples.iter().map(|sample| sample.loss_pct).collect()).unwrap_or(0.0),
+        sample_count: samples.len() as u32,
+    })
+}
+
+fn played_since(matches: &[&ServerMatch], from: DateTime<FixedOffset>) -> u32 {
+    matches
+        .iter()
+        .filter(|game| parse(&game.started_at).is_some_and(|at| at >= from))
+        .count() as u32
+}
+
 fn summarize_server(
     matches: &[&ServerMatch],
     pool: &[&PingSample],
     assessed: &HashMap<SampleId, Assessment>,
     since: DateTime<FixedOffset>,
+    recent_from: DateTime<FixedOffset>,
 ) -> Option<ServerSummaryItem> {
     let latest = matches.iter().max_by_key(|game| parse(&game.started_at))?;
     let mut samples: Vec<&PingSample> = matches
@@ -69,46 +85,39 @@ fn summarize_server(
         .collect();
     samples.sort_by_key(|sample| sample.measured_at);
 
-    let recent: Vec<&PingSample> = samples
-        .iter()
-        .copied()
-        .filter(|sample| sample.measured_at >= since)
-        .collect();
-    let basis = if recent.is_empty() {
-        let last: Vec<&PingSample> = samples
+    let after = |from: DateTime<FixedOffset>| -> Vec<&PingSample> {
+        samples
             .iter()
-            .rev()
-            .take(USUAL_PING_SAMPLES)
             .copied()
-            .collect();
-        dominant_basis(&last)
-    } else {
-        dominant_basis(&recent)
+            .filter(|sample| sample.measured_at >= from)
+            .collect()
     };
-    let comparable: Vec<&PingSample> = recent
-        .into_iter()
-        .filter(|sample| Some(&sample.basis) == basis.as_ref())
+    let last: Vec<&PingSample> = samples
+        .iter()
+        .rev()
+        .take(USUAL_PING_SAMPLES)
+        .copied()
         .collect();
-    let recent =
-        median(comparable.iter().map(|sample| sample.ping_ms).collect()).map(|median_ms| {
-            RecentPing {
-                median_ms,
-                loss_pct: median(comparable.iter().map(|sample| sample.loss_pct).collect())
-                    .unwrap_or(0.0),
-                sample_count: comparable.len() as u32,
-            }
-        });
+    let basis = [after(recent_from), after(since), last]
+        .iter()
+        .find(|window| !window.is_empty())
+        .and_then(|window| dominant_basis(window));
+    let comparable = |from: DateTime<FixedOffset>| -> Vec<&PingSample> {
+        after(from)
+            .into_iter()
+            .filter(|sample| Some(&sample.basis) == basis.as_ref())
+            .collect()
+    };
+    let recent = ping_over(&comparable(since));
+    let lately = ping_over(&comparable(recent_from));
     let usual = basis.as_ref().map_or_else(UsualPing::default, |basis| {
-        usual_ping(pool.iter().copied(), basis, since)
+        usual_ping(pool.iter().copied(), basis, recent_from)
     });
 
-    let match_count = matches
-        .iter()
-        .filter(|game| parse(&game.started_at).is_some_and(|at| at >= since))
-        .count() as u32;
-    let status = match &recent {
-        Some(recent) => Some(assess(recent.median_ms, usual.median_ms, recent.loss_pct).0),
-        None if match_count > 0 => Some(Severity::Unmeasured),
+    let match_count = played_since(matches, since);
+    let status = match &lately {
+        Some(lately) => Some(assess(lately.median_ms, usual.median_ms, lately.loss_pct).0),
+        None if played_since(matches, recent_from) > 0 => Some(Severity::Unmeasured),
         None => None,
     };
 
@@ -135,7 +144,9 @@ fn summarize_server(
 pub fn summarize_servers(
     matches: &[ServerMatch],
     since: DateTime<FixedOffset>,
+    now: DateTime<FixedOffset>,
 ) -> Vec<ServerSummaryItem> {
+    let recent_from = now - Duration::days(i64::from(SERVER_RECENT_DAYS));
     let assessed = assessments(matches);
     let pools = pools(matches);
     let mut groups: BTreeMap<ServerKey, Vec<&ServerMatch>> = BTreeMap::new();
@@ -157,7 +168,7 @@ pub fn summarize_servers(
                 .get(&(game, asn, ip))
                 .map(Vec::as_slice)
                 .unwrap_or_default();
-            summarize_server(group, pool, &assessed, since)
+            summarize_server(group, pool, &assessed, since, recent_from)
         })
         .collect();
     servers.sort_by_key(|server| Reverse(parse(&server.last_played_at)));
@@ -171,13 +182,15 @@ pub async fn server_summary(
     game_pings: Option<&GamePingRepository>,
     metadata: Option<&IpMetadataRepository>,
     since: DateTime<Utc>,
+    now: DateTime<Utc>,
 ) -> Result<ServerSummary, DbError> {
     let history = match_history(analytics, periods, traceroutes, game_pings, metadata).await?;
     Ok(ServerSummary {
         since: since.to_rfc3339_opts(SecondsFormat::Secs, true),
+        recent_days: SERVER_RECENT_DAYS,
         usual_max_samples: USUAL_PING_SAMPLES as u32,
         usual_min_samples: USUAL_PING_MIN_SAMPLES as u32,
-        servers: summarize_servers(&history.matches, since.fixed_offset()),
+        servers: summarize_servers(&history.matches, since.fixed_offset(), now.fixed_offset()),
     })
 }
 
@@ -190,10 +203,70 @@ mod tests {
     use crate::services::usual::Server;
     use chrono::TimeZone;
 
-    fn only(matches: Vec<ServerMatch>) -> ServerSummaryItem {
-        let mut servers = summarize_servers(&matches, since());
+    fn now() -> DateTime<FixedOffset> {
+        day(27, 0)
+    }
+
+    fn over(matches: Vec<ServerMatch>, since: DateTime<FixedOffset>) -> ServerSummaryItem {
+        let mut servers = summarize_servers(&matches, since, now());
         assert_eq!(servers.len(), 1);
         servers.remove(0)
+    }
+
+    fn only(matches: Vec<ServerMatch>) -> ServerSummaryItem {
+        over(matches, since())
+    }
+
+    #[test]
+    fn usual_is_set_from_matches_inside_a_long_period() {
+        let mut matches = history(8, lower_bound(5), 12.0);
+        matches.extend((0..3).map(|i| measured(day(21 + i, 20), lower_bound(5), 13.0)));
+
+        let server = over(matches, day(1, 0));
+
+        assert_eq!(server.match_count, 11);
+        assert_eq!(server.recent.as_ref().map(|r| r.sample_count), Some(11));
+        assert_eq!(server.recent.as_ref().map(|r| r.median_ms), Some(12.0));
+        assert_eq!(
+            server.usual,
+            UsualPing {
+                median_ms: Some(12.0),
+                sample_count: 8,
+            }
+        );
+        assert_eq!(server.status, Some(Severity::Ok));
+    }
+
+    #[test]
+    fn status_compares_the_last_seven_days_with_the_matches_before() {
+        let mut matches = history(8, lower_bound(5), 17.0);
+        matches.extend((0..3).map(|i| measured(day(21 + i, 20), lower_bound(5), 40.0)));
+
+        let server = over(matches, day(1, 0));
+
+        assert_eq!(server.recent.as_ref().map(|r| r.median_ms), Some(17.0));
+        assert_eq!(server.usual.median_ms, Some(17.0));
+        assert_eq!(server.status, Some(Severity::Watch));
+
+        let quiet = over(history(8, lower_bound(5), 17.0), day(1, 0));
+        assert_eq!(quiet.match_count, 8);
+        assert_eq!(quiet.recent.as_ref().map(|r| r.median_ms), Some(17.0));
+        assert_eq!(quiet.usual.median_ms, Some(17.0));
+        assert_eq!(quiet.status, None);
+    }
+
+    #[test]
+    fn status_and_usual_never_mix_bases_over_a_long_period() {
+        let mut matches = history(10, lower_bound(5), 5.0);
+        matches.extend((0..3).map(|i| measured(day(21 + i, 20), game(), 70.0)));
+
+        let server = over(matches, day(1, 0));
+
+        assert_eq!(server.basis, Some(game()));
+        assert_eq!(server.match_count, 13);
+        assert_eq!(server.recent.as_ref().map(|r| r.sample_count), Some(3));
+        assert_eq!(server.usual, UsualPing::default());
+        assert_eq!(server.status, Some(Severity::Watch));
     }
 
     #[test]
@@ -410,6 +483,7 @@ mod tests {
                 played("Counter-Strike 2", unknown("155.133.226.71"), day(19, 21)),
             ],
             since(),
+            now(),
         );
 
         type Row<'a> = (
@@ -552,14 +626,19 @@ mod tests {
             None,
             Some(&IpMetadataRepository::new(pool.clone())),
             Utc.with_ymd_and_hms(2026, 9, 20, 0, 0, 0).unwrap(),
+            Utc.with_ymd_and_hms(2026, 9, 27, 0, 0, 0).unwrap(),
         )
         .await
         .unwrap();
 
         assert_eq!(summary.since, "2026-09-20T00:00:00Z");
         assert_eq!(
-            (summary.usual_max_samples, summary.usual_min_samples),
-            (20, 5)
+            (
+                summary.recent_days,
+                summary.usual_max_samples,
+                summary.usual_min_samples
+            ),
+            (7, 20, 5)
         );
         assert_eq!(summary.servers.len(), 1);
         let server = &summary.servers[0];
@@ -610,6 +689,7 @@ mod tests {
             None,
             None,
             Utc.with_ymd_and_hms(2026, 9, 20, 0, 0, 0).unwrap(),
+            Utc.with_ymd_and_hms(2026, 9, 27, 0, 0, 0).unwrap(),
         )
         .await
         .unwrap();

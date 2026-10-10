@@ -147,6 +147,7 @@ function mockLibrary(items = library, summary: ServerSummaryItem[] = servers) {
   vi.mocked(getMonitoredGameCount).mockResolvedValue(items.filter(g => g.monitored).length)
   vi.mocked(getServerSummary).mockResolvedValue({
     since: new Date(2026, 9, 1).toISOString(),
+    recentDays: 7,
     usualMaxSamples: 20,
     usualMinSamples: 5,
     servers: summary,

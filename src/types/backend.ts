@@ -759,6 +759,7 @@ export type ServerSummaryItem = {
 
 export type ServerSummary = {
   since: string
+  recentDays: number
   usualMaxSamples: number
   usualMinSamples: number
   servers: ServerSummaryItem[]

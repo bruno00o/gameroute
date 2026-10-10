@@ -21,6 +21,7 @@ type ServerTableProps = {
   servers: ServerSummaryItem[]
   days: number
   usualMinSamples: number
+  recentDays?: number
   loading?: boolean
   showGame?: boolean
 }
@@ -38,6 +39,7 @@ function ServerTable({
   servers,
   days,
   usualMinSamples,
+  recentDays,
   loading = false,
   showGame = true,
 }: ServerTableProps) {
@@ -126,7 +128,9 @@ function ServerTable({
             <StatusPill status={server.status} size="sm" />
           ) : (
             <span className="text-label text-muted-foreground font-normal">
-              {m.home_not_played({ count: String(days) })}
+              {m.home_not_played({
+                count: String(server.matchCount > 0 && recentDays ? recentDays : days),
+              })}
             </span>
           ),
       },
@@ -137,7 +141,7 @@ function ServerTable({
         render: server => server.lastIncident && <IncidentCell incident={server.lastIncident} />,
       },
     ],
-    [days, usualMinSamples, showGame]
+    [days, usualMinSamples, recentDays, showGame]
   )
 
   return (

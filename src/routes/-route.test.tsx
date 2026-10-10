@@ -195,7 +195,7 @@ function server(overrides: Partial<ServerSummaryItem> = {}): ServerSummaryItem {
 }
 
 function summary(items: ServerSummaryItem[]): ServerSummary {
-  return { since: at(1, 0), usualMaxSamples: 20, usualMinSamples: 5, servers: items }
+  return { since: at(1, 0), recentDays: 7, usualMaxSamples: 20, usualMinSamples: 5, servers: items }
 }
 
 function renderRoute(path = '/route') {

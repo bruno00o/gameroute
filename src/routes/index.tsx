@@ -101,6 +101,7 @@ function Overview({ summary, recent }: { summary?: ServerSummary; recent?: Sessi
           summary.servers.length > 0 &&
           m.home_servers_note({
             days: String(DAYS),
+            recent: String(summary.recentDays),
             max: String(summary.usualMaxSamples),
             min: String(summary.usualMinSamples),
           })
