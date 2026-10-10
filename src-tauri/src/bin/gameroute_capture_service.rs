@@ -26,7 +26,7 @@ mod service {
     use std::net::IpAddr;
     use std::os::windows::process::CommandExt;
     use std::process::{Child, Command};
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
@@ -39,7 +39,7 @@ mod service {
     use windows_service::{define_windows_service, service_dispatcher};
 
     use app_lib::models::capture_protocol::{
-        CaptureRequest, CaptureResponse, CaptureStatus, CapturedEndpoint,
+        CaptureRequest, CaptureResponse, CaptureStats, CaptureStatus, CapturedEndpoint,
         ServiceRequest, ServiceResponse,
         TracerouteRequest, TracerouteResponse, TracerouteStatus, ServiceHop,
         PROTOCOL_VERSION,
@@ -664,7 +664,9 @@ mod service {
         let duration_secs = request.duration_secs.min(10);
 
         match capture_udp_traffic(&request.local_ports, duration_secs) {
-            Ok(endpoints) => CaptureResponse::success(request.session_id, endpoints),
+            Ok((endpoints, stats)) => {
+                CaptureResponse::success(request.session_id, endpoints).with_stats(stats)
+            }
             Err(e) => CaptureResponse::error(
                 request.session_id,
                 CaptureStatus::CaptureFailed,
@@ -913,6 +915,7 @@ mod service {
     struct EtwCallbackContext {
         local_ports: HashSet<u16>,
         endpoints: Mutex<HashMap<(u16, String, u16), u32>>,
+        events_received: AtomicU64,
     }
 
     /// ETW event callback. Called by ProcessTrace for each event from pktmon's session.
@@ -923,12 +926,12 @@ mod service {
         event_record: *mut windows_sys::Win32::System::Diagnostics::Etw::EVENT_RECORD,
     ) {
         let record = &*event_record;
+        let ctx = &*(record.UserContext as *const EtwCallbackContext);
+        ctx.events_received.fetch_add(1, Ordering::Relaxed);
 
         if record.UserData.is_null() || record.UserDataLength == 0 {
             return;
         }
-
-        let ctx = &*(record.UserContext as *const EtwCallbackContext);
 
         let user_data = std::slice::from_raw_parts(
             record.UserData as *const u8,
@@ -1031,7 +1034,7 @@ mod service {
     fn capture_udp_traffic(
         local_ports: &[u16],
         duration_secs: u32,
-    ) -> Result<Vec<CapturedEndpoint>, Box<dyn std::error::Error>> {
+    ) -> Result<(Vec<CapturedEndpoint>, CaptureStats), Box<dyn std::error::Error>> {
         use windows_sys::Win32::Foundation::GetLastError;
         use windows_sys::Win32::System::Diagnostics::Etw::{
             CloseTrace, OpenTraceW, ProcessTrace, EVENT_TRACE_LOGFILEW,
@@ -1046,7 +1049,10 @@ mod service {
         let ctx = Arc::new(EtwCallbackContext {
             local_ports: local_ports.iter().copied().collect(),
             endpoints: Mutex::new(HashMap::new()),
+            events_received: AtomicU64::new(0),
         });
+
+        let session_before = query_session_stats(PKTMON_SESSION_NAME);
 
         // Build the session name as a wide string
         let mut session_name_wide = encode_wide(PKTMON_SESSION_NAME);
@@ -1102,6 +1108,15 @@ mod service {
         // Wait for the ProcessTrace thread to finish
         let _ = process_thread.join();
 
+        let losses = match (session_before, query_session_stats(PKTMON_SESSION_NAME)) {
+            (Ok(before), Ok(after)) => Some(after.losses_since(&before)),
+            (Err(code), _) | (_, Err(code)) => {
+                slog!("pktmon session query failed (error {})", code);
+                None
+            }
+        };
+        let stats = capture_stats(ctx.events_received.load(Ordering::Relaxed), losses);
+
         // Extract endpoints from shared state
         let endpoints_map = ctx
             .endpoints
@@ -1120,9 +1135,29 @@ mod service {
             )
             .collect();
 
-        slog!("ETW capture complete: {} endpoints found", endpoints.len());
+        let losses_text = match losses {
+            Some(l) => format!(
+                "session lost {} events, {} real-time buffers ({} buffers not written to file)",
+                l.events, l.realtime_buffers, l.file_buffers
+            ),
+            None => "session losses unknown".to_string(),
+        };
+        slog!(
+            "ETW capture complete: {} endpoints found, {} events received, {}",
+            endpoints.len(),
+            stats.events_received,
+            losses_text
+        );
 
-        Ok(endpoints)
+        Ok((endpoints, stats))
+    }
+
+    fn capture_stats(events_received: u64, losses: Option<SessionLosses>) -> CaptureStats {
+        CaptureStats {
+            events_received,
+            events_lost: losses.map(|l| l.events),
+            realtime_buffers_lost: losses.map(|l| l.realtime_buffers),
+        }
     }
 
     #[cfg(test)]
@@ -1328,6 +1363,11 @@ mod service {
             assert_eq!(losses, SessionLosses { events: 3, realtime_buffers: 0, file_buffers: 300 });
             let wrapped = session(1, 0, 0).losses_since(&session(u32::MAX, 0, 0));
             assert_eq!(wrapped.events, 2);
+
+            let stats = capture_stats(1200, Some(losses));
+            assert_eq!(stats.events_lost, Some(3));
+            assert_eq!(stats.realtime_buffers_lost, Some(0));
+            assert_eq!(capture_stats(1200, None).events_lost, None);
         }
 
         #[test]
