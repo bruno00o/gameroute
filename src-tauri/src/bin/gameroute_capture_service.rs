@@ -72,6 +72,10 @@ mod service {
     /// Ethernet (14) + IPv6 (40) + UDP (8) = 62 bytes: enough for the addresses and ports.
     const PKTMON_PKT_SIZE: u32 = 64;
 
+    /// pktmon's real-time mode still writes PktMon.etl next to the live session (512 MB by
+    /// default, then only "buffers lost"). Real-time delivery does not depend on that file.
+    const PKTMON_FILE_SIZE_MB: u32 = 1;
+
     /// Timeout for a single traceroute operation (seconds).
     const TRACEROUTE_TIMEOUT_SECS: u64 = 30;
 
@@ -265,40 +269,200 @@ mod service {
             }
         }
 
-        // Spawn pktmon in real-time capture mode (stays alive as a child process)
-        let child = Command::new("pktmon")
-            .args(["start", "--capture", "--log-mode", "real-time", "--pkt-size"])
-            .arg(PKTMON_PKT_SIZE.to_string())
+        let child = spawn_realtime_pktmon(Some(PKTMON_FILE_SIZE_MB)).or_else(|| {
+            slog!("pktmon refused --file-size, starting without it");
+            let _ = Command::new("pktmon")
+                .args(["stop"])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output();
+            spawn_realtime_pktmon(None)
+        })?;
+
+        if let Ok(status) = Command::new("pktmon")
+            .args(["status"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+        {
+            let stdout = String::from_utf8_lossy(&status.stdout);
+            slog!("pktmon status: {}", stdout.trim());
+        }
+
+        Some(child)
+    }
+
+    fn pktmon_start_args(file_size_mb: Option<u32>) -> Vec<String> {
+        let mut args: Vec<String> = ["start", "--capture", "--log-mode", "real-time", "--pkt-size"]
+            .iter()
+            .map(|a| a.to_string())
+            .collect();
+        args.push(PKTMON_PKT_SIZE.to_string());
+        if let Some(size) = file_size_mb {
+            args.push("--file-size".to_string());
+            args.push(size.to_string());
+        }
+        args
+    }
+
+    /// pktmon stays alive in real-time mode; an early exit means it rejected the arguments.
+    /// Success is confirmed by the ETW session showing up in real-time mode.
+    fn spawn_realtime_pktmon(file_size_mb: Option<u32>) -> Option<Child> {
+        let args = pktmon_start_args(file_size_mb);
+        let mut child = match Command::new("pktmon")
+            .args(&args)
             .creation_flags(CREATE_NO_WINDOW)
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
-            .spawn();
-
-        match child {
-            Ok(child) => {
-                slog!("pktmon started in real-time mode (pid {})", child.id());
-
-                // Give pktmon a moment to initialize the ETW session
-                std::thread::sleep(Duration::from_millis(500));
-
-                // Verify the session is active
-                if let Ok(status) = Command::new("pktmon")
-                    .args(["status"])
-                    .creation_flags(CREATE_NO_WINDOW)
-                    .output()
-                {
-                    let stdout = String::from_utf8_lossy(&status.stdout);
-                    slog!("pktmon status: {}", stdout.trim());
-                }
-
-                Some(child)
-            }
+            .spawn()
+        {
+            Ok(child) => child,
             Err(e) => {
                 slog!("Failed to spawn pktmon: {}", e);
-                None
+                return None;
+            }
+        };
+
+        let started = std::time::Instant::now();
+        let mut query_error = 0;
+        while started.elapsed() < Duration::from_secs(3) {
+            std::thread::sleep(Duration::from_millis(250));
+            match query_session_stats(PKTMON_SESSION_NAME) {
+                Ok(stats) if stats.is_real_time() => {
+                    slog!(
+                        "pktmon started (pid {}, {}): {}",
+                        child.id(),
+                        args.join(" "),
+                        stats.describe()
+                    );
+                    return Some(child);
+                }
+                Ok(stats) => slog!("pktmon session is not real-time yet: {}", stats.describe()),
+                Err(code) => query_error = code,
+            }
+            if let Ok(Some(status)) = child.try_wait() {
+                slog!("pktmon exited ({}) with: {}", status, args.join(" "));
+                return None;
             }
         }
+
+        slog!(
+            "pktmon session not confirmed after 3s (query error {}), pid {} still running: {}",
+            query_error,
+            child.id(),
+            args.join(" ")
+        );
+        Some(child)
+    }
+
+    /// Counters of an ETW session, read with `ControlTraceW(EVENT_TRACE_CONTROL_QUERY)`.
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct SessionStats {
+        log_file_mode: u32,
+        max_file_size_mb: u32,
+        buffer_size_kb: u32,
+        events_lost: u32,
+        buffers_written: u32,
+        log_buffers_lost: u32,
+        realtime_buffers_lost: u32,
+        log_file_name: String,
+    }
+
+    impl SessionStats {
+        fn from_properties(
+            props: &windows_sys::Win32::System::Diagnostics::Etw::EVENT_TRACE_PROPERTIES,
+            log_file_name: String,
+        ) -> Self {
+            Self {
+                log_file_mode: props.LogFileMode,
+                max_file_size_mb: props.MaximumFileSize,
+                buffer_size_kb: props.BufferSize,
+                events_lost: props.EventsLost,
+                buffers_written: props.BuffersWritten,
+                log_buffers_lost: props.LogBuffersLost,
+                realtime_buffers_lost: props.RealTimeBuffersLost,
+                log_file_name,
+            }
+        }
+
+        fn is_real_time(&self) -> bool {
+            use windows_sys::Win32::System::Diagnostics::Etw::EVENT_TRACE_REAL_TIME_MODE;
+            self.log_file_mode & EVENT_TRACE_REAL_TIME_MODE != 0
+        }
+
+        fn describe(&self) -> String {
+            format!(
+                "mode 0x{:x}, file '{}' max {} MB, buffers {} KB, written {}, \
+                 events lost {}, file buffers lost {}, real-time buffers lost {}",
+                self.log_file_mode,
+                self.log_file_name,
+                self.max_file_size_mb,
+                self.buffer_size_kb,
+                self.buffers_written,
+                self.events_lost,
+                self.log_buffers_lost,
+                self.realtime_buffers_lost
+            )
+        }
+
+        fn losses_since(&self, before: &SessionStats) -> SessionLosses {
+            SessionLosses {
+                events: self.events_lost.wrapping_sub(before.events_lost),
+                realtime_buffers: self
+                    .realtime_buffers_lost
+                    .wrapping_sub(before.realtime_buffers_lost),
+                file_buffers: self.log_buffers_lost.wrapping_sub(before.log_buffers_lost),
+            }
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    struct SessionLosses {
+        events: u32,
+        realtime_buffers: u32,
+        file_buffers: u32,
+    }
+
+    fn query_session_stats(session_name: &str) -> Result<SessionStats, u32> {
+        use windows_sys::Win32::System::Diagnostics::Etw::{
+            ControlTraceW, CONTROLTRACE_HANDLE, EVENT_TRACE_CONTROL_QUERY, EVENT_TRACE_PROPERTIES,
+        };
+
+        const NAME_CHARS: usize = 1024;
+
+        #[repr(C)]
+        struct QueryBuffer {
+            props: EVENT_TRACE_PROPERTIES,
+            logger_name: [u16; NAME_CHARS],
+            log_file_name: [u16; NAME_CHARS],
+        }
+
+        let name = encode_wide(session_name);
+        // SAFETY: QueryBuffer is plain data; zeroed is a valid initial state, and the offsets
+        // tell ETW where the two name buffers live inside the same allocation.
+        let mut buffer: Box<QueryBuffer> = Box::new(unsafe { std::mem::zeroed() });
+        buffer.props.Wnode.BufferSize = std::mem::size_of::<QueryBuffer>() as u32;
+        buffer.props.LoggerNameOffset = std::mem::offset_of!(QueryBuffer, logger_name) as u32;
+        buffer.props.LogFileNameOffset = std::mem::offset_of!(QueryBuffer, log_file_name) as u32;
+
+        let rc = unsafe {
+            ControlTraceW(
+                CONTROLTRACE_HANDLE { Value: 0 },
+                name.as_ptr(),
+                &mut buffer.props,
+                EVENT_TRACE_CONTROL_QUERY,
+            )
+        };
+        if rc != 0 {
+            return Err(rc);
+        }
+
+        let file_name = wide_until_nul(&buffer.log_file_name);
+        Ok(SessionStats::from_properties(&buffer.props, file_name))
+    }
+
+    fn wide_until_nul(wide: &[u16]) -> String {
+        let len = wide.iter().position(|&c| c == 0).unwrap_or(wide.len());
+        String::from_utf16_lossy(&wide[..len])
     }
 
     /// Stop the persistent pktmon session and clean up.
@@ -1040,6 +1204,18 @@ mod service {
         }
 
         #[test]
+        fn pktmon_starts_in_real_time_with_small_packets_and_a_tiny_file() {
+            assert_eq!(
+                pktmon_start_args(Some(1)).join(" "),
+                "start --capture --log-mode real-time --pkt-size 64 --file-size 1"
+            );
+            assert_eq!(
+                pktmon_start_args(None).join(" "),
+                "start --capture --log-mode real-time --pkt-size 64"
+            );
+        }
+
+        #[test]
         fn outgoing_ipv4_packet_truncated_to_pkt_size_is_counted() {
             let event = pktmon_event(&[0xaa; 38], ipv4_frame((LOCAL, 50000), (SERVER, 7777)));
             assert_eq!(event.len(), 38 + 64);
@@ -1119,6 +1295,46 @@ mod service {
             let event = pktmon_event(&[0xaa; 38], ipv4_frame((LOCAL, 50001), (SERVER, 7777)));
             assert_eq!(endpoint_from_pktmon_event(&event, &ports()), None);
             assert_eq!(endpoint_from_pktmon_event(&[0xaa; 20], &ports()), None);
+        }
+
+        fn session(events: u32, realtime: u32, file: u32) -> SessionStats {
+            use windows_sys::Win32::System::Diagnostics::Etw::EVENT_TRACE_PROPERTIES;
+            let props = EVENT_TRACE_PROPERTIES {
+                LogFileMode: 0x0880_0100,
+                MaximumFileSize: 1,
+                BufferSize: 16,
+                EventsLost: events,
+                BuffersWritten: 100,
+                LogBuffersLost: file,
+                RealTimeBuffersLost: realtime,
+                ..Default::default()
+            };
+            SessionStats::from_properties(&props, r"C:\Windows\system32\PktMon.etl".to_string())
+        }
+
+        #[test]
+        fn session_counters_are_read_from_the_query_properties() {
+            let stats = session(2, 3, 293_068);
+            assert!(stats.is_real_time());
+            assert_eq!(stats.realtime_buffers_lost, 3);
+            assert_eq!(stats.log_buffers_lost, 293_068);
+            assert!(stats.describe().contains("max 1 MB"));
+            assert!(!SessionStats { log_file_mode: 0x1, ..stats }.is_real_time());
+        }
+
+        #[test]
+        fn capture_losses_are_the_session_delta_over_the_window() {
+            let losses = session(5, 7, 400).losses_since(&session(2, 7, 100));
+            assert_eq!(losses, SessionLosses { events: 3, realtime_buffers: 0, file_buffers: 300 });
+            let wrapped = session(1, 0, 0).losses_since(&session(u32::MAX, 0, 0));
+            assert_eq!(wrapped.events, 2);
+        }
+
+        #[test]
+        fn wide_names_stop_at_the_first_nul() {
+            let mut wide = encode_wide("PktMon");
+            wide.extend([b'x' as u16; 4]);
+            assert_eq!(wide_until_nul(&wide), "PktMon");
         }
     }
 }
