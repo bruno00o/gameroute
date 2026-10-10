@@ -20,6 +20,14 @@ pub struct LatestRouteTrace {
     pub hops: Vec<DbHop>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RouteGamePing {
+    pub median_ms: f64,
+    pub match_count: u32,
+    pub deduced_ms: Option<f64>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UsualRoute {
@@ -28,6 +36,7 @@ pub struct UsualRoute {
     pub trace_count: u32,
     pub total_traces: u32,
     pub persistent_loss: Option<f64>,
+    pub game_ping: Option<RouteGamePing>,
     pub latest: LatestRouteTrace,
 }
 

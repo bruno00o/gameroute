@@ -25,6 +25,7 @@ type RouteStripProps = {
   route: OperatorRoute
   destination: { name: string; detail?: string | null }
   persistentLoss?: number | null
+  gamePingMs?: number | null
   serviceLabel?: string
   orientation?: Orientation
   className?: string
@@ -52,6 +53,7 @@ function RouteStrip({
   route,
   destination,
   persistentLoss,
+  gamePingMs,
   serviceLabel,
   orientation = 'auto',
   className,
@@ -60,6 +62,8 @@ function RouteStrip({
   const [ref, narrow] = useNarrow(minWidth, orientation === 'auto')
   const vertical = orientation === 'vertical' || (orientation === 'auto' && narrow)
   const silent = route.destinationSilent
+  const total = gamePingMs ?? route.totalMs
+  const atLeast = silent && gamePingMs == null
 
   return (
     <div
@@ -189,8 +193,8 @@ function RouteStrip({
         )}
       >
         <span className="text-readout text-foreground font-mono whitespace-nowrap tabular-nums">
-          {silent && `≥${NBSP}`}
-          {formatNumber(route.totalMs, Math.abs(route.totalMs) < 10 ? 1 : 0)}
+          {atLeast && `≥${NBSP}`}
+          {formatNumber(total, Math.abs(total) < 10 ? 1 : 0)}
           <small className="text-ui text-muted-foreground">{NBSP}ms</small>
         </span>
         <span
@@ -199,7 +203,11 @@ function RouteStrip({
             vertical && 'max-w-none text-left'
           )}
         >
-          {silent ? m.route_total_up_to() : m.route_total_rtt()}
+          {gamePingMs != null
+            ? m.ping_by_game()
+            : silent
+              ? m.route_total_up_to()
+              : m.route_total_rtt()}
         </span>
       </div>
     </div>

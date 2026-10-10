@@ -1,16 +1,21 @@
 use crate::db::analytics::AnalyticsRepository;
+use crate::db::game_pings::GamePingRepository;
 use crate::db::ip_metadata::IpMetadataRepository;
 use crate::db::ip_periods::IpPeriodRepository;
 use crate::db::traceroutes::TracerouteRepository;
 use crate::db::DbError;
+use crate::models::game_ping::GamePingSample;
 use crate::models::hop::ProbedHop;
-use crate::models::route_history::{LatestRouteTrace, RouteChange, RouteOperator, UsualRoute};
+use crate::models::ip_period::IpPeriod;
+use crate::models::route_history::{
+    LatestRouteTrace, RouteChange, RouteGamePing, RouteOperator, UsualRoute,
+};
 use crate::models::severity::Severity;
 use crate::models::traceroute::{OperatorRoute, RouteSegment, RouteZone};
 use crate::models::traceroute_record::TracerouteWithHops;
-use crate::services::matches::median;
+use crate::services::matches::{median, reported_at_server};
 use crate::services::route_model::attach_routes;
-use crate::services::usual::{match_history, PingSample, SampleId};
+use crate::services::usual::{match_history, MatchHistory, PingSample, SampleId};
 use chrono::{DateTime, FixedOffset, Utc};
 use std::cmp::Reverse;
 use std::collections::HashMap;
@@ -19,6 +24,7 @@ pub struct RouteTrace<'a> {
     pub game_name: &'a str,
     pub sample: &'a PingSample,
     pub trace: &'a TracerouteWithHops,
+    pub game_ping_ms: Option<f64>,
 }
 
 impl RouteTrace<'_> {
@@ -186,10 +192,23 @@ fn usual_signature(traces: &[&RouteTrace]) -> Vec<String> {
         .unwrap_or_default()
 }
 
+fn game_ping(pings: &[f64], usual: &[&RouteTrace], route: &OperatorRoute) -> Option<RouteGamePing> {
+    let match_count = pings.len() as u32;
+    let median_ms = median(pings.to_vec())?;
+    let overlaps = usual.iter().any(|trace| trace.game_ping_ms.is_some());
+    let deduced_ms = (overlaps && route.destination_silent).then_some(median_ms - route.total_ms);
+    Some(RouteGamePing {
+        median_ms,
+        match_count,
+        deduced_ms: deduced_ms.filter(|ms| *ms >= 0.0),
+    })
+}
+
 fn usual_route(
     game_name: &str,
     traces: &[&RouteTrace],
     signature: &[String],
+    game_pings: &[f64],
 ) -> Option<UsualRoute> {
     let usual: Vec<&RouteTrace> = traces
         .iter()
@@ -213,6 +232,7 @@ fn usual_route(
 
     Some(UsualRoute {
         game_name: game_name.to_string(),
+        game_ping: game_ping(game_pings, &usual, &route),
         route,
         trace_count: usual.len() as u32,
         total_traces: traces.len() as u32,
@@ -310,7 +330,7 @@ fn route_changes(
     changes
 }
 
-pub fn build(traces: &[RouteTrace]) -> RouteHistory {
+pub fn build(traces: &[RouteTrace], game_pings: &HashMap<String, Vec<f64>>) -> RouteHistory {
     let mut by_game: HashMap<&str, Vec<&RouteTrace>> = HashMap::new();
     for trace in traces.iter().filter(|trace| trace.route().is_some()) {
         by_game.entry(trace.game_name).or_default().push(trace);
@@ -331,7 +351,8 @@ pub fn build(traces: &[RouteTrace]) -> RouteHistory {
     let mut changes = Vec::new();
     for (name, game_traces) in &games {
         let signature = usual_signature(game_traces);
-        let Some(route) = usual_route(name, game_traces, &signature) else {
+        let pings = game_pings.get(*name).map(Vec::as_slice).unwrap_or_default();
+        let Some(route) = usual_route(name, game_traces, &signature, pings) else {
             continue;
         };
         changes.extend(route_changes(game_traces, &signature, &route.route));
@@ -342,10 +363,50 @@ pub fn build(traces: &[RouteTrace]) -> RouteHistory {
     RouteHistory { usual, changes }
 }
 
+async fn game_pings_by_match(
+    history: &MatchHistory,
+    session_ids: &[i64],
+    game_pings: Option<&GamePingRepository>,
+) -> Result<HashMap<(i64, u32), f64>, DbError> {
+    let mut found = HashMap::new();
+    let Some(game_pings) = game_pings.filter(|_| !session_ids.is_empty()) else {
+        return Ok(found);
+    };
+    let mut pings: HashMap<i64, Vec<GamePingSample>> = HashMap::new();
+    for sample in game_pings.get_samples_for_sessions(session_ids).await? {
+        pings.entry(sample.session_id).or_default().push(sample);
+    }
+    for (&session_id, samples) in &pings {
+        let Some(session) = history.sessions.get(&session_id) else {
+            continue;
+        };
+        for game in &session.matches {
+            let flow = &game.flow;
+            let period = IpPeriod {
+                id: flow.period_id,
+                session_id,
+                ip: flow.ip.clone(),
+                protocol: flow.protocol.clone(),
+                port: flow.port,
+                started_at: flow.started_at.clone(),
+                ended_at: flow.ended_at.clone(),
+                packet_count: flow.packet_count,
+                is_game_server: true,
+                flow_kind: None,
+            };
+            if let Some(measure) = reported_at_server(&period, samples) {
+                found.insert((session_id, game.number), measure.ping_ms);
+            }
+        }
+    }
+    Ok(found)
+}
+
 pub async fn route_history(
     analytics: &AnalyticsRepository,
     periods: &IpPeriodRepository,
     traceroutes: &TracerouteRepository,
+    game_pings: Option<&GamePingRepository>,
     metadata: Option<&IpMetadataRepository>,
     since: DateTime<Utc>,
 ) -> Result<RouteHistory, DbError> {
@@ -373,6 +434,33 @@ pub async fn route_history(
         .collect();
     attach_routes(&mut traces, metadata).await;
 
+    let played: Vec<(i64, String)> = analytics
+        .get_game_sessions()
+        .await?
+        .into_iter()
+        .filter(|(id, _)| {
+            history.sessions.get(id).is_some_and(|session| {
+                session.matches.iter().any(|game| {
+                    DateTime::parse_from_rfc3339(&game.flow.started_at).is_ok_and(|at| at >= since)
+                })
+            })
+        })
+        .collect();
+    let session_ids: Vec<i64> = played.iter().map(|(id, _)| *id).collect();
+    let game_ping_ms = game_pings_by_match(&history, &session_ids, game_pings).await?;
+    let mut by_game: HashMap<String, Vec<f64>> = HashMap::new();
+    for (id, game_name) in &played {
+        for game in &history.sessions[id].matches {
+            let started = DateTime::parse_from_rfc3339(&game.flow.started_at);
+            if let (Some(ping_ms), true) = (
+                game_ping_ms.get(&(*id, game.number)),
+                started.is_ok_and(|at| at >= since),
+            ) {
+                by_game.entry(game_name.clone()).or_default().push(*ping_ms);
+            }
+        }
+    }
+
     let route_traces: Vec<RouteTrace> = traces
         .iter()
         .filter_map(|trace| {
@@ -381,10 +469,13 @@ pub async fn route_history(
                 game_name,
                 sample,
                 trace,
+                game_ping_ms: game_ping_ms
+                    .get(&(sample.session_id, sample.match_number))
+                    .copied(),
             })
         })
         .collect();
-    Ok(build(&route_traces))
+    Ok(build(&route_traces, &by_game))
 }
 
 #[cfg(test)]
@@ -493,18 +584,114 @@ mod tests {
     }
 
     fn history_of(fixture: &Fixture) -> RouteHistory {
+        history_with_game_pings(fixture, &[], &[])
+    }
+
+    fn history_with_game_pings(
+        fixture: &Fixture,
+        pings: &[Option<f64>],
+        unpaired: &[f64],
+    ) -> RouteHistory {
         let traces: Vec<RouteTrace> = fixture
             .traces
             .iter()
             .zip(&fixture.samples)
             .zip(&fixture.games)
-            .map(|((trace, sample), game_name)| RouteTrace {
+            .enumerate()
+            .map(|(i, ((trace, sample), game_name))| RouteTrace {
                 game_name,
                 sample,
                 trace,
+                game_ping_ms: pings.get(i).copied().flatten(),
             })
             .collect();
-        build(&traces)
+        let mut by_game: HashMap<String, Vec<f64>> = HashMap::new();
+        for trace in &traces {
+            let all = by_game.entry(trace.game_name.to_string()).or_default();
+            all.extend(trace.game_ping_ms);
+        }
+        for ping_ms in unpaired {
+            by_game
+                .entry(fixture.games[0].to_string())
+                .or_default()
+                .push(*ping_ms);
+        }
+        build(&traces, &by_game)
+    }
+
+    #[test]
+    fn the_last_segment_is_deduced_from_the_ping_measured_by_the_game() {
+        let league = || {
+            fixture(vec![
+                ("League of Legends", 1, via_retn(12.0)),
+                ("League of Legends", 2, via_retn(12.0)),
+                ("League of Legends", 3, via_retn(12.0)),
+                ("League of Legends", 4, via_cogent()),
+            ])
+        };
+
+        let measured = history_with_game_pings(
+            &league(),
+            &[Some(25.0), Some(27.0), Some(26.0), Some(28.0)],
+            &[24.0],
+        );
+        let game_ping = measured.usual[0].game_ping.clone().unwrap();
+        assert_eq!((game_ping.median_ms, game_ping.match_count), (26.0, 5));
+        assert!((game_ping.deduced_ms.unwrap() - 9.7).abs() < 1e-9);
+
+        let below = history_with_game_pings(&league(), &[Some(10.0), Some(11.0), Some(12.0)], &[]);
+        let game_ping = below.usual[0].game_ping.clone().unwrap();
+        assert_eq!(game_ping.median_ms, 11.0);
+        assert_eq!(game_ping.deduced_ms, None);
+
+        let partial = history_with_game_pings(&league(), &[None, Some(20.0)], &[]);
+        let game_ping = partial.usual[0].game_ping.clone().unwrap();
+        assert_eq!(game_ping.match_count, 1);
+        assert!((game_ping.deduced_ms.unwrap() - 3.7).abs() < 1e-9);
+
+        let elsewhere = history_with_game_pings(&league(), &[], &[13.0]);
+        let game_ping = elsewhere.usual[0].game_ping.clone().unwrap();
+        assert_eq!((game_ping.median_ms, game_ping.deduced_ms), (13.0, None));
+
+        assert_eq!(history_of(&league()).usual[0].game_ping, None);
+    }
+
+    #[tokio::test]
+    async fn the_usual_route_carries_the_ping_measured_by_the_game() {
+        let pool = create_test_pool().await;
+        for (id, ping_ms) in [(1, 12.0), (2, 13.0), (3, 14.0)] {
+            reported_by_league(&pool, id, id - 3, ping_ms).await;
+        }
+        let load = |game_pings: Option<GamePingRepository>| {
+            let pool = pool.clone();
+            async move {
+                route_history(
+                    &AnalyticsRepository::new(pool.clone()),
+                    &IpPeriodRepository::new(pool.clone()),
+                    &TracerouteRepository::new(pool.clone()),
+                    game_pings.as_ref(),
+                    None,
+                    Utc.with_ymd_and_hms(2026, 9, 1, 0, 0, 0).unwrap(),
+                )
+                .await
+                .unwrap()
+            }
+        };
+
+        let history = load(Some(GamePingRepository::new(pool.clone()))).await;
+        let usual = &history.usual[0];
+        assert_eq!(usual.game_name, "League of Legends");
+        assert_eq!(usual.route.total_ms, 5.0);
+        assert_eq!(
+            usual.game_ping,
+            Some(RouteGamePing {
+                median_ms: 13.0,
+                match_count: 3,
+                deduced_ms: Some(8.0),
+            })
+        );
+
+        assert_eq!(load(None).await.usual[0].game_ping, None);
     }
 
     fn names(operators: &[RouteOperator]) -> Vec<Option<&str>> {
@@ -676,6 +863,7 @@ mod tests {
             &AnalyticsRepository::new(pool.clone()),
             &IpPeriodRepository::new(pool.clone()),
             &TracerouteRepository::new(pool.clone()),
+            None,
             Some(&IpMetadataRepository::new(pool.clone())),
             Utc.with_ymd_and_hms(2026, 9, 20, 0, 0, 0).unwrap(),
         )
@@ -702,6 +890,7 @@ mod tests {
             &AnalyticsRepository::new(pool.clone()),
             &IpPeriodRepository::new(pool.clone()),
             &TracerouteRepository::new(pool.clone()),
+            None,
             Some(&IpMetadataRepository::new(pool.clone())),
             Utc.with_ymd_and_hms(2026, 9, 24, 0, 0, 0).unwrap(),
         )

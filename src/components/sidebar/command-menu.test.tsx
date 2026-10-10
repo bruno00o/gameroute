@@ -37,6 +37,7 @@ function route(): UsualRoute {
     traceCount: 3,
     totalTraces: 3,
     persistentLoss: null,
+    gamePing: null,
     route: {
       segments: [
         {

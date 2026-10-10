@@ -178,6 +178,7 @@ function RoutePage() {
                 route={usual.route}
                 destination={{ name: destinationName(usual) }}
                 persistentLoss={usual.persistentLoss}
+                gamePingMs={usual.gamePing?.medianMs}
               />
               {usual.route.destinationSilent && (
                 <p className="text-ui text-muted-foreground mt-4 max-w-[70ch]">

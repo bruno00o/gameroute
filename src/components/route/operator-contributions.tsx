@@ -25,8 +25,9 @@ type OperatorContributionsProps = {
 
 function OperatorContributions({ usual, highlight, className }: OperatorContributionsProps) {
   const { route } = usual
+  const deduced = usual.gamePing?.deducedMs ?? null
   const list = useRef<HTMLUListElement>(null)
-  const largest = Math.max(...route.segments.map(segment => segment.addedMs), 1)
+  const largest = Math.max(...route.segments.map(segment => segment.addedMs), deduced ?? 0, 1)
 
   useEffect(() => {
     if (highlight)
@@ -83,7 +84,12 @@ function OperatorContributions({ usual, highlight, className }: OperatorContribu
         )
       })}
       {hasSilentServer(route) && (
-        <li data-zone="service" data-silent="true" className={ROW}>
+        <li
+          data-zone="service"
+          data-silent="true"
+          data-deduced={deduced != null || undefined}
+          className={ROW}
+        >
           <div className="min-w-0">
             <p className="text-overline text-ink-subtle font-stretch-[88%] uppercase">
               {zoneLabel('service')}
@@ -92,16 +98,37 @@ function OperatorContributions({ usual, highlight, className }: OperatorContribu
               {destinationName(usual)}
             </p>
           </div>
-          <div
-            aria-hidden="true"
-            className="bg-muted h-2 bg-[repeating-linear-gradient(45deg,var(--ink-subtle)_0_1.5px,transparent_1.5px_4px)]"
-          />
-          <div className="flex flex-col items-end gap-0.5">
-            <p className="text-data-sm text-muted-foreground font-mono">
-              {m.route_contrib_unmeasurable()}
-            </p>
-            <SilentHop />
-          </div>
+          {deduced != null ? (
+            <>
+              <div aria-hidden="true" className="bg-muted h-2">
+                <div
+                  className="h-full border border-dashed border-(--zone)"
+                  style={{ width: `${(deduced / largest) * 100}%` }}
+                />
+              </div>
+              <div className="flex flex-col items-end gap-0.5">
+                <p className="text-data text-foreground text-right font-mono tabular-nums">
+                  +{formatRouteMs(deduced)}
+                </p>
+                <p className="text-label text-ink-subtle text-right font-normal">
+                  {m.route_contrib_deduced()}
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div
+                aria-hidden="true"
+                className="bg-muted h-2 bg-[repeating-linear-gradient(45deg,var(--ink-subtle)_0_1.5px,transparent_1.5px_4px)]"
+              />
+              <div className="flex flex-col items-end gap-0.5">
+                <p className="text-data-sm text-muted-foreground font-mono">
+                  {m.route_contrib_unmeasurable()}
+                </p>
+                <SilentHop />
+              </div>
+            </>
+          )}
         </li>
       )}
     </ul>

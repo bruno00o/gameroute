@@ -194,7 +194,7 @@ pub fn game_samples_at<'a>(
         .collect()
 }
 
-fn reported_at_server(period: &IpPeriod, pings: &[GamePingSample]) -> Option<GameMeasure> {
+pub fn reported_at_server(period: &IpPeriod, pings: &[GamePingSample]) -> Option<GameMeasure> {
     let timed = game_samples_at(period, pings);
     let first = timed.first()?;
     let sent: i64 = timed.iter().filter_map(|sample| sample.packets_sent).sum();

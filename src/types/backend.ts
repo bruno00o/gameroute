@@ -808,12 +808,19 @@ export type LatestRouteTrace = {
   hops: DbHop[]
 }
 
+export type RouteGamePing = {
+  medianMs: number
+  matchCount: number
+  deducedMs: number | null
+}
+
 export type UsualRoute = {
   gameName: string
   route: OperatorRoute
   traceCount: number
   totalTraces: number
   persistentLoss: number | null
+  gamePing: RouteGamePing | null
   latest: LatestRouteTrace
 }
 
