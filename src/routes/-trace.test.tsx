@@ -93,7 +93,9 @@ function hop(targetIp: string, hopNumber: number, rtt: number | null): Tracerout
 
 function addHops(targetIp: string, ...rtts: (number | null)[]) {
   act(() => {
-    rtts.forEach((rtt, i) => useTraceStore.getState().addHop(hop(targetIp, i + 1, rtt)))
+    rtts.forEach((rtt, i) => {
+      useTraceStore.getState().addHop(hop(targetIp, i + 1, rtt))
+    })
   })
 }
 
