@@ -73,6 +73,10 @@ export function reportGameName(sources: ReportSource[]): string | null {
   return names.size === 1 ? [...names][0] : null
 }
 
+function withSentence(text: string, sentence: string | null): string {
+  return sentence ? `${text}. ${sentence}.` : text
+}
+
 function isPrivateAddress(ip: string): boolean {
   const v4 = ip.match(/^(\d+)\.(\d+)\./)
   if (v4) {
@@ -406,9 +410,10 @@ export function reportDocument(sources: ReportSource[], options: ReportOptions):
       status: null,
       note: null,
     }
+    let sentence: string | null = null
     if (hop.latencyAvg == null) {
       row.note = m.hop_silent_router({}, tr)
-      parts.push(row.note)
+      sentence = row.note
     } else {
       row.latency = formatMs(hop.latencyAvg, { locale })
       row.loss = formatPercent(hop.packetLoss, { locale })
@@ -419,10 +424,13 @@ export function reportDocument(sources: ReportSource[], options: ReportOptions):
         parts.push(row.note)
       } else if ((hop.packetLoss ?? 0) > 0) {
         row.note = m.hop_rate_limited({}, tr)
-        parts.push(row.note)
+        sentence = row.note
       }
     }
-    row.text = `${hop.hopNumber}. ${parts.filter(part => part != null).join(', ')}`
+    row.text = withSentence(
+      `${hop.hopNumber}. ${parts.filter(part => part != null).join(', ')}`,
+      sentence
+    )
     return row
   }
 
@@ -560,7 +568,7 @@ export function reportDocument(sources: ReportSource[], options: ReportOptions):
       if (silentDestination) {
         const note = m.hop_silent_router({}, tr)
         rows.push({
-          text: [zone('service'), trace.targetIp, note].join(', '),
+          text: withSentence([zone('service'), trace.targetIp].join(', '), note),
           number: null,
           zone: zone('service'),
           address: trace.targetIp,
