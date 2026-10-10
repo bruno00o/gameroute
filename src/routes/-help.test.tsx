@@ -68,9 +68,8 @@ describe('Help', () => {
     expect(usual).toHaveTextContent('at least 5')
     expect(usual).toHaveTextContent('A “≥” value is never mixed with a real round trip.')
 
-    const quality = screen.getByText(
-      'Quality (Good, Watch, Degraded, Critical)'
-    ).nextElementSibling!
+    const quality = screen.getByText('Quality (Good, Watch, Degraded, Critical)')
+      .nextElementSibling!
     expect(quality.textContent).toContain(`“Watch” at +20${NB}ms above it`)
     expect(quality.textContent).toContain(`“Critical” at +100${NB}ms`)
     expect(quality).toHaveTextContent('Without one, fixed thresholds apply to the ping.')

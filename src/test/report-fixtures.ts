@@ -11,11 +11,13 @@ import {
 import type { ReportSource } from '@/lib/report'
 
 export function sources(detail: SessionDetail, matches: SessionMatch[], numbers: number[]) {
-  return numbers.map((number): ReportSource => ({
-    detail,
-    matches,
-    match: matches.find(match => match.number === number)!,
-  }))
+  return numbers.map(
+    (number): ReportSource => ({
+      detail,
+      matches,
+      match: matches.find(match => match.number === number)!,
+    })
+  )
 }
 
 function hop(overrides: Partial<DbHop> & Pick<DbHop, 'hopNumber'>): DbHop {

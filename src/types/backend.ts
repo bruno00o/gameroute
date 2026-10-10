@@ -488,7 +488,13 @@ export type ServerStability = {
 }
 
 export type PingSource =
-  'trace' | 'game' | 'game_region' | 'floor' | 'region' | 'gateway' | 'isp_edge'
+  | 'trace'
+  | 'game'
+  | 'game_region'
+  | 'floor'
+  | 'region'
+  | 'gateway'
+  | 'isp_edge'
 
 export type PingBasis = {
   source: PingSource
@@ -635,7 +641,13 @@ export type LiveReading = {
 }
 
 export type FaultZone =
-  'home' | 'isp' | 'transit' | 'service' | 'after_isp' | 'not_home' | 'unlocated'
+  | 'home'
+  | 'isp'
+  | 'transit'
+  | 'service'
+  | 'after_isp'
+  | 'not_home'
+  | 'unlocated'
 
 export type LiveFault = {
   zone: FaultZone

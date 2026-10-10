@@ -37,7 +37,7 @@ const nodeShape: Record<HopNode, string> = {
 }
 
 const NBSP = ' '
-const rowClass ='grid min-h-8 grid-cols-(--hop-cols) items-center gap-x-3'
+const rowClass = 'grid min-h-8 grid-cols-(--hop-cols) items-center gap-x-3'
 const numberClass = 'text-ink-subtle text-right font-mono text-xs tabular-nums'
 const valueClass = 'text-data text-right font-mono tabular-nums'
 
