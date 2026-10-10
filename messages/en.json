@@ -330,7 +330,6 @@
   "home_ready_service_on": "The capture service is running.",
   "home_ready_service_off": "The capture service is not responding.",
 
-  "network_map_empty": "No server located yet.",
   "network_map_latency": "Latency",
   "network_problem_hops_title": "Recurring Problem Hops",
   "network_col_asn": "ASN",
@@ -360,7 +359,6 @@
   "route_changes_more": "Show {count} more",
   "route_changes_less": "Show fewer",
   "route_map_label": "Map",
-  "route_map_note": "The map places your ISP and the transit, but not the game server: address databases put it at the publisher’s headquarters, not in its datacenter.",
   "route_map_latest": "Latest match on this route: {date}",
   "route_open_match": "Open the match",
   "route_empty_title": "No route measured yet",
@@ -461,7 +459,7 @@
   "help_faq_update_q": "Can GameRoute update during a match?",
   "help_faq_update_a": "The update offered at startup waits until the monitored game is closed, then installs only if you agree. If you start it yourself from the {settings} screen during a match, GameRoute warns you that it will stop the measurement.",
   "help_faq_data_q": "What data leaves this PC?",
-  "help_faq_data_a": "Your sessions stay in a local database on this PC. GameRoute connects to GitHub for updates, to Steam for game images and to CARTO for map tiles, and its traces send probes to your games' servers. During a match it also sends small probes, one per second each: to your router, to the last router of your ISP, to the last router that answers on the route, and to a public measurement point in the game's region (AWS, Valve or Epic). These points see your public IP address, as with any connection, and each probe can be turned off in the capture settings. Operators and countries are read offline from the GeoLite2 databases shipped with the app. There is no telemetry. Anonymous sharing, which you would turn on yourself, is planned for version 1.0; it doesn't exist yet.",
+  "help_faq_data_a": "Your sessions stay in a local database on this PC. GameRoute connects to GitHub for updates and to Steam for game images, asks your DNS server for router names for the map, and its traces send probes to your games' servers. During a match it also sends small probes, one per second each: to your router, to the last router of your ISP, to the last router that answers on the route, and to a public measurement point in the game's region (AWS, Valve or Epic). These points see your public IP address, as with any connection, and each probe can be turned off in the capture settings. Operators and countries are read offline from the GeoLite2 databases shipped with the app. There is no telemetry. Anonymous sharing, which you would turn on yourself, is planned for version 1.0; it doesn't exist yet.",
   "help_data_attribution": "Operators and countries: MaxMind GeoLite2 databases, read offline and updated with each GameRoute release. This product includes GeoLite2 data created by MaxMind, available from {url}, licensed under CC BY-SA 4.0.",
 
   "error_title": "This screen could not be displayed.",
@@ -553,7 +551,7 @@
   "settings_probes_beacons": "Measurement points",
   "settings_local_title": "Data on this PC",
   "settings_local_description": "No account, no cloud. Network operators are identified offline, with the GeoLite2 databases shipped with GameRoute.",
-  "settings_local_connections": "GameRoute connects to GitHub for updates, Steam for game images and CARTO for map tiles.",
+  "settings_local_connections": "GameRoute connects to GitHub for updates and Steam for game images. The map asks your DNS server for router names.",
   "settings_local_probes": "During a match, GameRoute also sends small probes, one per second each: to your router (it stays on your local network), to the last router of your ISP, to the last router that answers on the route, and to a public measurement point in the game’s region (AWS, Valve or Epic). These routers and points see your public IP address, as with any connection. Each probe can be turned off in the capture settings.",
   "settings_storage_database": "Local database",
   "settings_storage_sessions": "Sessions",
@@ -961,5 +959,11 @@
   "game_select_search": "Search games",
   "game_select_none": "No matching game",
   "game_select_sessions_one": "{count} session",
-  "game_select_sessions_other": "{count} sessions"
+  "game_select_sessions_other": "{count} sessions",
+  "route_map_source": "Positions come from router names, and from GeoLite for Valve, Microsoft, Amazon, Google and CDN servers. Riot servers can’t be located.",
+  "route_map_located": "Located: {located} of {total}",
+  "route_map_riot": "Riot Games · region can’t be located",
+  "route_map_home_country": "{country} · your ISP’s country",
+  "route_map_none": "No point on this route can be located.",
+  "route_map_aria": "Route map: {places}"
 }

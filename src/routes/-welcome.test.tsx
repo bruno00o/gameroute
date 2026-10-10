@@ -248,7 +248,9 @@ describe('Welcome flow', () => {
       )
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/connects to GitHub for updates, Steam for game images and CARTO/)
+      screen.getByText(
+        /connects to GitHub for updates and Steam for game images. The map asks your DNS/
+      )
     ).toBeInTheDocument()
     expect(screen.getByText(/your router.*to the last router of your ISP/)).toBeInTheDocument()
     expect(screen.getAllByRole('switch')).toHaveLength(2)

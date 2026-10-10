@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { RiArrowLeftSLine, RiArrowRightSLine } from '@remixicon/react'
 
 import * as m from '@/paraglide/messages'
@@ -30,9 +30,8 @@ import {
   type TraceTiming,
 } from '@/lib/matches'
 import { hasRecap } from '@/lib/recap'
-import { formatRouteMs, hopCount, routeMapPoints } from '@/lib/route'
+import { formatRouteMs, hopCount } from '@/lib/route'
 import { cn } from '@/lib/utils'
-import { useAsnResolution } from '@/hooks/use-asn-resolution'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/empty-state'
 import { Fact, FactRow } from '@/components/fact-row'
@@ -168,18 +167,6 @@ function MatchRoute({
   className?: string
 }) {
   const [showMap, setShowMap] = useState(false)
-  const ips = useMemo(
-    () =>
-      traceroute
-        ? [...new Set([traceroute.targetIp, ...traceroute.hops.flatMap(hop => hop.ip ?? [])])]
-        : [],
-    [traceroute]
-  )
-  const { data: asnData } = useAsnResolution(ips)
-  const points = useMemo(
-    () => (traceroute ? routeMapPoints(traceroute.hops, traceroute.targetIp, asnData) : []),
-    [traceroute, asnData]
-  )
 
   if (!traceroute) {
     return (
@@ -200,7 +187,7 @@ function MatchRoute({
       title={title}
       className={className}
       action={
-        points.length > 0 && (
+        traceroute.hops.some(hop => hop.ip) && (
           <Button
             variant="ghost"
             size="sm"
@@ -227,7 +214,14 @@ function MatchRoute({
         mode={detailed ? 'detail' : 'simple'}
         destinationName={name}
       />
-      {showMap && points.length > 0 && <RouteMap className="mt-4" points={points} />}
+      {showMap && (
+        <RouteMap
+          className="mt-4"
+          hops={traceroute.hops}
+          targetIp={traceroute.targetIp}
+          route={traceroute.route}
+        />
+      )}
     </Panel>
   )
 }

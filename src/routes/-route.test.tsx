@@ -282,7 +282,8 @@ describe('Route screen', () => {
         `≥ 20 ms vs ≥ 17 ms on the usual route · no loss · Back on the usual route afterwards`
       )
     ).toBeInTheDocument()
-    const link = screen.getByRole('link', { name: 'Open the match' })
+    const changes = screen.getByRole('region', { name: 'Route changes' })
+    const link = within(changes).getByRole('link', { name: 'Open the match' })
     expect(link).toHaveAttribute('href', '/sessions/9/matches/2')
   })
 
@@ -303,16 +304,11 @@ describe('Route screen', () => {
     expect(table).not.toHaveTextContent('Amsterdam')
   })
 
-  it('keeps the map behind a button', async () => {
-    const user = userEvent.setup()
+  it('shows the map of the latest trace', async () => {
     renderRoute()
 
-    expect(screen.queryByTestId('route-map')).not.toBeInTheDocument()
-    await user.click(await screen.findByRole('button', { name: 'Show map' }))
-    expect(screen.getByRole('button', { name: 'Hide map' })).toHaveAttribute(
-      'aria-expanded',
-      'true'
-    )
+    expect(await screen.findByTestId('route-map')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Show map' })).not.toBeInTheDocument()
   })
 
   it('switches game from the header and from the address', async () => {
