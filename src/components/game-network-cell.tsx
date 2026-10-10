@@ -11,7 +11,7 @@ export function GameNetworkCell({ network }: { network: GameNetwork }) {
     )
   }
 
-  const meta = [network.usual, network.servers].filter(Boolean).join(' · ')
+  const meta = [network.usual, network.servers].filter(Boolean).join(', ')
 
   return (
     <div className="flex flex-col gap-0.5 py-2" data-slot="game-network">

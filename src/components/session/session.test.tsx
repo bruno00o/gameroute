@@ -55,7 +55,7 @@ describe('MatchTable', () => {
     const first = cellsOf(rows[0])
     expect(first[1]).toHaveTextContent('15:45')
     expect(first[2]).toHaveTextContent('6:36')
-    expect(first[3]).toHaveTextContent('Riot Games · UDP 7284')
+    expect(first[3]).toHaveTextContent('Riot Games, UDP 7284')
     expect(first[5]).toHaveTextContent('0%')
     expect(first[7]).toHaveTextContent('Good')
     expect(first[7].querySelector('[data-slot=status-pill]')).toHaveAttribute('data-status', 'ok')
@@ -126,15 +126,15 @@ describe('SessionScreen', () => {
   it('opens on the facts of the session', () => {
     render(<SessionScreen detail={sessionDetail()} matches={sessionMatches()} />)
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('VALORANT · 15:40 → 20:14')
-    expect(screen.getByText(/3 matches · 2 game servers · 2 voice servers/)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('VALORANT, 15:40 → 20:14')
+    expect(screen.getByText(/3 matches, 2 game servers, 2 voice servers/)).toBeInTheDocument()
   })
 
   it('titles the verdict with its figure and locates the silent server', () => {
     render(<SessionScreen detail={sessionDetail()} matches={sessionMatches()} />)
 
     const verdict = screen.getByRole('region', { name: /^≥\s18\sms to the server, no loss$/ })
-    expect(verdict).toHaveTextContent('2/3 matches measured · one trace per server')
+    expect(verdict).toHaveTextContent('2/3 matches measured, one trace per server')
     expect(verdict).toHaveTextContent(
       "The server doesn't answer pings, which is normal: measured up to hop 3 (RETN)."
     )
@@ -142,8 +142,8 @@ describe('SessionScreen', () => {
 
     const zones = within(within(verdict).getByRole('list')).getAllByRole('listitem')
     expect(zones.map(zone => zone.dataset.status ?? null)).toEqual(['ok', 'ok', 'ok', 'unmeasured'])
-    expect(zones[2]).toHaveTextContent('Transit · RETN')
-    expect(zones[3]).toHaveTextContent("Game server · Riot GamesDoesn't answer pings")
+    expect(zones[2]).toHaveTextContent('Transit (RETN)')
+    expect(zones[3]).toHaveTextContent("Game server (Riot Games)Doesn't answer pings")
   })
 
   it('names the operator where a persistent loss starts', () => {
@@ -171,7 +171,7 @@ describe('SessionScreen', () => {
   it('draws matches and every voice flow on the timeline, linked or not', () => {
     render(<SessionScreen detail={sessionDetail()} matches={sessionMatches()} />)
 
-    const games = screen.getByRole('list', { name: 'Matches · Riot Games' })
+    const games = screen.getByRole('list', { name: 'Matches, Riot Games' })
     expect(
       within(games)
         .getAllByRole('listitem')
@@ -239,6 +239,6 @@ describe('SessionScreen', () => {
     )
 
     expect(screen.getByText('No match yet')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('VALORANT · 15:40 → now')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('VALORANT, 15:40 → now')
   })
 })

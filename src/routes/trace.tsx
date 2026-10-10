@@ -203,7 +203,7 @@ function TargetPanel({ ip, operator }: { ip: string; operator: string | null }) 
   const hopsCount = result ? result.hops.length : liveHops.length
   const name = shortOperatorName(result?.route?.destinationName) ?? operator
 
-  const label = [targetRoleLabel(target), name].filter(Boolean).join(' · ')
+  const label = [targetRoleLabel(target), name].filter(Boolean).join(', ')
   const title = [
     ip,
     targetPortLabel(target),
@@ -211,7 +211,7 @@ function TargetPanel({ ip, operator }: { ip: string; operator: string | null }) 
     hopsCount > 0 ? hopCount(hopsCount) : null,
   ]
     .filter(Boolean)
-    .join(' · ')
+    .join(', ')
 
   return (
     <Panel

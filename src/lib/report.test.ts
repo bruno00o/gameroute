@@ -43,22 +43,22 @@ describe('reportText', () => {
 
     expect(text).toMatchInlineSnapshot(`
       "GameRoute connection report
-      Prepared on October 8, 2026 at 14:32 · For SFR support
+      Prepared on October 8, 2026 at 14:32, For SFR support
 
       Summary
-      1 match: VALORANT · Sep 13
+      1 match: VALORANT, Sep 13
       No persistent loss up to the last responding router.
 
       Matches
 
-      VALORANT · Sep 13 · match 2
+      VALORANT, Sep 13, match 2
         Time: 15:54 → 16:25 (31 min 12 s)
-        Server: Riot Games (AS6507) · 162.249.72.5 · UDP 7323
-        Ping: ≥ 18 ms · measured up to hop 3 (RETN)
+        Server: Riot Games (AS6507), 162.249.72.5, UDP 7323
+        Ping: ≥ 18 ms, measured up to hop 3 (RETN)
         Persistent loss: none
         Jitter: 1.0 ms (spread of 3 probes)
         Trace: started during match 1
-        Route: Your home +0.6 ms → Your ISP · SFR (AS15557) +3.0 ms → Transit · RETN (AS9002) +14 ms → Riot Games (doesn't answer pings) = ≥ 18 ms
+        Route: Your home +0.6 ms → Your ISP, SFR (AS15557) +3.0 ms → Transit, RETN (AS9002) +14 ms → Riot Games (doesn't answer pings) = ≥ 18 ms
 
       Measurement limits
       Each figure comes from one trace per server (3 probes per hop) started during the session, not from continuous measurement. Ping is the round trip to the last responding router; jitter is the spread of the 3 probes.
@@ -83,22 +83,22 @@ describe('reportText', () => {
 
     expect(text).toMatchInlineSnapshot(`
       "Rapport de connexion GameRoute
-      Préparé le 8 octobre 2026 à 14:32 · À l'attention du support SFR
+      Préparé le 8 octobre 2026 à 14:32, À l'attention du support SFR
 
       Résumé
-      1 partie : VALORANT · 13 sept.
+      1 partie : VALORANT, 13 sept.
       Aucune perte persistante jusqu'au dernier routeur qui répond.
 
       Parties
 
-      VALORANT · 13 sept. · partie 2
+      VALORANT, 13 sept., partie 2
         Heure : 15:54 → 16:25 (31 min 12 s)
-        Serveur : Riot Games (AS6507) · 162.249.72.5 · UDP 7323
-        Ping : ≥ 18 ms · mesuré jusqu'au saut 3 (RETN)
+        Serveur : Riot Games (AS6507), 162.249.72.5, UDP 7323
+        Ping : ≥ 18 ms, mesuré jusqu'au saut 3 (RETN)
         Perte persistante : aucune
         Gigue : 1,0 ms (écart entre 3 sondes)
         Trace : lancée pendant la partie 1
-        Route : Chez vous +0,6 ms → Votre FAI · SFR (AS15557) +3,0 ms → Transit · RETN (AS9002) +14 ms → Riot Games (ne répond pas aux pings) = ≥ 18 ms
+        Route : Chez vous +0,6 ms → Votre FAI, SFR (AS15557) +3,0 ms → Transit, RETN (AS9002) +14 ms → Riot Games (ne répond pas aux pings) = ≥ 18 ms
 
       Limites de la mesure
       Chaque chiffre vient d'une trace par serveur (3 sondes par saut) lancée pendant la session, pas d'une mesure continue. Le ping est l'aller-retour jusqu'au dernier routeur qui répond ; la gigue est l'écart entre les 3 sondes.
@@ -123,22 +123,22 @@ describe('reportText', () => {
 
     expect(text).toMatchInlineSnapshot(`
       "Informe de conexión de GameRoute
-      Preparado el 8 de octubre de 2026 a las 14:32 · Para el soporte de SFR
+      Preparado el 8 de octubre de 2026 a las 14:32, Para el soporte de SFR
 
       Resumen
-      1 partida: VALORANT · 13 sept
+      1 partida: VALORANT, 13 sept
       Ninguna pérdida persistente hasta el último router que responde.
 
       Partidas
 
-      VALORANT · 13 sept · partida 2
+      VALORANT, 13 sept, partida 2
         Hora: 15:54 → 16:25 (31 min 12 s)
-        Servidor: Riot Games (AS6507) · 162.249.72.5 · UDP 7323
-        Ping: ≥ 18 ms · medido hasta el salto 3 (RETN)
+        Servidor: Riot Games (AS6507), 162.249.72.5, UDP 7323
+        Ping: ≥ 18 ms, medido hasta el salto 3 (RETN)
         Pérdida persistente: ninguna
         Jitter: 1,0 ms (diferencia entre 3 sondeos)
         Traza: iniciada durante la partida 1
-        Ruta: Tu casa +0,6 ms → Tu proveedor · SFR (AS15557) +3,0 ms → Tránsito · RETN (AS9002) +14 ms → Riot Games (no responde a los pings) = ≥ 18 ms
+        Ruta: Tu casa +0,6 ms → Tu proveedor, SFR (AS15557) +3,0 ms → Tránsito, RETN (AS9002) +14 ms → Riot Games (no responde a los pings) = ≥ 18 ms
 
       Límites de la medición
       Cada cifra viene de una traza por servidor (3 sondeos por salto) lanzada durante la sesión, no de una medición continua. El ping es la ida y vuelta hasta el último router que responde; el jitter es la diferencia entre los 3 sondeos.
@@ -158,47 +158,47 @@ describe('reportText', () => {
 
     expect(text).toMatchInlineSnapshot(`
       "GameRoute connection report
-      Prepared on October 8, 2026 at 14:32 · For SFR support
+      Prepared on October 8, 2026 at 14:32, For SFR support
 
       Summary
-      2 matches: VALORANT · Sep 13
-      VALORANT · Sep 13 · match 1: persistent loss of 33% up to the last responding router, from hop 3 (RETN), after SFR.
+      2 matches: VALORANT, Sep 13
+      VALORANT, Sep 13, match 1: persistent loss of 33% up to the last responding router, from hop 3 (RETN), after SFR.
       No persistent loss on the other measured matches.
       Ping: ≥ 18 ms to ≥ 38 ms.
 
       Matches
 
-      VALORANT · Sep 13 · match 1
+      VALORANT, Sep 13, match 1
         Time: 15:45 → 15:51 (6 min 36 s)
-        Server: Riot Games (AS6507) · 162.249.72.5 · UDP 7284
-        Ping: ≥ 38 ms · measured up to hop 6 (RETN) · usual ≥ 18 ms (median of 12 measurements)
+        Server: Riot Games (AS6507), 162.249.72.5, UDP 7284
+        Ping: ≥ 38 ms, measured up to hop 6 (RETN), usual ≥ 18 ms (median of 12 measurements)
         Persistent loss: 33%, from hop 3 (RETN), after SFR
         Jitter: 6.8 ms (spread of 3 probes)
         Trace: started 3:00 into the match
-        Route: Your home +0.6 ms → Your ISP · SFR (AS15557) +3.0 ms → Transit · RETN (AS9002) +14 ms → Riot Games (doesn't answer pings) = ≥ 38 ms
+        Route: Your home +0.6 ms → Your ISP, SFR (AS15557) +3.0 ms → Transit, RETN (AS9002) +14 ms → Riot Games (doesn't answer pings) = ≥ 38 ms
         Hops:
-          1 · Your home · 0.6 ms
-          2 · SFR · bas1.paris.sfr.net (77.136.10.6) · 4.4 ms · Ignores some pings · normal
-          3 · RETN · ae1-9.rt.th2.par.fr.retn.net (87.245.233.46) · 18.5 ms · loss 33% (persistent)
-          4 · RETN · 87.245.240.1 · 20.1 ms · loss 33% (persistent)
-          5 · RETN · This router doesn't answer pings · normal
-          6 · RETN · 87.245.250.9 · 38.4 ms · loss 33% (persistent)
-          Game server · 162.249.72.5 · This router doesn't answer pings · normal
+          1. Your home, 0.6 ms
+          2. SFR, bas1.paris.sfr.net (77.136.10.6), 4.4 ms, Ignores some pings, which is normal
+          3. RETN, ae1-9.rt.th2.par.fr.retn.net (87.245.233.46), 18.5 ms, loss 33% (persistent)
+          4. RETN, 87.245.240.1, 20.1 ms, loss 33% (persistent)
+          5. RETN, This router doesn't answer pings, which is normal
+          6. RETN, 87.245.250.9, 38.4 ms, loss 33% (persistent)
+          Game server, 162.249.72.5, This router doesn't answer pings, which is normal
 
-      VALORANT · Sep 13 · match 2
+      VALORANT, Sep 13, match 2
         Time: 15:54 → 16:25 (31 min 12 s)
-        Server: Riot Games (AS6507) · 162.249.72.5 · UDP 7323
-        Ping: ≥ 18 ms · measured up to hop 3 (RETN)
+        Server: Riot Games (AS6507), 162.249.72.5, UDP 7323
+        Ping: ≥ 18 ms, measured up to hop 3 (RETN)
         Persistent loss: none
         Jitter: 1.0 ms (spread of 3 probes)
         Trace: started during match 1
-        Route: Your home +0.6 ms → Your ISP · SFR (AS15557) +3.0 ms → Transit · RETN (AS9002) +14 ms → Riot Games (doesn't answer pings) = ≥ 18 ms
+        Route: Your home +0.6 ms → Your ISP, SFR (AS15557) +3.0 ms → Transit, RETN (AS9002) +14 ms → Riot Games (doesn't answer pings) = ≥ 18 ms
         Hops:
-          1 · Your home · 0.6 ms
-          2 · SFR · 77.136.10.6 · 3.6 ms
-          3 · RETN · 87.245.233.46 · 17.6 ms
-          4 · RETN · This router doesn't answer pings · normal
-          Game server · 162.249.72.5 · This router doesn't answer pings · normal
+          1. Your home, 0.6 ms
+          2. SFR, 77.136.10.6, 3.6 ms
+          3. RETN, 87.245.233.46, 17.6 ms
+          4. RETN, This router doesn't answer pings, which is normal
+          Game server, 162.249.72.5, This router doesn't answer pings, which is normal
 
       Measurement limits
       Each figure comes from one trace per server (3 probes per hop) started during the session, not from continuous measurement. Ping is the round trip to the last responding router; jitter is the spread of the 3 probes.
@@ -219,47 +219,47 @@ describe('reportText', () => {
 
     expect(text).toMatchInlineSnapshot(`
       "Rapport de connexion GameRoute
-      Préparé le 8 octobre 2026 à 14:32 · À l'attention du support SFR
+      Préparé le 8 octobre 2026 à 14:32, À l'attention du support SFR
 
       Résumé
-      2 parties : VALORANT · 13 sept.
-      VALORANT · 13 sept. · partie 1 : perte persistante de 33 % jusqu'au dernier routeur qui répond, à partir du saut 3 (RETN), après SFR.
+      2 parties : VALORANT, 13 sept.
+      VALORANT, 13 sept., partie 1 : perte persistante de 33 % jusqu'au dernier routeur qui répond, à partir du saut 3 (RETN), après SFR.
       Aucune perte persistante sur les autres parties mesurées.
       Ping : de ≥ 18 ms à ≥ 38 ms.
 
       Parties
 
-      VALORANT · 13 sept. · partie 1
+      VALORANT, 13 sept., partie 1
         Heure : 15:45 → 15:51 (6 min 36 s)
-        Serveur : Riot Games (AS6507) · 162.249.72.5 · UDP 7284
-        Ping : ≥ 38 ms · mesuré jusqu'au saut 6 (RETN) · habituel ≥ 18 ms (médiane de 12 mesures)
+        Serveur : Riot Games (AS6507), 162.249.72.5, UDP 7284
+        Ping : ≥ 38 ms, mesuré jusqu'au saut 6 (RETN), habituel ≥ 18 ms (médiane de 12 mesures)
         Perte persistante : 33 %, à partir du saut 3 (RETN), après SFR
         Gigue : 6,8 ms (écart entre 3 sondes)
         Trace : lancée 3:00 après le début de la partie
-        Route : Chez vous +0,6 ms → Votre FAI · SFR (AS15557) +3,0 ms → Transit · RETN (AS9002) +14 ms → Riot Games (ne répond pas aux pings) = ≥ 38 ms
+        Route : Chez vous +0,6 ms → Votre FAI, SFR (AS15557) +3,0 ms → Transit, RETN (AS9002) +14 ms → Riot Games (ne répond pas aux pings) = ≥ 38 ms
         Sauts :
-          1 · Chez vous · 0,6 ms
-          2 · SFR · bas1.paris.sfr.net (77.136.10.6) · 4,4 ms · Ignore une partie des pings · normal
-          3 · RETN · ae1-9.rt.th2.par.fr.retn.net (87.245.233.46) · 18,5 ms · perte 33 % (persistante)
-          4 · RETN · 87.245.240.1 · 20,1 ms · perte 33 % (persistante)
-          5 · RETN · Ce routeur ne répond pas aux pings · normal
-          6 · RETN · 87.245.250.9 · 38,4 ms · perte 33 % (persistante)
-          Serveur du jeu · 162.249.72.5 · Ce routeur ne répond pas aux pings · normal
+          1. Chez vous, 0,6 ms
+          2. SFR, bas1.paris.sfr.net (77.136.10.6), 4,4 ms, Ignore une partie des pings, c'est normal
+          3. RETN, ae1-9.rt.th2.par.fr.retn.net (87.245.233.46), 18,5 ms, perte 33 % (persistante)
+          4. RETN, 87.245.240.1, 20,1 ms, perte 33 % (persistante)
+          5. RETN, Ce routeur ne répond pas aux pings, c'est normal
+          6. RETN, 87.245.250.9, 38,4 ms, perte 33 % (persistante)
+          Serveur du jeu, 162.249.72.5, Ce routeur ne répond pas aux pings, c'est normal
 
-      VALORANT · 13 sept. · partie 2
+      VALORANT, 13 sept., partie 2
         Heure : 15:54 → 16:25 (31 min 12 s)
-        Serveur : Riot Games (AS6507) · 162.249.72.5 · UDP 7323
-        Ping : ≥ 18 ms · mesuré jusqu'au saut 3 (RETN)
+        Serveur : Riot Games (AS6507), 162.249.72.5, UDP 7323
+        Ping : ≥ 18 ms, mesuré jusqu'au saut 3 (RETN)
         Perte persistante : aucune
         Gigue : 1,0 ms (écart entre 3 sondes)
         Trace : lancée pendant la partie 1
-        Route : Chez vous +0,6 ms → Votre FAI · SFR (AS15557) +3,0 ms → Transit · RETN (AS9002) +14 ms → Riot Games (ne répond pas aux pings) = ≥ 18 ms
+        Route : Chez vous +0,6 ms → Votre FAI, SFR (AS15557) +3,0 ms → Transit, RETN (AS9002) +14 ms → Riot Games (ne répond pas aux pings) = ≥ 18 ms
         Sauts :
-          1 · Chez vous · 0,6 ms
-          2 · SFR · 77.136.10.6 · 3,6 ms
-          3 · RETN · 87.245.233.46 · 17,6 ms
-          4 · RETN · Ce routeur ne répond pas aux pings · normal
-          Serveur du jeu · 162.249.72.5 · Ce routeur ne répond pas aux pings · normal
+          1. Chez vous, 0,6 ms
+          2. SFR, 77.136.10.6, 3,6 ms
+          3. RETN, 87.245.233.46, 17,6 ms
+          4. RETN, Ce routeur ne répond pas aux pings, c'est normal
+          Serveur du jeu, 162.249.72.5, Ce routeur ne répond pas aux pings, c'est normal
 
       Limites de la mesure
       Chaque chiffre vient d'une trace par serveur (3 sondes par saut) lancée pendant la session, pas d'une mesure continue. Le ping est l'aller-retour jusqu'au dernier routeur qui répond ; la gigue est l'écart entre les 3 sondes.
@@ -280,47 +280,47 @@ describe('reportText', () => {
 
     expect(text).toMatchInlineSnapshot(`
       "Informe de conexión de GameRoute
-      Preparado el 8 de octubre de 2026 a las 14:32 · Para el soporte de SFR
+      Preparado el 8 de octubre de 2026 a las 14:32, Para el soporte de SFR
 
       Resumen
-      2 partidas: VALORANT · 13 sept
-      VALORANT · 13 sept · partida 1: pérdida persistente de 33 % hasta el último router que responde, a partir del salto 3 (RETN), después de SFR.
+      2 partidas: VALORANT, 13 sept
+      VALORANT, 13 sept, partida 1: pérdida persistente de 33 % hasta el último router que responde, a partir del salto 3 (RETN), después de SFR.
       Ninguna pérdida persistente en las demás partidas medidas.
       Ping: de ≥ 18 ms a ≥ 38 ms.
 
       Partidas
 
-      VALORANT · 13 sept · partida 1
+      VALORANT, 13 sept, partida 1
         Hora: 15:45 → 15:51 (6 min 36 s)
-        Servidor: Riot Games (AS6507) · 162.249.72.5 · UDP 7284
-        Ping: ≥ 38 ms · medido hasta el salto 6 (RETN) · habitual ≥ 18 ms (mediana de 12 mediciones)
+        Servidor: Riot Games (AS6507), 162.249.72.5, UDP 7284
+        Ping: ≥ 38 ms, medido hasta el salto 6 (RETN), habitual ≥ 18 ms (mediana de 12 mediciones)
         Pérdida persistente: 33 %, a partir del salto 3 (RETN), después de SFR
         Jitter: 6,8 ms (diferencia entre 3 sondeos)
         Traza: iniciada 3:00 después del comienzo de la partida
-        Ruta: Tu casa +0,6 ms → Tu proveedor · SFR (AS15557) +3,0 ms → Tránsito · RETN (AS9002) +14 ms → Riot Games (no responde a los pings) = ≥ 38 ms
+        Ruta: Tu casa +0,6 ms → Tu proveedor, SFR (AS15557) +3,0 ms → Tránsito, RETN (AS9002) +14 ms → Riot Games (no responde a los pings) = ≥ 38 ms
         Saltos:
-          1 · Tu casa · 0,6 ms
-          2 · SFR · bas1.paris.sfr.net (77.136.10.6) · 4,4 ms · Ignora parte de los pings · normal
-          3 · RETN · ae1-9.rt.th2.par.fr.retn.net (87.245.233.46) · 18,5 ms · pérdida 33 % (persistente)
-          4 · RETN · 87.245.240.1 · 20,1 ms · pérdida 33 % (persistente)
-          5 · RETN · Este router no responde a los pings · normal
-          6 · RETN · 87.245.250.9 · 38,4 ms · pérdida 33 % (persistente)
-          Servidor del juego · 162.249.72.5 · Este router no responde a los pings · normal
+          1. Tu casa, 0,6 ms
+          2. SFR, bas1.paris.sfr.net (77.136.10.6), 4,4 ms, Ignora parte de los pings, es normal
+          3. RETN, ae1-9.rt.th2.par.fr.retn.net (87.245.233.46), 18,5 ms, pérdida 33 % (persistente)
+          4. RETN, 87.245.240.1, 20,1 ms, pérdida 33 % (persistente)
+          5. RETN, Este router no responde a los pings, es normal
+          6. RETN, 87.245.250.9, 38,4 ms, pérdida 33 % (persistente)
+          Servidor del juego, 162.249.72.5, Este router no responde a los pings, es normal
 
-      VALORANT · 13 sept · partida 2
+      VALORANT, 13 sept, partida 2
         Hora: 15:54 → 16:25 (31 min 12 s)
-        Servidor: Riot Games (AS6507) · 162.249.72.5 · UDP 7323
-        Ping: ≥ 18 ms · medido hasta el salto 3 (RETN)
+        Servidor: Riot Games (AS6507), 162.249.72.5, UDP 7323
+        Ping: ≥ 18 ms, medido hasta el salto 3 (RETN)
         Pérdida persistente: ninguna
         Jitter: 1,0 ms (diferencia entre 3 sondeos)
         Traza: iniciada durante la partida 1
-        Ruta: Tu casa +0,6 ms → Tu proveedor · SFR (AS15557) +3,0 ms → Tránsito · RETN (AS9002) +14 ms → Riot Games (no responde a los pings) = ≥ 18 ms
+        Ruta: Tu casa +0,6 ms → Tu proveedor, SFR (AS15557) +3,0 ms → Tránsito, RETN (AS9002) +14 ms → Riot Games (no responde a los pings) = ≥ 18 ms
         Saltos:
-          1 · Tu casa · 0,6 ms
-          2 · SFR · 77.136.10.6 · 3,6 ms
-          3 · RETN · 87.245.233.46 · 17,6 ms
-          4 · RETN · Este router no responde a los pings · normal
-          Servidor del juego · 162.249.72.5 · Este router no responde a los pings · normal
+          1. Tu casa, 0,6 ms
+          2. SFR, 77.136.10.6, 3,6 ms
+          3. RETN, 87.245.233.46, 17,6 ms
+          4. RETN, Este router no responde a los pings, es normal
+          Servidor del juego, 162.249.72.5, Este router no responde a los pings, es normal
 
       Límites de la medición
       Cada cifra viene de una traza por servidor (3 sondeos por salto) lanzada durante la sesión, no de una medición continua. El ping es la ida y vuelta hasta el último router que responde; el jitter es la diferencia entre los 3 sondeos.
@@ -346,17 +346,17 @@ describe('reportText', () => {
 
     expect(text).toMatchInlineSnapshot(`
       "GameRoute connection report
-      Prepared on October 8, 2026 at 14:32 · For a forum or a Discord server
+      Prepared on October 8, 2026 at 14:32, For a forum or a Discord server
 
       Summary
-      1 match: VALORANT · Sep 13
+      1 match: VALORANT, Sep 13
       1 match without measurement: no trace completed.
 
       Matches
 
-      VALORANT · Sep 13 · match 3
+      VALORANT, Sep 13, match 3
         Time: 16:27 → 17:09 (42 min 36 s)
-        Server: Riot Games (AS6507) · 185.40.64.1 · UDP 7220
+        Server: Riot Games (AS6507), 185.40.64.1, UDP 7220
         Measurement: no trace completed for this server.
 
       Measurement limits
@@ -381,17 +381,17 @@ describe('reportText', () => {
 
     expect(text).toMatchInlineSnapshot(`
       "Rapport de connexion GameRoute
-      Préparé le 8 octobre 2026 à 14:32 · Pour un forum ou un serveur Discord
+      Préparé le 8 octobre 2026 à 14:32, Pour un forum ou un serveur Discord
 
       Résumé
-      1 partie : VALORANT · 13 sept.
+      1 partie : VALORANT, 13 sept.
       1 partie sans mesure : aucune trace n'a abouti.
 
       Parties
 
-      VALORANT · 13 sept. · partie 3
+      VALORANT, 13 sept., partie 3
         Heure : 16:27 → 17:09 (42 min 36 s)
-        Serveur : Riot Games (AS6507) · 185.40.64.1 · UDP 7220
+        Serveur : Riot Games (AS6507), 185.40.64.1, UDP 7220
         Mesure : aucune trace n'a abouti pour ce serveur.
 
       Limites de la mesure
@@ -416,17 +416,17 @@ describe('reportText', () => {
 
     expect(text).toMatchInlineSnapshot(`
       "Informe de conexión de GameRoute
-      Preparado el 8 de octubre de 2026 a las 14:32 · Para un foro o un servidor de Discord
+      Preparado el 8 de octubre de 2026 a las 14:32, Para un foro o un servidor de Discord
 
       Resumen
-      1 partida: VALORANT · 13 sept
+      1 partida: VALORANT, 13 sept
       1 partida sin medición: ninguna traza se completó.
 
       Partidas
 
-      VALORANT · 13 sept · partida 3
+      VALORANT, 13 sept, partida 3
         Hora: 16:27 → 17:09 (42 min 36 s)
-        Servidor: Riot Games (AS6507) · 185.40.64.1 · UDP 7220
+        Servidor: Riot Games (AS6507), 185.40.64.1, UDP 7220
         Medición: ninguna traza se completó para este servidor.
 
       Límites de la medición
@@ -443,19 +443,19 @@ describe('reportText', () => {
   it('stays short when no match is selected', () => {
     expect(reportText([], { ...full, locale: 'en' })).toMatchInlineSnapshot(`
       "GameRoute connection report
-      Prepared on October 8, 2026 at 14:32 · For the support of the internet provider
+      Prepared on October 8, 2026 at 14:32, For the support of the internet provider
 
       No match selected."
     `)
     expect(reportText([], { ...full, locale: 'fr' })).toMatchInlineSnapshot(`
       "Rapport de connexion GameRoute
-      Préparé le 8 octobre 2026 à 14:32 · À l'attention du support du fournisseur d'accès
+      Préparé le 8 octobre 2026 à 14:32, À l'attention du support du fournisseur d'accès
 
       Aucune partie sélectionnée."
     `)
     expect(reportText([], { ...full, locale: 'es' })).toMatchInlineSnapshot(`
       "Informe de conexión de GameRoute
-      Preparado el 8 de octubre de 2026 a las 14:32 · Para el soporte del proveedor de acceso
+      Preparado el 8 de octubre de 2026 a las 14:32, Para el soporte del proveedor de acceso
 
       Ninguna partida seleccionada."
     `)
@@ -539,29 +539,29 @@ describe('reportText with a ping measured by the game', () => {
 
     expect(text).toMatchInlineSnapshot(`
       "GameRoute connection report
-      Prepared on October 8, 2026 at 14:32 · For SFR support
+      Prepared on October 8, 2026 at 14:32, For SFR support
 
       Summary
-      1 match: League of Legends · Sep 13
-      League of Legends · Sep 13 · match 1: loss of 0.5% measured by the game (packets lost: 3).
+      1 match: League of Legends, Sep 13
+      League of Legends, Sep 13, match 1: loss of 0.5% measured by the game (packets lost: 3).
 
       Matches
 
-      League of Legends · Sep 13 · match 1
+      League of Legends, Sep 13, match 1
         Time: 15:45 → 15:51 (6 min 36 s)
-        Server: Riot Games (AS6507) · 162.249.72.5 · UDP 7284
-        Ping: 13.2 ms · measured by the game (League of Legends, 142 readings) · usual 12.3 ms (median of 20 measurements)
+        Server: Riot Games (AS6507), 162.249.72.5, UDP 7284
+        Ping: 13.2 ms, measured by the game (League of Legends, 142 readings), usual 12.3 ms (median of 20 measurements)
         Loss measured by the game: 0.5% (packets lost: 3)
         Persistent loss: none
         Jitter: 2.4 ms (measured by the game)
         Trace: started 0:41 into the match
-        Route: Your home +0.6 ms → Your ISP · SFR (AS15557) +3.0 ms → Transit · RETN (AS9002) +14 ms → Riot Games (doesn't answer pings) = ≥ 18 ms
+        Route: Your home +0.6 ms → Your ISP, SFR (AS15557) +3.0 ms → Transit, RETN (AS9002) +14 ms → Riot Games (doesn't answer pings) = ≥ 18 ms
         Hops:
-          1 · Your home · 0.6 ms
-          2 · SFR · 77.136.10.6 · 3.6 ms
-          3 · RETN · 87.245.233.46 · 17.6 ms
-          4 · RETN · This router doesn't answer pings · normal
-          Game server · 162.249.72.5 · This router doesn't answer pings · normal
+          1. Your home, 0.6 ms
+          2. SFR, 77.136.10.6, 3.6 ms
+          3. RETN, 87.245.233.46, 17.6 ms
+          4. RETN, This router doesn't answer pings, which is normal
+          Game server, 162.249.72.5, This router doesn't answer pings, which is normal
 
       Measurement limits
       Values marked “measured by the game” are readings taken by the game during the match: round-trip ping to the server (median of the readings), jitter and lost packets.
@@ -584,29 +584,29 @@ describe('reportText with a ping measured by the game', () => {
 
     expect(text).toMatchInlineSnapshot(`
       "Rapport de connexion GameRoute
-      Préparé le 8 octobre 2026 à 14:32 · À l'attention du support SFR
+      Préparé le 8 octobre 2026 à 14:32, À l'attention du support SFR
 
       Résumé
-      1 partie : League of Legends · 13 sept.
-      League of Legends · 13 sept. · partie 1 : perte de 0,5 % mesurée par le jeu (paquets perdus : 3).
+      1 partie : League of Legends, 13 sept.
+      League of Legends, 13 sept., partie 1 : perte de 0,5 % mesurée par le jeu (paquets perdus : 3).
 
       Parties
 
-      League of Legends · 13 sept. · partie 1
+      League of Legends, 13 sept., partie 1
         Heure : 15:45 → 15:51 (6 min 36 s)
-        Serveur : Riot Games (AS6507) · 162.249.72.5 · UDP 7284
-        Ping : 13,2 ms · mesuré par le jeu (League of Legends, 142 relevés) · habituel 12,3 ms (médiane de 20 mesures)
+        Serveur : Riot Games (AS6507), 162.249.72.5, UDP 7284
+        Ping : 13,2 ms, mesuré par le jeu (League of Legends, 142 relevés), habituel 12,3 ms (médiane de 20 mesures)
         Perte mesurée par le jeu : 0,5 % (paquets perdus : 3)
         Perte persistante : aucune
         Gigue : 2,4 ms (mesurée par le jeu)
         Trace : lancée 0:41 après le début de la partie
-        Route : Chez vous +0,6 ms → Votre FAI · SFR (AS15557) +3,0 ms → Transit · RETN (AS9002) +14 ms → Riot Games (ne répond pas aux pings) = ≥ 18 ms
+        Route : Chez vous +0,6 ms → Votre FAI, SFR (AS15557) +3,0 ms → Transit, RETN (AS9002) +14 ms → Riot Games (ne répond pas aux pings) = ≥ 18 ms
         Sauts :
-          1 · Chez vous · 0,6 ms
-          2 · SFR · 77.136.10.6 · 3,6 ms
-          3 · RETN · 87.245.233.46 · 17,6 ms
-          4 · RETN · Ce routeur ne répond pas aux pings · normal
-          Serveur du jeu · 162.249.72.5 · Ce routeur ne répond pas aux pings · normal
+          1. Chez vous, 0,6 ms
+          2. SFR, 77.136.10.6, 3,6 ms
+          3. RETN, 87.245.233.46, 17,6 ms
+          4. RETN, Ce routeur ne répond pas aux pings, c'est normal
+          Serveur du jeu, 162.249.72.5, Ce routeur ne répond pas aux pings, c'est normal
 
       Limites de la mesure
       Les valeurs « mesuré par le jeu » sont des relevés du jeu pendant la partie : ping aller-retour jusqu'au serveur (médiane des relevés), gigue et paquets perdus.
@@ -629,23 +629,23 @@ describe('reportText with a ping measured by the game', () => {
 
     expect(en).toMatchInlineSnapshot(`
       "GameRoute connection report
-      Prepared on October 8, 2026 at 14:32 · For SFR support
+      Prepared on October 8, 2026 at 14:32, For SFR support
 
       Summary
-      1 match: VALORANT · Sep 13
+      1 match: VALORANT, Sep 13
       No persistent loss up to the last responding router.
 
       Matches
 
-      VALORANT · Sep 13 · match 2
+      VALORANT, Sep 13, match 2
         Time: 15:54 → 16:25 (31 min 12 s)
-        Server: Riot Games (AS6507) · 162.249.72.5 · UDP 7323
-        Ping: ≥ 18 ms · measured up to hop 3 (RETN)
+        Server: Riot Games (AS6507), 162.249.72.5, UDP 7323
+        Ping: ≥ 18 ms, measured up to hop 3 (RETN)
         Persistent loss: none
         Jitter: 1.0 ms (spread of 3 probes)
-        Ping measured by VALORANT before the match: Paris 4 ms · Frankfurt 13 ms · London 14 ms
+        Ping measured by VALORANT before the match: Paris 4 ms, Frankfurt 13 ms, London 14 ms
         Trace: started during match 1
-        Route: Your home +0.6 ms → Your ISP · SFR (AS15557) +3.0 ms → Transit · RETN (AS9002) +14 ms → Riot Games (doesn't answer pings) = ≥ 18 ms
+        Route: Your home +0.6 ms → Your ISP, SFR (AS15557) +3.0 ms → Transit, RETN (AS9002) +14 ms → Riot Games (doesn't answer pings) = ≥ 18 ms
 
       Measurement limits
       Each figure comes from one trace per server (3 probes per hop) started during the session, not from continuous measurement. Ping is the round trip to the last responding router; jitter is the spread of the 3 probes.
@@ -660,23 +660,23 @@ describe('reportText with a ping measured by the game', () => {
     `)
     expect(fr).toMatchInlineSnapshot(`
       "Rapport de connexion GameRoute
-      Préparé le 8 octobre 2026 à 14:32 · À l'attention du support SFR
+      Préparé le 8 octobre 2026 à 14:32, À l'attention du support SFR
 
       Résumé
-      1 partie : VALORANT · 13 sept.
+      1 partie : VALORANT, 13 sept.
       Aucune perte persistante jusqu'au dernier routeur qui répond.
 
       Parties
 
-      VALORANT · 13 sept. · partie 2
+      VALORANT, 13 sept., partie 2
         Heure : 15:54 → 16:25 (31 min 12 s)
-        Serveur : Riot Games (AS6507) · 162.249.72.5 · UDP 7323
-        Ping : ≥ 18 ms · mesuré jusqu'au saut 3 (RETN)
+        Serveur : Riot Games (AS6507), 162.249.72.5, UDP 7323
+        Ping : ≥ 18 ms, mesuré jusqu'au saut 3 (RETN)
         Perte persistante : aucune
         Gigue : 1,0 ms (écart entre 3 sondes)
-        Ping mesuré par VALORANT avant la partie : Paris 4 ms · Frankfurt 13 ms · London 14 ms
+        Ping mesuré par VALORANT avant la partie : Paris 4 ms, Frankfurt 13 ms, London 14 ms
         Trace : lancée pendant la partie 1
-        Route : Chez vous +0,6 ms → Votre FAI · SFR (AS15557) +3,0 ms → Transit · RETN (AS9002) +14 ms → Riot Games (ne répond pas aux pings) = ≥ 18 ms
+        Route : Chez vous +0,6 ms → Votre FAI, SFR (AS15557) +3,0 ms → Transit, RETN (AS9002) +14 ms → Riot Games (ne répond pas aux pings) = ≥ 18 ms
 
       Limites de la mesure
       Chaque chiffre vient d'une trace par serveur (3 sondes par saut) lancée pendant la session, pas d'une mesure continue. Le ping est l'aller-retour jusqu'au dernier routeur qui répond ; la gigue est l'écart entre les 3 sondes.
@@ -690,7 +690,7 @@ describe('reportText with a ping measured by the game', () => {
       Les adresses du réseau local ne figurent pas dans ce rapport."
     `)
     expect(en).toContain(
-      'Ping measured by VALORANT before the match: Paris 4 ms · Frankfurt 13 ms · London 14 ms'
+      'Ping measured by VALORANT before the match: Paris 4 ms, Frankfurt 13 ms, London 14 ms'
     )
     expect(en).not.toContain('Madrid')
     expect(en).toContain('Ping: ≥ 18 ms')
@@ -840,7 +840,7 @@ describe('hop zones', () => {
     expect(masked[0].address).toBeNull()
     expect(masked[1].address).toBeNull()
     expect(line.replace(/\s/g, ' ')).toContain(
-      'Chez vous +0,9 ms → Votre FAI · SFR (AS15557) +4,2 ms'
+      'Chez vous +0,9 ms → Votre FAI, SFR (AS15557) +4,2 ms'
     )
   })
 

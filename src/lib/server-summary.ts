@@ -17,7 +17,7 @@ export function serverName(server: ServerSummaryItem): string {
     shortOperatorName(server.operator) ??
     (server.asn != null ? `AS${server.asn}` : (server.ips[0] ?? '—'))
   const riot = isRiot({ asn: server.asn, name: server.operator, city: null, country: null })
-  return server.city && !riot ? `${name} · ${server.city}` : name
+  return server.city && !riot ? `${name}, ${server.city}` : name
 }
 
 function upToLastHop(server: ServerSummaryItem): boolean {
@@ -79,7 +79,7 @@ export function homeVerdict(servers: ServerSummaryItem[], days: number): HomeVer
     m.home_window({ count: String(days) }),
     counted(matches, m.session_matches_count_one, m.session_matches_count_other),
     counted(played.length, m.session_servers_count_one, m.session_servers_count_other),
-  ].join(' · ')
+  ].join(', ')
 
   const measured = played.filter(server => server.recent != null)
   if (measured.length === 0) {
@@ -98,7 +98,7 @@ export function homeVerdict(servers: ServerSummaryItem[], days: number): HomeVer
   const candidates = measured.filter(server => rank(server) === worst)
   const reference = worst > 0 ? candidates[0] : mostPlayed(candidates)
   const recent = reference.recent!
-  const where = `${reference.gameName} · ${serverName(reference)}`
+  const where = `${reference.gameName}, ${serverName(reference)}`
   const ping = formatServerPing(reference)!
   const usual = formatServerUsual(reference)
   const loss =

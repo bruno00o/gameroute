@@ -171,7 +171,7 @@ function IncidentCell({ incident }: { incident: ServerIncident }) {
         </Link>
       </span>
       <span className="text-label text-ink-subtle font-normal">
-        {`${incidentCause(incident)} · ${incidentSource(incident)}`}
+        {`${incidentCause(incident)}, ${incidentSource(incident)}`}
       </span>
     </span>
   )

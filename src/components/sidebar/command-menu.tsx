@@ -85,7 +85,7 @@ export function CommandMenu({
                   >
                     <RiRouteLine className="size-4" />
                     <span>
-                      {operator.name} · {zoneLabel(operator.zone).toLowerCase()}
+                      {operator.name} ({zoneLabel(operator.zone).toLowerCase()})
                       {operator.asn != null && (
                         <span className="text-data-sm text-ink-subtle ml-2 font-mono">
                           AS{operator.asn}

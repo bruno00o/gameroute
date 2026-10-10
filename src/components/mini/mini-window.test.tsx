@@ -102,12 +102,12 @@ describe('Mini window', () => {
       samples: [{ at: NOW - 1000, rttMs: 18 }],
     })
 
-    expect(screen.getByText('VALORANT · Paris')).toBeInTheDocument()
+    expect(screen.getByText('VALORANT, Paris')).toBeInTheDocument()
     expect(value()?.textContent).toBe('≥\u00a018')
-    expect(screen.getByRole('status')).toHaveTextContent('In match · 18:42')
+    expect(screen.getByRole('status')).toHaveTextContent('In match, 18:42')
     expect(document.querySelector('[data-slot=status-pill]')).toHaveTextContent('Good')
     expect(document.querySelector('[data-slot=mini-facts]')?.textContent).toBe(
-      'jitter 1.2\u00a0ms · loss 0.0% · measured up to hop 8'
+      'jitter 1.2\u00a0ms, loss 0.0%, measured up to hop 8'
     )
     expect(document.querySelector('[data-slot=mini-last]')).toHaveClass('fill-signal')
   })
@@ -168,7 +168,7 @@ describe('Mini window', () => {
       samples: [{ at: NOW - 6000, rttMs: 18 }],
     })
 
-    expect(screen.getByRole('status')).toHaveTextContent('Signal frozen · 6 s ago')
+    expect(screen.getByRole('status')).toHaveTextContent('Signal frozen 6 s ago')
     expect(value()?.className).toContain('decoration-dashed')
     expect(screen.getByText(/The capture service is not responding/)).toBeInTheDocument()
     expect(document.querySelector('[data-slot=mini-sparkline]')).toBeNull()

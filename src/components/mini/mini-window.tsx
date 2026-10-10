@@ -40,10 +40,10 @@ function badgeLabel(status: LiveStatus | null, now: number): string {
     const seconds = secondsSince(status.lastSampleAt, now)
     return seconds == null
       ? liveStateLabel(state)
-      : `${liveStateLabel(state)} · ${m.mini_ago({ seconds })}`
+      : `${liveStateLabel(state)} ${m.mini_ago({ seconds })}`
   }
   const elapsed = status.state === 'live' ? matchElapsed(status, now) : null
-  return elapsed ? `${liveStateLabel(state)} · ${elapsed}` : liveStateLabel(state)
+  return elapsed ? `${liveStateLabel(state)}, ${elapsed}` : liveStateLabel(state)
 }
 
 function frozenText(status: LiveStatus, now: number): string {
@@ -183,7 +183,7 @@ export function MiniWindow({
       )}
       {!fault && facts.length > 0 && (
         <p data-slot="mini-facts" className="text-data-sm text-muted-foreground font-mono">
-          {facts.join(' · ')}
+          {facts.join(', ')}
         </p>
       )}
     </section>

@@ -54,7 +54,7 @@ function LiveWaiting({ gameName, matches }: LiveWaitingProps) {
                   >
                     <span className="text-foreground">
                       {m.match_title({ number: String(match.number) })}
-                      <span className="text-ink-subtle"> · {formatClock(match.startedAt)}</span>
+                      <span className="text-ink-subtle">, {formatClock(match.startedAt)}</span>
                     </span>
                     <span className="text-data text-muted-foreground font-mono tabular-nums">
                       {formatDuration(match.durationSecs)}

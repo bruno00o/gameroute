@@ -116,7 +116,7 @@ describe('incidents', () => {
   })
 
   it('keeps ≥ on a lower bound and drops absent figures', () => {
-    expect(incidentValues(recapIncident())).toBe(`ping ≥${NB}31${NB}ms · 4% loss`)
+    expect(incidentValues(recapIncident())).toBe(`ping ≥${NB}31${NB}ms, 4% loss`)
     expect(
       incidentValues(recapIncident({ atLeast: false, pingMs: null, lossPct: 0, jitterMs: 9.4 }))
     ).toBe(`jitter 9.4${NB}ms`)

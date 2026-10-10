@@ -38,8 +38,8 @@ describe('MatchScreen', () => {
   it('opens on the match, its server and its network status', () => {
     renderMatch(1)
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Match 1 · 15:45 → 15:51')
-    expect(screen.getByText('6:36 · Riot Games · UDP 7284')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Match 1, 15:45 → 15:51')
+    expect(screen.getByText('6:36, Riot Games, UDP 7284')).toBeInTheDocument()
     expect(headerStatus()).toHaveAttribute('data-status', 'ok')
     expect(screen.queryByText(/Los Angeles/)).toBeNull()
   })
@@ -60,7 +60,7 @@ describe('MatchScreen', () => {
     const ping = fact(region('This match'), 'Ping')
     expect(ping).toHaveTextContent('≥ 18 ms')
     expect(ping).toHaveTextContent('measured up to hop 3 (RETN)')
-    expect(region('Route')).toHaveTextContent("Riot Games · Doesn't answer pings")
+    expect(region('Route')).toHaveTextContent("Riot GamesDoesn't answer pings")
   })
 
   it('shows the ping measured by the game and keeps the route of the trace', () => {
@@ -86,7 +86,7 @@ describe('MatchScreen', () => {
     expect(ping).toHaveTextContent('measured by the game')
     expect(measures).not.toHaveTextContent('From the trace')
     expect(measures).toHaveTextContent('The ping comes from the game itself')
-    expect(region('Route')).toHaveTextContent("Riot Games · Doesn't answer pings")
+    expect(region('Route')).toHaveTextContent("Riot GamesDoesn't answer pings")
   })
 
   it('shows the region pings of the game as context only', () => {
@@ -106,7 +106,7 @@ describe('MatchScreen', () => {
     const measures = region('This match')
     expect(fact(measures, 'Ping')).toHaveTextContent('≥ 18 ms')
     expect(measures).toHaveTextContent(
-      'Ping measured by VALORANT before the match: Paris 4 ms · Frankfurt 13 ms'
+      'Ping measured by VALORANT before the match: Paris 4 ms, Frankfurt 13 ms'
     )
     expect(headerStatus()).toHaveAttribute('data-status', 'ok')
   })
@@ -125,7 +125,7 @@ describe('MatchScreen', () => {
     renderMatch(2)
 
     expect(region('This match')).toHaveTextContent('From the trace of match 1')
-    expect(region('Route')).toHaveTextContent('From the trace of match 1 · 4 hops')
+    expect(region('Route')).toHaveTextContent('From the trace of match 1, 4 hops')
   })
 
   it('shows an unmeasured match as such, never as zero', () => {
@@ -159,9 +159,9 @@ describe('MatchScreen', () => {
     expect(why).toHaveTextContent('Ping ≥ 18 ms and loss 0%, under the thresholds')
     const rules = within(why).getAllByRole('definition')
     expect(rules.map(rule => rule.textContent?.replace(/\s+/g, ' '))).toEqual([
-      'loss ≥ 0.5% · ping ≥ 60 ms',
-      'loss ≥ 2% · ping ≥ 100 ms',
-      'loss ≥ 5% · ping ≥ 150 ms',
+      'loss ≥ 0.5%, ping ≥ 60 ms',
+      'loss ≥ 2%, ping ≥ 100 ms',
+      'loss ≥ 5%, ping ≥ 150 ms',
     ])
     expect(why.querySelector('[data-current]')).toBeNull()
   })
@@ -190,7 +190,7 @@ describe('MatchScreen', () => {
     expect(why).toHaveTextContent('Ping ≥ 44 ms against ≥ 4.3 ms usually, +20 ms threshold reached')
     expect(why).toHaveTextContent('median of the 20 previous measurements')
     const rules = within(why).getAllByRole('definition')
-    expect(rules[0].textContent?.replace(/\s+/g, ' ')).toBe('loss ≥ 0.5% · ping ≥ usual +20 ms')
+    expect(rules[0].textContent?.replace(/\s+/g, ' ')).toBe('loss ≥ 0.5%, ping ≥ usual +20 ms')
     expect(why.querySelector('[data-current]')).toHaveTextContent('Watch')
   })
 
@@ -198,7 +198,7 @@ describe('MatchScreen', () => {
     renderMatch(1)
 
     const voice = region('Voice')
-    expect(voice).toHaveTextContent('Microsoft · Paris · UDP 27020')
+    expect(voice).toHaveTextContent('Microsoft, Paris, UDP 27020')
     expect(fact(voice, 'Ping')).toHaveTextContent('14 ms')
     expect(fact(voice, 'Ping')).not.toHaveTextContent('≥')
     expect(voice).toHaveTextContent('From the trace at 15:47')

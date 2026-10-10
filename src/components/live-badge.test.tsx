@@ -12,12 +12,12 @@ describe('LiveBadge', () => {
     render(
       <>
         <LiveBadge state="live" />
-        <LiveBadge state="measuring" label="Valorant detected · waiting for the match" />
+        <LiveBadge state="measuring" label="Valorant detected, waiting for the match" />
       </>
     )
 
     expect(screen.getByText('In match')).toBeInTheDocument()
-    expect(screen.getByText('Valorant detected · waiting for the match')).toBeInTheDocument()
+    expect(screen.getByText('Valorant detected, waiting for the match')).toBeInTheDocument()
   })
 
   it('fills only the live state', () => {

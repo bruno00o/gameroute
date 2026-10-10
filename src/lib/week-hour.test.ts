@@ -94,13 +94,13 @@ describe('formatting', () => {
 
 describe('cellDescription', () => {
   it('says there was no match for a cell that was never played', () => {
-    expect(cellDescription(1, 3, undefined)).toBe('Tuesday 3:00 · no match')
+    expect(cellDescription(1, 3, undefined)).toBe('Tuesday 3:00, no match')
   })
 
   it('flags a lower bound with ≥ on the ping, the usual and the gap', () => {
     const text = cellDescription(4, 21, cell({ overUsualMs: 3, medianMs: 8, usualMs: 5 }))
 
-    expect(text).toContain('Friday 21:00 · 6 matches')
+    expect(text).toContain('Friday 21:00, 6 matches')
     expect(text).toContain(`≥${NB}8.0${NB}ms against ≥${NB}5.0${NB}ms usual, gap ≥${NB}+3.0${NB}ms`)
     expect(text).not.toContain('Watch')
   })

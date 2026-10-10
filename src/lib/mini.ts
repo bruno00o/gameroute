@@ -62,7 +62,7 @@ export function matchElapsed(status: LiveStatus, now: number): string | null {
 export function liveTitle(status: LiveStatus | null): string {
   if (!status) return 'GameRoute'
   const region = status.region?.region
-  return region ? `${status.gameName} · ${region}` : status.gameName
+  return region ? `${status.gameName}, ${region}` : status.gameName
 }
 
 export function readingValue(reading: LiveReading | null | undefined): string | null {

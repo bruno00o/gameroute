@@ -24,7 +24,7 @@ function pointName(reading: LiveReading): string {
         ? m.live_point_isp_edge()
         : m.live_point_floor()
   const hop = reading.hop != null ? m.live_point_hop({ hop: String(reading.hop) }) : null
-  return [name, hop, readingOperator(reading)].filter(Boolean).join(' · ')
+  return [name, hop, readingOperator(reading)].filter(Boolean).join(', ')
 }
 
 function rows(status: LiveStatus): Row[] {

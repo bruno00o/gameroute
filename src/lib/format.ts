@@ -77,7 +77,7 @@ export function formatDayTime(
 ): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return MISSING
-  return `${formatDay(iso, { weekday: true, locale, now })}${NBSP}· ${formatClock(iso, locale)}`
+  return `${formatDay(iso, { weekday: true, locale, now })}, ${formatClock(iso, locale)}`
 }
 
 export function computeDurationSecs(startedAt: string, endedAt: string | null): number {

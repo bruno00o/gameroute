@@ -229,11 +229,11 @@ describe('Home', () => {
 
     const title = await screen.findByRole('heading', { level: 2, name: /median on/ })
     expect(title.textContent).toBe(
-      `≥${NB}38${NB}ms median on VALORANT · Riot Games, ≥${NB}17${NB}ms usually, no loss`
+      `≥${NB}38${NB}ms median on VALORANT, Riot Games, ≥${NB}17${NB}ms usually, no loss`
     )
     const verdict = title.closest('[data-slot=verdict]')!
     expect(verdict).toHaveAttribute('data-status', 'watch')
-    expect(verdict).toHaveTextContent('Last 7 days · 9 matches · 3 game servers')
+    expect(verdict).toHaveTextContent('Last 7 days, 9 matches, 3 game servers')
     expect(verdict).toHaveTextContent(
       'It is the only one of the 2 measured servers above a threshold.'
     )
@@ -286,12 +286,12 @@ describe('Home', () => {
   it('links the last incident to its match and dates the trace it comes from', async () => {
     renderHome()
 
-    const link = await screen.findByRole('link', { name: 'Oct 3 · match 3' })
+    const link = await screen.findByRole('link', { name: 'Oct 3, match 3' })
     expect(link).toHaveAttribute('href', '/sessions/12/matches/3')
     const cell = link.closest('[data-slot=server-incident]')!
     expect(within(cell as HTMLElement).getByText('Watch')).toBeInTheDocument()
     expect(cell).toHaveTextContent(
-      'Ping ≥ 42 ms against ≥ 17 ms usually · from the trace on Oct 4 at 09:15'
+      'Ping ≥ 42 ms against ≥ 17 ms usually, from the trace on Oct 4 at 09:15'
     )
   })
 
@@ -392,7 +392,7 @@ describe('Home', () => {
       recentSession(180)
       renderHome()
 
-      await screen.findByText('Last 7 days · 9 matches · 3 game servers')
+      await screen.findByText('Last 7 days, 9 matches, 3 game servers')
       expect(screen.queryByText(/ended at/)).not.toBeInTheDocument()
       expect(getSessionMatches).not.toHaveBeenCalled()
     })

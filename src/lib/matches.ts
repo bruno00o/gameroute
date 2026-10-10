@@ -60,12 +60,12 @@ export function flowServerName(flow: MeasuredFlow): string {
   const name =
     shortOperatorName(operator?.name) ?? (operator?.asn != null ? `AS${operator.asn}` : flow.ip)
   const city = isRiot(operator) ? null : operator?.city
-  return city ? `${name} · ${city}` : name
+  return city ? `${name}, ${city}` : name
 }
 
 export function flowServerLabel(flow: MeasuredFlow): string {
   const port = flow.port > 0 ? `${flow.protocol} ${flow.port}` : flow.protocol
-  return [flowServerName(flow), port].filter(Boolean).join(' · ')
+  return [flowServerName(flow), port].filter(Boolean).join(', ')
 }
 
 export function traceOf(
@@ -99,7 +99,7 @@ export function regionPingsText(flow: MeasuredFlow, game: string): string | null
   if (pings.length === 0) return null
   const list = pings
     .map(ping => `${ping.region} ${formatMs(ping.pingMs, { digits: 0 })}`)
-    .join(' · ')
+    .join(', ')
   return m.match_region_pings({ game, pings: list })
 }
 
@@ -324,7 +324,7 @@ function zoneName(zone: RouteZone, route: OperatorRoute): string {
     if (destination) names.push(destination)
   }
   const unique = [...new Set(names)]
-  return unique.length ? `${zoneLabel(zone)} · ${unique.join(', ')}` : zoneLabel(zone)
+  return unique.length ? `${zoneLabel(zone)} (${unique.join(', ')})` : zoneLabel(zone)
 }
 
 function verdictZones(

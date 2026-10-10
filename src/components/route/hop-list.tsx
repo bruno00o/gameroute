@@ -150,7 +150,7 @@ function HopList({
             key={group.start}
             role="rowgroup"
             data-zone={segment?.zone}
-            aria-label={zone ? [zone, name].filter(Boolean).join(' · ') : undefined}
+            aria-label={zone ? [zone, name].filter(Boolean).join(', ') : undefined}
           >
             {segment && (
               <div role="row" className="grid grid-cols-(--hop-cols) gap-x-3">

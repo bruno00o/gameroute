@@ -41,7 +41,7 @@ function RecapScreen({
         title={
           ended
             ? m.recap_header_ended({ number, duration })
-            : `${m.match_title({ number })} · ${duration}`
+            : `${m.match_title({ number })}, ${duration}`
         }
         facts={[flowServerLabel(match)]}
         actions={

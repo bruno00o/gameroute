@@ -49,7 +49,7 @@ export function SidebarMonitor({ liveState }: { liveState: LiveState }) {
   }
 
   if (sidebarState === 'collapsed') {
-    const summary = gameName ? `${label} · ${gameName}` : label
+    const summary = gameName ? `${label}, ${gameName}` : label
 
     return (
       <Tooltip>
@@ -103,7 +103,7 @@ export function SidebarMonitor({ liveState }: { liveState: LiveState }) {
       {gameName &&
         (server ? (
           <p className="text-data-sm text-ink-subtle -mt-1 font-mono break-all">
-            {server.ip} · {server.protocol.toUpperCase()} {server.port}
+            {server.ip}, {server.protocol.toUpperCase()} {server.port}
           </p>
         ) : (
           <p className="text-label text-ink-subtle -mt-1">{m.monitoring_waiting_match()}</p>

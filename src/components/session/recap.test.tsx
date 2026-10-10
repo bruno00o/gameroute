@@ -47,7 +47,7 @@ describe('MatchTimeline', () => {
       'ok',
       'ok',
     ])
-    expect(cells[4]).toHaveAttribute('title', '2:00–2:30 · Degraded · 14 ms')
+    expect(cells[4]).toHaveAttribute('title', '2:00–2:30, Degraded, 14 ms')
     expect(cells[1].className).toContain('bg-measured')
     expect(cells[4].className).toContain('bg-degraded')
   })
@@ -75,7 +75,7 @@ describe('RecapScreen', () => {
   it('opens on a factual title with the figures and their source', () => {
     renderRecap()
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Match 2 ended · 31:12')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Match 2 ended, 31:12')
     const verdict = document.querySelector('[data-slot=verdict]')!
     expect(verdict).toHaveAttribute('data-status', 'degraded')
     expect(within(verdict as HTMLElement).getByRole('heading')).toHaveTextContent(
@@ -87,7 +87,7 @@ describe('RecapScreen', () => {
     renderRecap()
 
     const incidents = screen.getByRole('list', { name: 'Incidents' })
-    expect(incidents).toHaveTextContent('12:31 → 13:11 · 40 s')
+    expect(incidents).toHaveTextContent('12:31 → 13:11 (40 s)')
     expect(incidents).toHaveTextContent('at your ISP')
     expect(incidents).toHaveTextContent('ping ≥ 31 ms')
     expect(incidents).toHaveTextContent('measured up to hop 5')
@@ -136,7 +136,7 @@ describe('RecapScreen', () => {
   it('does not call a match over while the session is still on its last match', () => {
     renderRecap({ match: matches[2], detail: sessionDetail({ endedAt: null }) })
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Match 3 · 42:36')
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Match 3, 42:36')
   })
 })
 

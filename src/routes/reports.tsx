@@ -461,7 +461,7 @@ function MatchRow({
     formatClock(match.startedAt),
     flowServerName(match),
     measure?.pingMs != null
-      ? `${formatFlowPing(measure)}${(measure.lossPct ?? 0) > 0 ? ` · ${formatLoss(measure.lossPct)}` : ''}`
+      ? `${formatFlowPing(measure)}${(measure.lossPct ?? 0) > 0 ? `, ${formatLoss(measure.lossPct)}` : ''}`
       : null,
   ].filter(Boolean)
 
@@ -481,7 +481,7 @@ function MatchRow({
         <span className="min-w-0">
           <span className="text-ui text-foreground block truncate">{label}</span>
           <span className="text-data-sm text-muted-foreground block truncate font-mono tabular-nums">
-            {facts.join(' · ')}
+            {facts.join(', ')}
           </span>
         </span>
         <StatusPill status={match.status} size="sm" />

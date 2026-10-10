@@ -108,8 +108,8 @@ describe('formatDayTime', () => {
 
   it('joins the day and the local time', () => {
     const saturday = new Date(2026, 9, 3, 21, 7).toISOString()
-    expect(formatDayTime(saturday, { locale: 'fr', now })).toBe(`sam. 3 oct.${NB}· 21:07`)
-    expect(formatDayTime(saturday, { locale: 'es', now })).toBe(`sáb, 3 oct${NB}· 21:07`)
+    expect(formatDayTime(saturday, { locale: 'fr', now })).toBe(`sam. 3 oct., 21:07`)
+    expect(formatDayTime(saturday, { locale: 'es', now })).toBe(`sáb, 3 oct, 21:07`)
   })
 
   it('returns a dash for an unreadable date', () => {

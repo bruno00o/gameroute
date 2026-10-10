@@ -96,7 +96,7 @@ describe('CommandMenu', () => {
     const user = userEvent.setup()
 
     await user.type(await screen.findByRole('combobox'), 'retn')
-    await user.click(await screen.findByRole('option', { name: /RETN · transit/ }))
+    await user.click(await screen.findByRole('option', { name: /RETN \(transit\)/ }))
 
     expect(router.state.location.pathname).toBe('/route')
     expect(router.state.location.search).toEqual({ game: 'VALORANT', operator: 'AS9002' })

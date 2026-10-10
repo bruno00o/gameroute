@@ -90,7 +90,7 @@ describe('matchEndMessage', () => {
     const summary = summarizeMatch([incident({})], STARTED, NOW)
     const message = matchEndMessage(summary, STARTED, NOW)
 
-    expect(message.title).toBe('Match over · degraded for 6 min 10 s')
+    expect(message.title).toBe('Match over, degraded for 6 min 10 s')
     expect(message.description).toBe('Loss at RETN from 22:40 to 28:50. The summary is ready.')
   })
 
@@ -105,6 +105,6 @@ describe('matchEndMessage', () => {
   it('says nothing went wrong when the setting asks for every match', () => {
     const message = matchEndMessage(summarizeMatch([], STARTED, NOW), STARTED, NOW)
 
-    expect(message.title).toBe('Match over · no incident')
+    expect(message.title).toBe('Match over with no incident')
   })
 })

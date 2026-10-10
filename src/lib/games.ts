@@ -25,7 +25,7 @@ export function profileText(profile: GameProfile | null): ProfileText {
     profile.relay ? m.games_profile_relay() : null,
   ]
     .filter(Boolean)
-    .join(' · ')
+    .join(', ')
 
   const details: string[] = []
   if (profile.relay) {
@@ -38,7 +38,7 @@ export function profileText(profile: GameProfile | null): ProfileText {
     if (profile.voiceSeparate) details.push(m.games_profile_voice())
   }
 
-  return { title, detail: details.length > 0 ? details.join(' · ') : null }
+  return { title, detail: details.length > 0 ? details.join(', ') : null }
 }
 
 export type GameNetwork = {
