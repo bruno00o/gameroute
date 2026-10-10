@@ -22,7 +22,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 10.28.1
+          version: 12.11.2
 
       - uses: actions/setup-node@v4
         with:
@@ -33,15 +33,15 @@ jobs:
 
       - run: pnpm test
 
-  eslint:
-    name: ESLint
+  biome:
+    name: Biome
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 10.28.1
+          version: 12.11.2
 
       - uses: actions/setup-node@v4
         with:
@@ -52,6 +52,8 @@ jobs:
 
       - run: pnpm lint
 
+      - run: pnpm format:check
+
   typescript-build:
     name: TypeScript & Build
     runs-on: ubuntu-latest
@@ -60,7 +62,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 10.28.1
+          version: 12.11.2
 
       - uses: actions/setup-node@v4
         with:

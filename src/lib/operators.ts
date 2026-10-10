@@ -49,7 +49,7 @@ export function shortOperatorName(raw: string | null | undefined): string | null
   }
 
   let cleaned = name
-  for (let previous = ''; previous !== cleaned;) {
+  for (let previous = ''; previous !== cleaned; ) {
     previous = cleaned
     cleaned = cleaned
       .replace(LEGAL_SUFFIX, '')

@@ -121,7 +121,13 @@ function server(overrides: Partial<ServerSummaryItem> = {}): ServerSummaryItem {
 }
 
 function summary(items: ServerSummaryItem[]): ServerSummary {
-  return { since: '2026-07-10T00:00:00Z', recentDays: 7, usualMaxSamples: 20, usualMinSamples: 5, servers: items }
+  return {
+    since: '2026-07-10T00:00:00Z',
+    recentDays: 7,
+    usualMaxSamples: 20,
+    usualMinSamples: 5,
+    servers: items,
+  }
 }
 
 function renderHistory(path = '/history') {

@@ -132,7 +132,7 @@ const noProbes: LiveProbeState = {
 beforeEach(() => {
   useLiveStore.getState().reset()
   useMonitoringStore.getState().reset()
-  Object.keys(listeners).forEach(key => delete listeners[key as keyof Listeners])
+  for (const key of Object.keys(listeners)) delete listeners[key as keyof Listeners]
   vi.mocked(onLiveStatus).mockImplementation(cb => {
     listeners.status = cb
     return Promise.resolve(() => {})

@@ -16,6 +16,7 @@ export function friendlyError(err: unknown): string {
   }
   if (err instanceof Error) return err.message
   if (typeof err === 'string') return err
-  if (err && typeof err === 'object' && 'message' in err) return String((err as { message: string }).message)
+  if (err && typeof err === 'object' && 'message' in err)
+    return String((err as { message: string }).message)
   return m.error_monitoring_generic()
 }

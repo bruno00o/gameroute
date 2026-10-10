@@ -34,7 +34,13 @@ export function LiveOrb({
       data-state={state}
       className={cn('inline-flex h-3 w-5 shrink-0', className)}
     >
-      <svg viewBox="0 0 20 12" width={20} height={12} className="block overflow-visible">
+      <svg
+        viewBox="0 0 20 12"
+        width={20}
+        height={12}
+        className="block overflow-visible"
+        aria-hidden="true"
+      >
         <ellipse
           cx={10}
           cy={6}

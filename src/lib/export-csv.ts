@@ -2,11 +2,7 @@ import { save } from '@tauri-apps/plugin-dialog'
 import { toast } from 'sonner'
 
 import * as m from '@/paraglide/messages'
-import type {
-  SessionDetail,
-  SessionListItem,
-  ServerStability,
-} from '@/types/backend'
+import type { SessionDetail, SessionListItem, ServerStability } from '@/types/backend'
 import { formatDuration, computeDurationSecs } from '@/lib/format'
 import { writeExportFile } from '@/lib/tauri'
 
@@ -19,7 +15,10 @@ function escapeCsv(value: string | number | boolean | null | undefined): string 
   return str
 }
 
-function toCsv(headers: string[], rows: (string | number | boolean | null | undefined)[][]): string {
+function toCsv(
+  headers: string[],
+  rows: (string | number | boolean | null | undefined)[][]
+): string {
   const lines = [headers.map(escapeCsv).join(',')]
   for (const row of rows) {
     lines.push(row.map(escapeCsv).join(','))
@@ -111,7 +110,7 @@ export async function exportSessionDetail(detail: SessionDetail) {
   try {
     const saved = await saveWithDialog(
       `gameroute-session-${detail.id}-${safeName}.csv`,
-      toCsv(headers, rows),
+      toCsv(headers, rows)
     )
     if (saved) toast.success(m.export_csv_saved())
   } catch {
@@ -120,7 +119,17 @@ export async function exportSessionDetail(detail: SessionDetail) {
 }
 
 export async function exportServerStability(servers: ServerStability[]) {
-  const headers = ['IP', 'ASN', 'ISP', 'Country', 'Avg Latency (ms)', 'Avg Loss (%)', 'Traceroutes', 'Problem %', 'Game Server']
+  const headers = [
+    'IP',
+    'ASN',
+    'ISP',
+    'Country',
+    'Avg Latency (ms)',
+    'Avg Loss (%)',
+    'Traceroutes',
+    'Problem %',
+    'Game Server',
+  ]
   const rows = servers.map(s => [
     s.ip,
     s.asn,

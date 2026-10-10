@@ -47,7 +47,10 @@ function segments(cells: TimelineCell[], y: (ping: number) => number): string[] 
     current = []
   }
   cells.forEach((cell, i) => {
-    if (cell.pingMs == null) return flush()
+    if (cell.pingMs == null) {
+      flush()
+      return
+    }
     current.push(`${i * CELL_WIDTH + CELL_WIDTH / 2},${y(cell.pingMs).toFixed(1)}`)
   })
   flush()

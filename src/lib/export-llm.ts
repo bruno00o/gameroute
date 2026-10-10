@@ -14,7 +14,10 @@ import { getLocale } from '@/paraglide/runtime'
 const EN = 'en'
 
 function formatIsoShort(iso: string): string {
-  return new Date(iso).toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC')
+  return new Date(iso)
+    .toISOString()
+    .replace('T', ' ')
+    .replace(/\.\d+Z$/, ' UTC')
 }
 
 function flowLine(flow: MeasuredFlow): string {
@@ -66,14 +69,12 @@ function routeLine(route: OperatorRoute): string {
 export function generateSessionExport(detail: SessionDetail, matches: SessionMatch[] = []): string {
   const durationSecs = computeDurationSecs(detail.startedAt, detail.endedAt)
 
-  const gameServerIps = new Set(
-    detail.ipSummaries.filter(s => s.isGameServer).map(s => s.ip),
-  )
+  const gameServerIps = new Set(detail.ipSummaries.filter(s => s.isGameServer).map(s => s.ip))
 
   const lines: string[] = []
 
   lines.push(
-    'You are a network diagnostics expert specializing in online gaming. Analyze the following gaming session data and identify potential causes of lag, packet loss, or high latency. Focus on which network segment (ISP, transit, or game server) is most likely responsible.',
+    'You are a network diagnostics expert specializing in online gaming. Analyze the following gaming session data and identify potential causes of lag, packet loss, or high latency. Focus on which network segment (ISP, transit, or game server) is most likely responsible.'
   )
   lines.push('')
 
@@ -85,7 +86,9 @@ export function generateSessionExport(detail: SessionDetail, matches: SessionMat
   if (detail.endedAt) {
     lines.push(`End: ${formatIsoShort(detail.endedAt)}`)
   }
-  lines.push(`Server IPs: ${detail.ipSummaries.length} unique (${detail.ipPeriods.length} connection periods)`)
+  lines.push(
+    `Server IPs: ${detail.ipSummaries.length} unique (${detail.ipPeriods.length} connection periods)`
+  )
   lines.push('</session>')
   lines.push('')
 
@@ -118,7 +121,7 @@ export function generateSessionExport(detail: SessionDetail, matches: SessionMat
     lines.push('<game-servers>')
     for (const s of gsServers) {
       lines.push(
-        `- ${s.ip} (${s.protocol}:${s.port}), ${formatDuration(s.totalDurationSecs, EN)}, ${s.totalPacketCount} packets, ${s.periodCount} period(s)`,
+        `- ${s.ip} (${s.protocol}:${s.port}), ${formatDuration(s.totalDurationSecs, EN)}, ${s.totalPacketCount} packets, ${s.periodCount} period(s)`
       )
     }
     lines.push('</game-servers>')
@@ -130,7 +133,9 @@ export function generateSessionExport(detail: SessionDetail, matches: SessionMat
   const otherTraceroutes = detail.traceroutes.filter(tr => !gameServerIps.has(tr.targetIp))
 
   const renderTraceroute = (tr: (typeof detail.traceroutes)[0]) => {
-    lines.push(`### Traceroute to ${tr.targetIp}${gameServerIps.has(tr.targetIp) ? ' (game server)' : ''}`)
+    lines.push(
+      `### Traceroute to ${tr.targetIp}${gameServerIps.has(tr.targetIp) ? ' (game server)' : ''}`
+    )
     if (tr.tracerouteMethod) lines.push(`Method: ${tr.tracerouteMethod}`)
     lines.push('')
     lines.push('| Hop | IP | Hostname | Avg RTT | Loss % | Problem |')
@@ -157,14 +162,16 @@ export function generateSessionExport(detail: SessionDetail, matches: SessionMat
 
   // Problem hops summary
   const allProblemHops = detail.traceroutes.flatMap(tr =>
-    tr.hops.filter(h => h.isProblemHop).map(h => ({
-      ip: h.ip,
-      hopNumber: h.hopNumber,
-      latencyAvg: h.latencyAvg,
-      packetLoss: h.packetLoss,
-      targetIp: tr.targetIp,
-      isGameServer: gameServerIps.has(tr.targetIp),
-    })),
+    tr.hops
+      .filter(h => h.isProblemHop)
+      .map(h => ({
+        ip: h.ip,
+        hopNumber: h.hopNumber,
+        latencyAvg: h.latencyAvg,
+        packetLoss: h.packetLoss,
+        targetIp: tr.targetIp,
+        isGameServer: gameServerIps.has(tr.targetIp),
+      }))
   )
 
   if (allProblemHops.length > 0) {
@@ -172,7 +179,7 @@ export function generateSessionExport(detail: SessionDetail, matches: SessionMat
     for (const h of allProblemHops) {
       const route = h.isGameServer ? 'game server route' : 'other route'
       lines.push(
-        `- Hop ${h.hopNumber} (${h.ip ?? 'unknown'}) on ${route} to ${h.targetIp}: ${h.latencyAvg != null ? formatMs(h.latencyAvg, { locale: EN }) : 'timeout'}${h.packetLoss != null && h.packetLoss > 0 ? `, ${h.packetLoss.toFixed(0)}% loss` : ''}`,
+        `- Hop ${h.hopNumber} (${h.ip ?? 'unknown'}) on ${route} to ${h.targetIp}: ${h.latencyAvg != null ? formatMs(h.latencyAvg, { locale: EN }) : 'timeout'}${h.packetLoss != null && h.packetLoss > 0 ? `, ${h.packetLoss.toFixed(0)}% loss` : ''}`
       )
     }
     lines.push('</problem-hops>')
@@ -182,7 +189,7 @@ export function generateSessionExport(detail: SessionDetail, matches: SessionMat
   // Questions
   lines.push('Based on this data:')
   lines.push('1. What is the most likely cause of the network issues (if any)?')
-  lines.push('2. Is this problem on my ISP\'s network, a transit provider, or the game server side?')
+  lines.push("2. Is this problem on my ISP's network, a transit provider, or the game server side?")
   lines.push('3. What can I do to improve my connection for this game?')
   lines.push('')
   lines.push(`Please respond in: ${getLocale()}`)
@@ -193,12 +200,12 @@ export function generateSessionExport(detail: SessionDetail, matches: SessionMat
 export function generateNetworkExport(
   stats: NetworkOverviewStats,
   problemHops: RecurringProblemHop[],
-  stability: ServerStability[],
+  stability: ServerStability[]
 ): string {
   const lines: string[] = []
 
   lines.push(
-    'You are a network diagnostics expert specializing in online gaming. Analyze the following aggregated network data from multiple gaming sessions and identify patterns, recurring issues, and actionable recommendations.',
+    'You are a network diagnostics expert specializing in online gaming. Analyze the following aggregated network data from multiple gaming sessions and identify patterns, recurring issues, and actionable recommendations.'
   )
   lines.push('')
 
@@ -207,7 +214,9 @@ export function generateNetworkExport(
   lines.push(`Unique server IPs: ${stats.uniqueServerIps}`)
   lines.push(`Total traceroutes: ${stats.totalTraceroutes}`)
   lines.push(`Total problem hops: ${stats.totalProblemHops}`)
-  lines.push(`Average latency: ${stats.avgLatency != null ? `${stats.avgLatency.toFixed(1)} ms` : 'N/A'}`)
+  lines.push(
+    `Average latency: ${stats.avgLatency != null ? `${stats.avgLatency.toFixed(1)} ms` : 'N/A'}`
+  )
   lines.push('</network-overview>')
   lines.push('')
 
@@ -225,7 +234,7 @@ export function generateNetworkExport(
       for (const h of gsHops) {
         const provider = [h.isp, h.asn ? `(${h.asn})` : null].filter(Boolean).join(' ') || '-'
         lines.push(
-          `| ${h.ip} | ${provider} | ${h.occurrenceCount} | ${h.avgLatency != null ? formatMs(h.avgLatency, { locale: EN }) : '-'} | ${h.avgPacketLoss != null ? `${h.avgPacketLoss.toFixed(0)}%` : '-'} |`,
+          `| ${h.ip} | ${provider} | ${h.occurrenceCount} | ${h.avgLatency != null ? formatMs(h.avgLatency, { locale: EN }) : '-'} | ${h.avgPacketLoss != null ? `${h.avgPacketLoss.toFixed(0)}%` : '-'} |`
         )
       }
       lines.push('')
@@ -237,7 +246,7 @@ export function generateNetworkExport(
       for (const h of otherHops) {
         const provider = [h.isp, h.asn ? `(${h.asn})` : null].filter(Boolean).join(' ') || '-'
         lines.push(
-          `| ${h.ip} | ${provider} | ${h.occurrenceCount} | ${h.avgLatency != null ? formatMs(h.avgLatency, { locale: EN }) : '-'} | ${h.avgPacketLoss != null ? `${h.avgPacketLoss.toFixed(0)}%` : '-'} |`,
+          `| ${h.ip} | ${provider} | ${h.occurrenceCount} | ${h.avgLatency != null ? formatMs(h.avgLatency, { locale: EN }) : '-'} | ${h.avgPacketLoss != null ? `${h.avgPacketLoss.toFixed(0)}%` : '-'} |`
         )
       }
       lines.push('')
@@ -254,7 +263,7 @@ export function generateNetworkExport(
     for (const s of stability) {
       const provider = [s.isp, s.asn ? `(${s.asn})` : null].filter(Boolean).join(' ') || '-'
       lines.push(
-        `| ${s.ip} | ${provider} | ${s.country ?? '-'} | ${s.avgLatency != null ? formatMs(s.avgLatency, { locale: EN }) : '-'} | ${s.avgPacketLoss != null ? `${s.avgPacketLoss.toFixed(0)}%` : '-'} | ${s.tracerouteCount} | ${(s.problemHopRatio * 100).toFixed(0)}% |`,
+        `| ${s.ip} | ${provider} | ${s.country ?? '-'} | ${s.avgLatency != null ? formatMs(s.avgLatency, { locale: EN }) : '-'} | ${s.avgPacketLoss != null ? `${s.avgPacketLoss.toFixed(0)}%` : '-'} | ${s.tracerouteCount} | ${(s.problemHopRatio * 100).toFixed(0)}% |`
       )
     }
     lines.push('</server-stability>')
