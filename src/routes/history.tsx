@@ -16,6 +16,7 @@ import {
 import { Segmented } from '@/components/ui/segmented'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/empty-state'
+import { GameSelect } from '@/components/game-select'
 import { LoadError } from '@/components/load-error'
 import { Panel } from '@/components/panel'
 import { ServerTable } from '@/components/home/server-table'
@@ -77,11 +78,14 @@ function HistoryPage() {
   const actions = (
     <>
       {grid && grid.games.length > 1 && current && (
-        <Segmented
-          label={m.route_page_game()}
-          options={grid.games.map(item => ({ value: item.gameName, label: item.gameName }))}
+        <GameSelect
+          games={grid.games.map(item => ({ name: item.gameName, count: item.matchCount }))}
           value={current.gameName}
+          countLabel={count =>
+            counted(count, m.session_matches_count_one, m.session_matches_count_other)
+          }
           onValueChange={value =>
+            value &&
             navigate({ to: '/history', search: search({ game: value, days }), replace: true })
           }
         />

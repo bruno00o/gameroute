@@ -1,33 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import {
-  RiArrowDownSLine,
-  RiCloseLine,
-  RiDownloadLine,
-  RiLoopLeftLine,
-  RiSearchLine,
-} from '@remixicon/react'
+import { RiCloseLine, RiDownloadLine, RiLoopLeftLine, RiSearchLine } from '@remixicon/react'
 import { toast } from 'sonner'
 
 import * as m from '@/paraglide/messages'
-import type { SessionListFilter, SessionListItem } from '@/types/backend'
+import type { SessionGame, SessionListFilter, SessionListItem } from '@/types/backend'
 import { getSessionList, openLogDir } from '@/lib/tauri'
 import { exportSessionsList } from '@/lib/export-csv'
 import { formatDay, formatNumber } from '@/lib/format'
+import { counted } from '@/lib/route-history'
 import { errorMessage } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Segmented } from '@/components/ui/segmented'
 import { TextField } from '@/components/ui/text-field'
 import { DataTable } from '@/components/data-table'
 import { EmptyState } from '@/components/empty-state'
+import { GameSelect } from '@/components/game-select'
 import { Notice } from '@/components/notice'
 import { sessionColumns } from '@/components/session/session-columns'
 
@@ -38,8 +27,6 @@ export const Route = createFileRoute('/sessions/')({
 const PAGE_SIZE = 20
 const EXPORT_PAGE_SIZE = 100
 const SEARCH_DELAY_MS = 300
-const MAX_GAME_SEGMENTS = 4
-const ALL_GAMES = '*'
 
 type Quality = 'all' | 'review'
 
@@ -265,52 +252,19 @@ function GameFilter({
   value,
   onChange,
 }: {
-  games: string[]
+  games: SessionGame[]
   value: string | null
   onChange: (game: string | null) => void
 }) {
   if (games.length < 2) return null
 
-  const current = value ?? ALL_GAMES
-  const select = (next: string) => onChange(next === ALL_GAMES ? null : next)
-
-  if (games.length <= MAX_GAME_SEGMENTS) {
-    return (
-      <Segmented
-        label={m.sessions_filter_game()}
-        value={current}
-        onValueChange={select}
-        options={[
-          { value: ALL_GAMES, label: m.sessions_filter_game_all() },
-          ...games.map(name => ({ value: name, label: name })),
-        ]}
-      />
-    )
-  }
-
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button size="sm">
-            <span className="sr-only">{m.sessions_filter_game()} </span>
-            {value ?? m.sessions_filter_game_all()}
-            <RiArrowDownSLine data-icon="inline-end" />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="start">
-        <DropdownMenuRadioGroup value={current} onValueChange={select}>
-          <DropdownMenuRadioItem value={ALL_GAMES}>
-            {m.sessions_filter_game_all()}
-          </DropdownMenuRadioItem>
-          {games.map(name => (
-            <DropdownMenuRadioItem key={name} value={name}>
-              {name}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <GameSelect
+      allowAll
+      games={games.map(game => ({ name: game.name, count: game.sessionCount }))}
+      value={value}
+      onValueChange={onChange}
+      countLabel={count => counted(count, m.game_select_sessions_one, m.game_select_sessions_other)}
+    />
   )
 }

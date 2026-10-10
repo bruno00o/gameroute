@@ -44,8 +44,6 @@
   "sessions_search_label": "Rechercher dans les sessions",
   "sessions_summary_one": "{count} session depuis le {date}",
   "sessions_summary_other": "{count} sessions depuis le {date}",
-  "sessions_filter_game": "Filtrer par jeu",
-  "sessions_filter_game_all": "Tous",
   "sessions_filter_quality": "Filtrer par qualité",
   "sessions_filter_quality_all": "Toutes",
   "sessions_filter_quality_review": "À revoir",
@@ -339,7 +337,6 @@
   "network_game_servers_title": "Serveurs de jeu",
   "network_other_servers_title": "Autres serveurs",
   "route_page_subtitle": "Millisecondes ajoutées par chaque opérateur · {days} derniers jours",
-  "route_page_game": "Choisir le jeu",
   "route_usual_label": "Route habituelle",
   "route_usual_matches": "Parties sur cette route : {count} sur {total}",
   "route_limit_note": "{destination} ne répond pas aux pings, ce qui est normal. La mesure va jusqu’au dernier routeur qui répond (saut {hop}, {operator}) ; ce que le dernier tronçon ajoute n’est pas mesurable.",
@@ -956,5 +953,13 @@
   "settings_probes_zones_description": "Un paquet par seconde vers votre box et un vers le dernier routeur de votre FAI. Elles disent si le problème vient de chez vous.",
   "report_matches_show_ok": "Afficher aussi les parties sans problème",
   "report_matches_selected": "Parties cochées : {count}",
-  "report_matches_no_problem": "Aucune partie à problème dans les sessions récentes."
+  "report_matches_no_problem": "Aucune partie à problème dans les sessions récentes.",
+  "game_select_label": "Jeu",
+  "game_select_prefix": "Jeu :",
+  "game_select_all": "Tous les jeux",
+  "game_select_all_short": "Tous",
+  "game_select_search": "Rechercher un jeu",
+  "game_select_none": "Aucun jeu ne correspond",
+  "game_select_sessions_one": "{count} session",
+  "game_select_sessions_other": "{count} sessions"
 }

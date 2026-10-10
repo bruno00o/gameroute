@@ -576,7 +576,12 @@ mod tests {
         );
         assert_eq!(first.total, 3);
         assert_eq!(first.recorded, 3);
-        assert_eq!(first.games, vec!["VALORANT", "League of Legends"]);
+        let games: Vec<(&str, i64)> = first
+            .games
+            .iter()
+            .map(|game| (game.name.as_str(), game.session_count))
+            .collect();
+        assert_eq!(games, vec![("VALORANT", 2), ("League of Legends", 1)]);
         assert_eq!(
             first.first_started_at.as_deref(),
             Some("2026-09-10T20:00:00Z")

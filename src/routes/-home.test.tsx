@@ -170,7 +170,10 @@ function page(items: SessionListItem[], recorded = items.length): SessionListPag
     total: recorded,
     recorded,
     firstStartedAt: items.length ? at(6, 10, 19, 27) : null,
-    games: [...new Set(items.map(item => item.gameName))],
+    games: [...new Set(items.map(item => item.gameName))].map(name => ({
+      name,
+      sessionCount: items.filter(item => item.gameName === name).length,
+    })),
   }
 }
 

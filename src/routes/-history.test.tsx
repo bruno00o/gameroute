@@ -275,7 +275,15 @@ describe('History screen', () => {
     const router = renderHistory()
 
     await screen.findByText(/Largest gap/)
-    await user.click(screen.getByRole('button', { name: 'League of Legends' }))
+    const picker = screen.getByRole('combobox', { name: 'Game' })
+    expect(picker).toHaveTextContent('VALORANT')
+    await user.click(picker)
+    const options = await screen.findAllByRole('option')
+    expect(options.map(option => option.textContent)).toEqual([
+      'VALORANT4040 matches',
+      'League of Legends1212 matches',
+    ])
+    await user.click(options[1])
 
     await waitFor(() => expect(router.state.location.search).toEqual({ game: 'League of Legends' }))
     await screen.findByText(

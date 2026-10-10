@@ -1,5 +1,5 @@
 use crate::db::DbError;
-use crate::models::session::{Session, SessionListFilter, SessionListItem};
+use crate::models::session::{Session, SessionGame, SessionListFilter, SessionListItem};
 use sqlx::sqlite::SqlitePool;
 use std::sync::{Arc, OnceLock};
 
@@ -139,14 +139,14 @@ impl SessionRepository {
         .map_err(Into::into)
     }
 
-    pub async fn get_session_games(&self) -> Result<Vec<String>, DbError> {
-        let rows: Vec<(String,)> = sqlx::query_as(
-            "SELECT game_name FROM sessions GROUP BY game_name ORDER BY MAX(started_at) DESC",
+    pub async fn get_session_games(&self) -> Result<Vec<SessionGame>, DbError> {
+        sqlx::query_as(
+            "SELECT game_name AS name, COUNT(*) AS session_count FROM sessions
+             GROUP BY game_name ORDER BY COUNT(*) DESC, MAX(started_at) DESC",
         )
         .fetch_all(&self.pool)
-        .await?;
-
-        Ok(rows.into_iter().map(|row| row.0).collect())
+        .await
+        .map_err(Into::into)
     }
 
     pub async fn get_first_started_at(&self) -> Result<Option<String>, DbError> {
@@ -546,13 +546,25 @@ mod tests {
             ("League of Legends", "2026-07-10T19:00:00Z"),
             ("VALORANT", "2026-09-13T14:00:00Z"),
             ("League of Legends", "2026-10-08T15:00:00Z"),
+            ("Counter-Strike 2", "2026-10-09T18:00:00Z"),
         ] {
             repo.insert_session(game, started).await.unwrap();
         }
 
+        let games: Vec<(String, i64)> = repo
+            .get_session_games()
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|game| (game.name, game.session_count))
+            .collect();
         assert_eq!(
-            repo.get_session_games().await.unwrap(),
-            vec!["League of Legends", "VALORANT"]
+            games,
+            vec![
+                ("League of Legends".to_string(), 2),
+                ("Counter-Strike 2".to_string(), 1),
+                ("VALORANT".to_string(), 1),
+            ]
         );
         assert_eq!(
             repo.get_first_started_at().await.unwrap().as_deref(),
