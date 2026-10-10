@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use commands::asn::{
     clear_ip_metadata_cache, get_ip_metadata_stats, prune_ip_metadata_cache, resolve_asn,
+    resolve_hostnames,
 };
 use commands::export::{write_export_file, write_export_pdf};
 use commands::games::{
@@ -266,6 +267,7 @@ pub fn run() {
             list_running_apps,
             start_manual_monitoring,
             resolve_asn,
+            resolve_hostnames,
             clear_ip_metadata_cache,
             get_ip_metadata_stats,
             prune_ip_metadata_cache,

@@ -15,6 +15,7 @@ pub mod matches;
 pub mod mini_window;
 pub mod network_capture;
 pub mod recap;
+pub mod reverse_dns;
 pub mod riot_scanner;
 pub mod route_history;
 pub mod route_model;

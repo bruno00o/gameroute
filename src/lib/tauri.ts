@@ -7,6 +7,7 @@ import type {
   GameEndedEvent,
   GameListItem,
   GamePingSample,
+  HostnameEntry,
   IpMetadataCacheStats,
   LiveProbeConfig,
   LiveProbeSample,
@@ -104,6 +105,8 @@ export const getRouteChanges = (days?: number) =>
 
 // ===== ASN / Cache =====
 export const resolveAsn = (ips: string[]) => invoke<ResolvedIpData[]>('resolve_asn', { ips })
+export const resolveHostnames = (ips: string[]) =>
+  invoke<HostnameEntry[]>('resolve_hostnames', { ips })
 export const clearIpMetadataCache = () => invoke<void>('clear_ip_metadata_cache')
 export const getIpMetadataStats = () => invoke<IpMetadataCacheStats>('get_ip_metadata_stats')
 export const pruneIpMetadataCache = () => invoke<PruneCacheResult>('prune_ip_metadata_cache')
