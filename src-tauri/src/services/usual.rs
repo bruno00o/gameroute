@@ -619,6 +619,7 @@ mod tests {
     use super::*;
     use crate::db::create_test_pool;
     use crate::models::game_ping::GamePingSample;
+    use crate::models::session::HopData;
     use chrono::{Duration, Utc};
 
     #[test]
@@ -866,6 +867,78 @@ mod tests {
         assert_eq!(rated(1).status, Severity::Ok);
         assert_eq!(rated(1).trace.unwrap().usual, Some(UsualPing::default()));
         assert_eq!(history.matches.len(), 7);
+    }
+
+    #[tokio::test]
+    async fn a_router_that_answers_late_never_rates_the_match_against_the_usual() {
+        let pool = create_test_pool().await;
+        let ranged = |n: i32, ip: &str, (min, avg, max): (f64, f64, f64)| HopData {
+            latency_min: Some(min),
+            latency_max: Some(max),
+            ..hop(n, ip, avg)
+        };
+        let route = |third: HopData, fourth: HopData| {
+            vec![
+                hop(1, "192.168.1.254", 0.6),
+                hop(2, "10.153.10.245", 3.7),
+                third,
+                fourth,
+                silent(5),
+            ]
+        };
+        let usual = || route(hop(3, "86.69.254.18", 4.0), hop(4, "194.6.150.68", 4.3));
+        let late = route(
+            ranged(3, "86.69.254.18", (3.0, 13.3, 32.0)),
+            ranged(4, "194.6.150.68", (22.0, 44.0, 75.0)),
+        );
+        let confirmed = route(
+            ranged(3, "86.69.254.18", (43.0, 44.0, 45.0)),
+            ranged(4, "194.6.150.68", (44.0, 45.0, 46.0)),
+        );
+        for (id, hops) in (1..=6)
+            .map(|id| (id, usual()))
+            .chain([(7, late), (8, confirmed)])
+        {
+            let start = (id - 9) * 86_400;
+            session(&pool, id, "VALORANT", start).await;
+            period(&pool, id, RIOT, 7036, (start, start + 1800)).await;
+            trace(&pool, id, RIOT, start + 40, &hops).await;
+        }
+
+        let history = match_history(
+            &AnalyticsRepository::new(pool.clone()),
+            &IpPeriodRepository::new(pool.clone()),
+            &TracerouteRepository::new(pool.clone()),
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+        let rated = |id: i64| history.sessions[&id].matches[0].flow.clone();
+
+        let spike = rated(7);
+        assert_eq!(spike.status, Severity::Ok);
+        let measure = spike.trace.unwrap();
+        assert_eq!(
+            (measure.measured_hop, measure.ping_ms),
+            (Some(3), Some(13.3))
+        );
+        assert_eq!(measure.usual, Some(UsualPing::default()));
+
+        let slow = rated(8);
+        assert_eq!(slow.status, Severity::Watch);
+        let measure = slow.trace.unwrap();
+        assert_eq!(
+            (measure.measured_hop, measure.ping_ms),
+            (Some(4), Some(45.0))
+        );
+        assert_eq!(
+            measure.usual,
+            Some(UsualPing {
+                median_ms: Some(4.3),
+                sample_count: 6,
+            })
+        );
     }
 
     #[tokio::test]

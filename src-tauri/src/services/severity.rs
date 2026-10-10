@@ -1,5 +1,6 @@
 use crate::config::{
-    SEVERITY_JITTER_MS, SEVERITY_LOSS_PCT, SEVERITY_OVER_BASELINE_MS, SEVERITY_RTT_MS,
+    LAST_HOP_JUMP_MS, SEVERITY_JITTER_MS, SEVERITY_LOSS_PCT, SEVERITY_OVER_BASELINE_MS,
+    SEVERITY_RTT_MS,
 };
 use crate::models::hop::ProbedHop;
 pub use crate::models::severity::{Severity, SeverityThreshold, SeverityThresholds};
@@ -76,12 +77,32 @@ pub fn rank(status: Severity) -> u8 {
     }
 }
 
-pub fn measured_hop<H: ProbedHop>(hops: &[H]) -> Option<&H> {
-    hops.iter().rev().find(|hop| hop.responded())
+pub fn answers_late<H: ProbedHop>(hop: &H, previous: &H) -> bool {
+    let (Some(rtt), Some((fastest, _)), Some(floor)) =
+        (hop.rtt_avg(), hop.rtt_range(), previous.rtt_avg())
+    else {
+        return false;
+    };
+    rtt - floor >= LAST_HOP_JUMP_MS && fastest - floor < LAST_HOP_JUMP_MS
+}
+
+pub fn late_last_hop<H: ProbedHop>(hops: &[H], target_ip: &str) -> Option<(usize, usize)> {
+    let mut answered = (0..hops.len()).rev().filter(|&i| hops[i].responded());
+    let last = answered.next()?;
+    let previous = answered.next()?;
+    (hops[last].ip() != Some(target_ip) && answers_late(&hops[last], &hops[previous]))
+        .then_some((last, previous))
+}
+
+pub fn measured_hop<'a, H: ProbedHop>(hops: &'a [H], target_ip: &str) -> Option<&'a H> {
+    match late_last_hop(hops, target_ip) {
+        Some((_, previous)) => Some(&hops[previous]),
+        None => hops.iter().rev().find(|hop| hop.responded()),
+    }
 }
 
 pub fn route_status<H: ProbedHop>(hops: &[H], target_ip: &str) -> Severity {
-    let Some(last) = measured_hop(hops) else {
+    let Some(last) = measured_hop(hops, target_ip) else {
         return Severity::Unmeasured;
     };
     let loss_persists = persistent_loss_onset(hops, target_ip).is_some();
@@ -316,6 +337,50 @@ mod tests {
             source: None,
             loss_status: None,
         }
+    }
+
+    fn ranged(n: i32, ip: &str, (min, avg, max): (f64, f64, f64)) -> DbHop {
+        DbHop {
+            latency_min: Some(min),
+            latency_max: Some(max),
+            ..db_hop(n, Some(ip), Some(avg), 0.0)
+        }
+    }
+
+    fn late_sfr_router() -> Vec<DbHop> {
+        vec![
+            ranged(1, "10.0.10.1", (0.5, 0.5, 0.5)),
+            ranged(2, "192.168.1.1", (0.5, 0.5, 0.5)),
+            ranged(3, "10.153.10.245", (12.0, 12.7, 13.0)),
+            ranged(4, "86.69.254.18", (3.0, 13.3, 32.0)),
+            ranged(5, "194.6.150.68", (22.0, 44.0, 75.0)),
+        ]
+    }
+
+    #[test]
+    fn a_last_router_that_answers_late_falls_back_to_the_router_before() {
+        let hops = late_sfr_router();
+
+        let measured = measured_hop(&hops, TARGET).unwrap();
+        assert_eq!(measured.hop_number, 4);
+        assert_eq!(measured.latency_avg, Some(13.3));
+        assert_eq!(late_last_hop(&hops, TARGET), Some((4, 3)));
+    }
+
+    #[test]
+    fn a_jump_confirmed_by_the_fastest_probe_or_a_later_router_is_kept() {
+        let mut steady = late_sfr_router();
+        steady[4] = ranged(5, "194.6.150.68", (43.0, 44.0, 45.0));
+        assert_eq!(measured_hop(&steady, TARGET).unwrap().hop_number, 5);
+
+        let mut confirmed = late_sfr_router();
+        confirmed.push(ranged(6, "194.6.150.70", (44.0, 45.0, 46.0)));
+        assert_eq!(measured_hop(&confirmed, TARGET).unwrap().hop_number, 6);
+        assert_eq!(late_last_hop(&confirmed, TARGET), None);
+
+        let mut destination = late_sfr_router();
+        destination[4].ip = Some(TARGET.to_string());
+        assert_eq!(measured_hop(&destination, TARGET).unwrap().hop_number, 5);
     }
 
     #[test]
