@@ -198,6 +198,21 @@ describe('Live screen', () => {
     expect(screen.getByText('Match 2')).toBeInTheDocument()
   })
 
+  it('reloads the matches as soon as a new match starts', async () => {
+    monitor()
+    renderLive()
+    await waitFor(() => expect(listeners.status).toBeDefined())
+    emit(waitingStatus())
+    await waitFor(() => expect(getSessionMatches).toHaveBeenCalled())
+    const loaded = vi.mocked(getSessionMatches).mock.calls.length
+
+    emit(liveStatus())
+
+    await waitFor(() =>
+      expect(vi.mocked(getSessionMatches).mock.calls.length).toBeGreaterThan(loaded)
+    )
+  })
+
   it('shows the first measure as pending while the match is measured', async () => {
     monitor()
     renderLive()

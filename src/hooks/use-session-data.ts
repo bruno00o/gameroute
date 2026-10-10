@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 
 import { getSessionDetail, getSessionMatches, getSeverityThresholds } from '@/lib/tauri'
 
+const ONGOING_REFRESH_MS = 10_000
+
 export function useSessionData(sessionId: number) {
   const valid = Number.isInteger(sessionId) && sessionId > 0
 
@@ -10,7 +12,7 @@ export function useSessionData(sessionId: number) {
     queryFn: () => getSessionDetail(sessionId),
     enabled: valid,
     staleTime: 60_000,
-    refetchInterval: query => (query.state.data?.endedAt === null ? 3_000 : false),
+    refetchInterval: query => (query.state.data?.endedAt === null ? ONGOING_REFRESH_MS : false),
   })
   const ongoing = detailQuery.data?.endedAt === null
 
@@ -19,7 +21,7 @@ export function useSessionData(sessionId: number) {
     queryFn: () => getSessionMatches(sessionId),
     enabled: valid && detailQuery.data != null,
     staleTime: 60_000,
-    refetchInterval: ongoing ? 3_000 : false,
+    refetchInterval: ongoing ? ONGOING_REFRESH_MS : false,
   })
 
   const { data: thresholds } = useQuery({

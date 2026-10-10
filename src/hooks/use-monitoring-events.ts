@@ -73,6 +73,7 @@ export function useMonitoringEvents() {
           currentSessionId: null,
         })
         queryClient.invalidateQueries({ queryKey: ['sessions'] })
+        queryClient.invalidateQueries({ queryKey: ['session'] })
       }),
       onServerIpCaptured(event => {
         useMonitoringStore.getState().addCapturedIp(event)
