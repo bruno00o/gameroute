@@ -284,7 +284,7 @@ fn measure(
 }
 
 fn trace_measure(trace: &TracerouteWithHops, flow_started_at: &str) -> TraceMeasure {
-    let hop = measured_hop(&trace.hops);
+    let hop = measured_hop(&trace.hops, &trace.target_ip);
     let loss_persists = persistent_loss_onset(&trace.hops, &trace.target_ip).is_some();
 
     TraceMeasure {
@@ -763,6 +763,38 @@ mod tests {
         assert_eq!(measure.measured_hop, Some(route.last_responding_hop));
         assert_eq!(measure.at_destination, !route.destination_silent);
         assert_eq!(game.flow.status, shown[0].status);
+    }
+
+    #[tokio::test]
+    async fn a_last_router_that_answers_late_is_not_the_match_ping() {
+        let session = Session::new().await;
+        session.period(RIOT, 7036, (0, 1800), FlowKind::Game).await;
+        session
+            .period("162.249.72.1", 7108, (1900, 3700), FlowKind::Game)
+            .await;
+        let late = |last: (f64, f64, f64)| {
+            vec![
+                hop(1, "10.0.10.1", (0.5, 0.5, 0.5), 33.3),
+                hop(2, "192.168.1.1", (0.5, 0.5, 0.5), 66.7),
+                hop(3, "10.153.10.245", (12.0, 12.7, 13.0), 0.0),
+                hop(4, "86.69.254.18", (3.0, 13.3, 32.0), 0.0),
+                hop(5, "194.6.150.68", last, 0.0),
+            ]
+        };
+        session.trace(RIOT, 30, &late((22.0, 44.0, 75.0))).await;
+        session
+            .trace("162.249.72.1", 1930, &late((43.0, 44.0, 45.0)))
+            .await;
+
+        let matches = session.matches().await;
+
+        let spiky = matches[0].flow.trace.as_ref().unwrap();
+        assert_eq!(spiky.measured_hop, Some(4));
+        assert_eq!(spiky.ping_ms, Some(13.3));
+        assert!(!spiky.at_destination);
+        let steady = matches[1].flow.trace.as_ref().unwrap();
+        assert_eq!(steady.measured_hop, Some(5));
+        assert_eq!(steady.ping_ms, Some(44.0));
     }
 
     #[tokio::test]

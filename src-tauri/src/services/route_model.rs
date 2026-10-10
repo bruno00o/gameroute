@@ -6,7 +6,7 @@ use crate::models::traceroute::{OperatorRoute, RouteSegment, RouteZone};
 use crate::models::traceroute_record::TracerouteWithHops;
 use crate::services::asn_resolver::lookup_metadata;
 use crate::services::network_capture::is_private_or_special_ip;
-use crate::services::severity::{assess_traceroute, loss_status};
+use crate::services::severity::{assess_traceroute, late_last_hop, loss_status};
 use crate::services::traceroute::{
     hop_source, identify_problem_hop, persistent_loss_onset, TracerouteResult,
 };
@@ -150,7 +150,10 @@ pub fn build_route(
     operators: &HashMap<String, Operator>,
 ) -> Option<OperatorRoute> {
     let last = hops.iter().rposition(ProbedHop::responded)?;
-    let floors = latency_floors(hops);
+    let mut floors = latency_floors(hops);
+    if late_last_hop(hops, target_ip).is_some() {
+        floors[last] = None;
+    }
     let home = home_len(hops);
     let owners = owners(hops, home, operators);
     let destination = operators.get(target_ip);
@@ -630,6 +633,32 @@ mod tests {
         let route = build_route(&hops, RIOT_QOS, &sfr_retn_riot_operators()).unwrap();
 
         assert_eq!(statuses(&route), vec![None, None, Some(Severity::Critical)]);
+    }
+
+    #[test]
+    fn a_last_router_that_answers_late_does_not_raise_the_total() {
+        let ranged = |n: i32, ip: &str, (min, avg, max): (f64, f64, f64)| DbHop {
+            latency_min: Some(min),
+            latency_max: Some(max),
+            ..hop(n, ip, avg, 0.0)
+        };
+        let mut hops = vec![
+            hop(1, "10.0.10.1", 0.5, 0.0),
+            hop(2, "192.168.1.1", 0.5, 0.0),
+            ranged(3, "10.153.10.245", (12.0, 12.7, 13.0)),
+            ranged(4, "86.69.254.18", (3.0, 13.3, 32.0)),
+            ranged(5, "194.6.150.68", (22.0, 44.0, 75.0)),
+        ];
+        let operators = operators(&[("86.69.254.18", SFR), (RIOT_QOS, RIOT)]);
+
+        let route = build_route(&hops, RIOT_QOS, &operators).unwrap();
+        assert_eq!(route.last_responding_hop, 5);
+        assert_eq!(route.total_ms, 13.3);
+        assert_eq!(added(&route), vec![0.5, 12.8]);
+
+        hops[4] = ranged(5, "194.6.150.68", (43.0, 44.0, 45.0));
+        let route = build_route(&hops, RIOT_QOS, &operators).unwrap();
+        assert_eq!(route.total_ms, 44.0);
     }
 
     #[test]

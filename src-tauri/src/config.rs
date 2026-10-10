@@ -67,6 +67,11 @@ pub const SEVERITY_OVER_BASELINE_MS: [f64; 3] = [20.0, 50.0, 100.0];
 
 pub const SEVERITY_RTT_MS: [f64; 3] = [60.0, 100.0, 150.0];
 
+/// A last responding router whose average sits this far above the previous
+/// router while its fastest probe does not answers its own pings late; its
+/// latency is not a lower bound of the path.
+pub const LAST_HOP_JUMP_MS: f64 = 20.0;
+
 // ── Usual ping ──────────────────────────────────────────────────────────────
 
 pub const SERVER_SUMMARY_DAYS: u32 = 7;
