@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import type { SessionMatch } from '@/types/backend'
+import type { DbHop, OperatorRoute, SessionMatch } from '@/types/backend'
 import { gameMeasuredCase, lossyCase, regionContextCase, sources } from '@/test/report-fixtures'
 import { measure, sessionDetail, sessionMatches } from '@/test/session-fixtures'
 import {
   defaultReportSelection,
   reportCandidateKey,
   reportIspName,
-  reportPublisherName,
+  reportGameName,
   renderReportText,
   reportDocument,
   reportText as buildReport,
@@ -495,12 +495,39 @@ describe('reportText', () => {
     const all = sources(detail, matches, [1, 2])
 
     expect(reportIspName(all)).toBe('SFR')
-    expect(reportPublisherName(all)).toBe('Riot Games')
+    expect(reportGameName(all)).toBe('VALORANT')
     expect(reportText(all, { ...full, recipient: 'isp', locale: 'en' })).toContain(
       'For SFR support'
     )
     expect(reportText(all, { ...full, recipient: 'publisher', locale: 'en' })).toContain(
-      'For Riot Games support'
+      'For VALORANT support'
+    )
+  })
+
+  it('names the game for the publisher, not the operator hosting its servers', () => {
+    const { detail, matches } = lossyCase()
+    const hosted = matches.map(match => ({
+      ...match,
+      operator: { asn: 16509, name: 'Amazon.com, Inc.', city: 'Dublin', country: 'Ireland' },
+    }))
+    const text = reportText(sources(detail, hosted, [1, 2]), {
+      ...full,
+      recipient: 'publisher',
+      locale: 'en',
+    })
+
+    expect(text).toContain('For VALORANT support')
+    expect(text).not.toContain('For Amazon support')
+  })
+
+  it('does not name a game when the matches come from several', () => {
+    const { detail, matches } = lossyCase()
+    const other = sessionDetail({ gameName: 'League of Legends' })
+    const mixed = [...sources(detail, matches, [1]), ...sources(other, matches, [2])]
+
+    expect(reportGameName(mixed)).toBeNull()
+    expect(reportText(mixed, { ...full, recipient: 'publisher', locale: 'en' })).toContain(
+      'For the support of the game publisher'
     )
   })
 })
@@ -721,6 +748,109 @@ describe('reportDocument', () => {
   })
 })
 
+describe('hop zones', () => {
+  const hops: DbHop[] = [
+    ['10.0.10.1', 0.5],
+    ['192.168.1.1', 0.9],
+    ['10.153.10.245', 4.2],
+    ['86.69.254.18', 5.1],
+    ['194.6.150.68', 9.8],
+  ].map(([ip, latency], index) => ({
+    id: index + 1,
+    tracerouteId: 21,
+    hopNumber: index + 1,
+    ip: ip as string,
+    hostname: null,
+    latencyMin: latency as number,
+    latencyAvg: latency as number,
+    latencyMax: latency as number,
+    packetLoss: 0,
+    isProblemHop: false,
+    source: null,
+    lossStatus: null,
+  }))
+
+  const route = (): OperatorRoute => ({
+    segments: [
+      {
+        zone: 'home',
+        asn: null,
+        name: null,
+        firstHop: 1,
+        lastHop: 2,
+        hops: 2,
+        silentHops: 0,
+        addedMs: 0.9,
+        status: null,
+      },
+      {
+        zone: 'isp',
+        asn: 15557,
+        name: 'Societe Francaise Du Radiotelephone - SFR SA',
+        firstHop: 3,
+        lastHop: 4,
+        hops: 2,
+        silentHops: 0,
+        addedMs: 4.2,
+        status: null,
+      },
+      {
+        zone: 'transit',
+        asn: 5511,
+        name: 'Orange S.A.',
+        firstHop: 5,
+        lastHop: 5,
+        hops: 1,
+        silentHops: 0,
+        addedMs: 4.7,
+        status: null,
+      },
+    ],
+    lastRespondingHop: 5,
+    totalMs: 9.8,
+    destinationSilent: true,
+    destinationAsn: 6507,
+    destinationName: 'Riot Games, Inc',
+  })
+
+  const rows = (addresses: boolean) => {
+    const { detail, matches } = lossyCase()
+    const traceroutes = detail.traceroutes.map(item =>
+      item.id === 21 ? { ...item, hops, route: route() } : item
+    )
+    const [match] = reportDocument(sources({ ...detail, traceroutes }, matches, [1]), {
+      ...full,
+      addresses,
+      locale: 'fr',
+    }).matches
+    return { rows: match.hops!.rows, route: match.route!.line }
+  }
+
+  it('zones the hops like the route, so a private address after the box belongs to the ISP', () => {
+    const { rows: masked, route: line } = rows(false)
+
+    expect(masked.slice(0, 5).map(row => row.zone)).toEqual([
+      'Chez vous',
+      'Chez vous',
+      'SFR',
+      'SFR',
+      'Orange',
+    ])
+    expect(masked[2]).toMatchObject({ zone: 'SFR', address: '10.153.10.245' })
+    expect(masked[0].address).toBeNull()
+    expect(masked[1].address).toBeNull()
+    expect(line.replace(/\s/g, ' ')).toContain(
+      'Chez vous +0,9 ms → Votre FAI · SFR (AS15557) +4,2 ms'
+    )
+  })
+
+  it('shows the box address only when asked', () => {
+    const { rows: shown } = rows(true)
+
+    expect(shown[1]).toMatchObject({ zone: 'Chez vous', address: '192.168.1.1' })
+  })
+})
+
 describe('defaultReportSelection', () => {
   const candidates = (statuses: SessionMatch['status'][]): ReportCandidate[] =>
     statuses.map((status, index) => ({
@@ -735,16 +865,24 @@ describe('defaultReportSelection', () => {
       },
     }))
 
-  it('ticks the matches that depart from the usual ping, then one match without loss to compare', () => {
+  it('ticks only the matches that depart from the usual ping', () => {
     expect(defaultReportSelection(candidates(['ok', 'degraded', 'ok', 'watch']))).toEqual([
       '1:2',
       '1:4',
-      '1:1',
     ])
   })
 
-  it('falls back to the latest measured match when nothing stands out', () => {
-    expect(defaultReportSelection(candidates(['unmeasured', 'ok', 'ok']))).toEqual(['1:2'])
+  it('adds one match without problem to compare when asked', () => {
+    expect(
+      defaultReportSelection(candidates(['ok', 'degraded', 'ok', 'watch']), undefined, true)
+    ).toEqual(['1:2', '1:4', '1:1'])
+  })
+
+  it('ticks nothing when no match has a problem, unless all matches are shown', () => {
+    expect(defaultReportSelection(candidates(['unmeasured', 'ok', 'ok']))).toEqual([])
+    expect(defaultReportSelection(candidates(['unmeasured', 'ok', 'ok']), undefined, true)).toEqual(
+      ['1:2']
+    )
   })
 
   it('stays on the session the report was opened from', () => {
@@ -753,6 +891,6 @@ describe('defaultReportSelection', () => {
       sessionId: 2,
       key: '2:1',
     }))
-    expect(defaultReportSelection([...others, ...candidates(['ok'])], 1)).toEqual(['1:1'])
+    expect(defaultReportSelection([...others, ...candidates(['ok'])], 1, true)).toEqual(['1:1'])
   })
 })

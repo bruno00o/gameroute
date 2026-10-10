@@ -702,10 +702,10 @@
   "report_recipient_hint": "El destinatario solo cambia la línea de dirección del texto.",
   "report_recipient_support": "Soporte de {name}",
   "report_recipient_isp_unknown": "Soporte del proveedor",
-  "report_recipient_publisher_unknown": "Soporte del editor",
+  "report_recipient_publisher_unknown": "Soporte del juego",
   "report_recipient_forum": "Foro o Discord",
   "report_matches_label": "¿Qué partidas?",
-  "report_matches_hint": "Una partida sin pérdida sirve de punto de comparación.",
+  "report_matches_hint": "Una partida sin problema sirve de punto de comparación.",
   "report_matches_limit": "Se listan las {count} partidas más recientes.",
   "report_matches_empty_title": "Ninguna partida registrada",
   "report_matches_empty_body": "El informe se construye a partir de partidas medidas. Inicia un juego vigilado y vuelve aquí.",
@@ -953,5 +953,8 @@
   "live_timeline_now": "ahora · {elapsed}",
   "live_timeline_since": "desde {from}",
   "settings_probes_zones": "Sondas del router y del router del proveedor (cada segundo, durante las partidas)",
-  "settings_probes_zones_description": "Un paquete por segundo al router y otro al último router de tu proveedor. Dicen si el problema viene de tu casa."
+  "settings_probes_zones_description": "Un paquete por segundo al router y otro al último router de tu proveedor. Dicen si el problema viene de tu casa.",
+  "report_matches_show_ok": "Mostrar también las partidas sin problema",
+  "report_matches_selected": "Partidas marcadas: {count}",
+  "report_matches_no_problem": "Ninguna partida con problema en las sesiones recientes."
 }

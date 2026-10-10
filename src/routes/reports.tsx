@@ -12,8 +12,9 @@ import { flowServerName, formatFlowPing, formatLoss, matchMeasure } from '@/lib/
 import {
   defaultReportSelection,
   reportCandidateKey,
+  isProblemCandidate,
+  reportGameName,
   reportIspName,
-  reportPublisherName,
   reportDocument,
   renderReportText,
   type ReportCandidate,
@@ -132,17 +133,32 @@ function ReportsPage() {
   const [hops, setHops] = useState(true)
   const [addresses, setAddresses] = useState(false)
   const [picked, setPicked] = useState<Set<string> | null>(null)
+  const [showOkChoice, setShowOkChoice] = useState<boolean | null>(null)
   const [creatingPdf, setCreatingPdf] = useState(false)
 
+  const focusHasNoProblem =
+    focusSessionId != null &&
+    candidates.some(candidate => candidate.sessionId === focusSessionId) &&
+    !candidates.some(
+      candidate => candidate.sessionId === focusSessionId && isProblemCandidate(candidate)
+    )
+  const showOk = showOkChoice ?? focusHasNoProblem
+  const listed = useMemo(
+    () => (showOk ? candidates : candidates.filter(isProblemCandidate)),
+    [candidates, showOk]
+  )
   const defaults = useMemo(
-    () => new Set(defaultReportSelection(candidates, focusSessionId)),
-    [candidates, focusSessionId]
+    () => new Set(defaultReportSelection(candidates, focusSessionId, showOk)),
+    [candidates, focusSessionId, showOk]
   )
   const selected = picked ?? defaults
-  const visible = candidates.slice(0, MAX_MATCHES)
+  const visible = useMemo(
+    () => listed.filter((candidate, index) => index < MAX_MATCHES || selected.has(candidate.key)),
+    [listed, selected]
+  )
   const chosen = useMemo(
-    () => candidates.filter(candidate => selected.has(candidate.key)),
-    [candidates, selected]
+    () => listed.filter(candidate => selected.has(candidate.key)),
+    [listed, selected]
   )
   const sessionIds = useMemo(
     () => [...new Set(chosen.map(candidate => candidate.sessionId))],
@@ -182,7 +198,7 @@ function ReportsPage() {
   const ready = !loading && sources.length > 0
 
   const ispName = reportIspName(sources)
-  const publisherName = reportPublisherName(sources)
+  const gameName = reportGameName(sources)
   const recipientOptions = [
     {
       value: 'isp' as const,
@@ -192,8 +208,8 @@ function ReportsPage() {
     },
     {
       value: 'publisher' as const,
-      label: publisherName
-        ? m.report_recipient_support({ name: publisherName })
+      label: gameName
+        ? m.report_recipient_support({ name: gameName })
         : m.report_recipient_publisher_unknown(),
     },
     { value: 'forum' as const, label: m.report_recipient_forum() },
@@ -302,12 +318,23 @@ function ReportsPage() {
 
             <Field
               label={m.report_matches_label()}
+              aside={
+                !isPending && !isError
+                  ? m.report_matches_selected({ count: String(chosen.length) })
+                  : undefined
+              }
               hint={
-                candidates.length > MAX_MATCHES
-                  ? `${m.report_matches_hint()} ${m.report_matches_limit({ count: String(MAX_MATCHES) })}`
-                  : m.report_matches_hint()
+                listed.length > MAX_MATCHES
+                  ? m.report_matches_limit({ count: String(MAX_MATCHES) })
+                  : undefined
               }
             >
+              <SwitchField
+                label={m.report_matches_show_ok()}
+                description={m.report_matches_hint()}
+                checked={showOk}
+                onCheckedChange={setShowOkChoice}
+              />
               {isError ? (
                 <Notice
                   tone="critical"
@@ -323,6 +350,10 @@ function ReportsPage() {
                   <Skeleton className="h-9" />
                   <Skeleton className="h-9" />
                   <Skeleton className="h-9" />
+                </div>
+              ) : visible.length === 0 ? (
+                <div className="bg-card rounded-sm border px-3 py-3">
+                  <EmptyState compact title={m.report_matches_no_problem()} />
                 </div>
               ) : (
                 <ul className="bg-card flex max-h-96 flex-col overflow-y-auto rounded-sm border">
@@ -385,16 +416,25 @@ function ReportsPage() {
 
 function Field({
   label,
+  aside,
   hint,
   children,
 }: {
   label: string
+  aside?: string
   hint?: string
   children: React.ReactNode
 }) {
   return (
     <section className="flex min-w-0 flex-col gap-2">
-      <h2 className="text-label text-muted-foreground font-stretch-[92%]">{label}</h2>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-label text-muted-foreground font-stretch-[92%]">{label}</h2>
+        {aside && (
+          <p aria-live="polite" className="text-data-sm text-muted-foreground tabular-nums">
+            {aside}
+          </p>
+        )}
+      </div>
       {children}
       {hint && <p className="text-data-sm text-muted-foreground">{hint}</p>}
     </section>

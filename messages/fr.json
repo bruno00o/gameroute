@@ -702,10 +702,10 @@
   "report_recipient_hint": "Le destinataire change seulement la ligne d'adresse du texte.",
   "report_recipient_support": "Support {name}",
   "report_recipient_isp_unknown": "Support du FAI",
-  "report_recipient_publisher_unknown": "Support de l'éditeur",
+  "report_recipient_publisher_unknown": "Support du jeu",
   "report_recipient_forum": "Forum ou Discord",
   "report_matches_label": "Quelles parties ?",
-  "report_matches_hint": "Une partie sans perte sert de point de comparaison.",
+  "report_matches_hint": "Une partie sans problème sert de point de comparaison.",
   "report_matches_limit": "Les {count} parties les plus récentes sont listées.",
   "report_matches_empty_title": "Aucune partie enregistrée",
   "report_matches_empty_body": "Le rapport se construit à partir des parties mesurées. Lancez un jeu surveillé, puis revenez ici.",
@@ -953,5 +953,8 @@
   "live_timeline_now": "maintenant · {elapsed}",
   "live_timeline_since": "depuis {from}",
   "settings_probes_zones": "Sondes de la box et du routeur du FAI (chaque seconde, pendant les parties)",
-  "settings_probes_zones_description": "Un paquet par seconde vers votre box et un vers le dernier routeur de votre FAI. Elles disent si le problème vient de chez vous."
+  "settings_probes_zones_description": "Un paquet par seconde vers votre box et un vers le dernier routeur de votre FAI. Elles disent si le problème vient de chez vous.",
+  "report_matches_show_ok": "Afficher aussi les parties sans problème",
+  "report_matches_selected": "Parties cochées : {count}",
+  "report_matches_no_problem": "Aucune partie à problème dans les sessions récentes."
 }
