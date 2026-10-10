@@ -22,7 +22,7 @@ import {
 import { cn } from '@/lib/utils'
 import { SeverityGlyph } from '@/components/status/severity-glyph'
 
-const NEUTRAL_PERCENT = [6, 14, 24, 36]
+const HEAT = ['bg-heat-0', 'bg-heat-1', 'bg-heat-2', 'bg-heat-3']
 
 const HATCHED =
   'repeating-linear-gradient(45deg, var(--unmeasured-soft) 0 1.5px, transparent 1.5px 4px)'
@@ -30,9 +30,9 @@ const HATCHED =
 type BeyondThreshold = 'watch' | 'degraded' | 'critical'
 
 const statusClass: Record<BeyondThreshold, string> = {
-  watch: 'bg-watch-soft text-watch',
-  degraded: 'bg-degraded-soft text-degraded',
-  critical: 'bg-critical-soft text-critical',
+  watch: 'bg-heat-watch shadow-[inset_0_0_0_1px_var(--watch)]',
+  degraded: 'bg-heat-degraded shadow-[inset_0_0_0_1px_var(--degraded)]',
+  critical: 'bg-heat-critical shadow-[inset_0_0_0_1px_var(--critical)]',
 }
 
 function appearance(tint: CellTint): { className?: string; style?: CSSProperties } {
@@ -42,15 +42,9 @@ function appearance(tint: CellTint): { className?: string; style?: CSSProperties
     case 'unknown':
       return { className: 'border border-dashed border-line-strong' }
     case 'neutral':
-      return {
-        style: {
-          backgroundColor: `color-mix(in oklab, var(--ink) ${NEUTRAL_PERCENT[tint.level]}%, transparent)`,
-        },
-      }
+      return { className: HEAT[tint.level] }
     case 'status':
-      return {
-        className: cn(statusClass[tint.status], 'shadow-[inset_0_0_0_1px_currentColor]'),
-      }
+      return { className: cn(statusClass[tint.status], 'text-foreground') }
   }
 }
 
@@ -182,7 +176,7 @@ function WeekHourGridView({ game, thresholds }: WeekHourGridProps) {
                           aria-hidden="true"
                           className="text-data-sm flex items-center justify-center gap-0.5 font-mono font-semibold whitespace-nowrap tabular-nums"
                         >
-                          <SeverityGlyph status={tint.status} size={8} />
+                          <SeverityGlyph status={tint.status} size={8} className="text-current" />
                           {cell.overUsualMs != null &&
                             formatGapCompact(cell.overUsualMs, cell.atLeast)}
                         </span>
