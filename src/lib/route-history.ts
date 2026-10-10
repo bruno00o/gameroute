@@ -48,11 +48,15 @@ export function lastHopOperator(route: OperatorRoute): string {
 export function routeLimitNote(usual: UsualRoute): string | null {
   const { route } = usual
   if (!route.destinationSilent) return null
-  return m.route_limit_note({
+  const params = {
     destination: destinationName(usual),
     hop: String(route.lastRespondingHop),
     operator: lastHopOperator(route),
-  })
+  }
+  const deduced = usual.gamePing?.deducedMs
+  return deduced != null
+    ? m.route_limit_note_deduced({ ...params, deduced: formatRouteMs(deduced) })
+    : m.route_limit_note(params)
 }
 
 export function hasSilentServer(route: OperatorRoute): boolean {

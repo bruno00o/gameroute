@@ -966,5 +966,6 @@
   "route_map_home_country": "{country} · país de tu proveedor",
   "route_map_none": "Ningún punto de esta ruta se puede ubicar.",
   "route_map_aria": "Mapa de la ruta: {places}",
-  "route_contrib_deduced": "deducido del ping del juego"
+  "route_contrib_deduced": "deducido del ping del juego",
+  "route_limit_note_deduced": "{destination} no responde a los pings, lo cual es normal. Las trazas se detienen en el último router que responde (salto {hop}, {operator}); el último tramo, +{deduced}, se deduce del ping medido por el juego."
 }
