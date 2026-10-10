@@ -75,6 +75,13 @@ pub async fn request_udp_capture(local_ports: Vec<u16>) -> Result<Vec<CapturedEn
                                     ep.local_port, ep.remote_ip, ep.remote_port, ep.packet_count
                                 );
                             }
+                            if let Some(stats) = capture_resp.stats.filter(|s| s.has_losses()) {
+                                log::warn!(
+                                    "UDP capture: pktmon lost {} events, {} real-time buffers",
+                                    stats.events_lost.unwrap_or(0),
+                                    stats.realtime_buffers_lost.unwrap_or(0)
+                                );
+                            }
                             Ok(capture_resp.endpoints)
                         }
                         _ => {

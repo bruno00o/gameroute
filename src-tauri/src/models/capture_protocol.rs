@@ -60,6 +60,9 @@ pub struct CaptureResponse {
     pub endpoints: Vec<CapturedEndpoint>,
     /// Error message if status is not Success.
     pub error_message: Option<String>,
+    /// ETW delivery counters for this capture window (absent from older services).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stats: Option<CaptureStats>,
 }
 
 impl CaptureResponse {
@@ -69,6 +72,7 @@ impl CaptureResponse {
             status: CaptureStatus::Success,
             endpoints,
             error_message: None,
+            stats: None,
         }
     }
 
@@ -78,7 +82,30 @@ impl CaptureResponse {
             status,
             endpoints: Vec::new(),
             error_message: Some(message),
+            stats: None,
         }
+    }
+
+    pub fn with_stats(mut self, stats: CaptureStats) -> Self {
+        self.stats = Some(stats);
+        self
+    }
+}
+
+/// What the ETW consumer received during a capture, and what the pktmon session
+/// failed to deliver in real time over the same window (None if the session could not be queried).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CaptureStats {
+    pub events_received: u64,
+    #[serde(default)]
+    pub events_lost: Option<u32>,
+    #[serde(default)]
+    pub realtime_buffers_lost: Option<u32>,
+}
+
+impl CaptureStats {
+    pub fn has_losses(&self) -> bool {
+        self.events_lost.unwrap_or(0) > 0 || self.realtime_buffers_lost.unwrap_or(0) > 0
     }
 }
 
@@ -211,5 +238,58 @@ mod tests {
             vec![None, None, None]
         );
         assert_eq!(ServiceHop::rtt_probes_from_samples(&[], 0), vec![None]);
+    }
+
+    #[derive(Deserialize)]
+    #[serde(tag = "type")]
+    enum OlderServiceResponse {
+        Capture(OlderCaptureResponse),
+    }
+
+    #[derive(Deserialize)]
+    struct OlderCaptureResponse {
+        status: CaptureStatus,
+        endpoints: Vec<CapturedEndpoint>,
+    }
+
+    #[test]
+    fn an_older_app_still_reads_a_capture_response_with_stats() {
+        let endpoint = CapturedEndpoint::new(5000, "1.2.3.4".into(), 7000);
+        let response = ServiceResponse::Capture(
+            CaptureResponse::success("s".into(), vec![endpoint]).with_stats(CaptureStats {
+                events_received: 42,
+                events_lost: Some(0),
+                realtime_buffers_lost: Some(3),
+            }),
+        );
+        let json = serde_json::to_vec(&response).unwrap();
+        let OlderServiceResponse::Capture(old) = serde_json::from_slice(&json).unwrap();
+        assert_eq!(old.status, CaptureStatus::Success);
+        assert_eq!(old.endpoints.len(), 1);
+    }
+
+    #[test]
+    fn a_response_from_an_older_service_has_no_stats() {
+        let json = concat!(
+            r#"{"type":"Capture","session_id":"s","status":"Success","#,
+            r#""endpoints":[],"error_message":null}"#
+        );
+        let ServiceResponse::Capture(response) = serde_json::from_str(json).unwrap() else {
+            panic!("expected a capture response");
+        };
+        assert_eq!(response.stats, None);
+        let json = serde_json::to_string(&ServiceResponse::Capture(response)).unwrap();
+        assert!(!json.contains("stats"));
+    }
+
+    #[test]
+    fn stats_report_losses_only_when_a_counter_moved() {
+        let mut stats = CaptureStats { events_received: 10, ..Default::default() };
+        assert!(!stats.has_losses());
+        stats.events_lost = Some(0);
+        stats.realtime_buffers_lost = Some(0);
+        assert!(!stats.has_losses());
+        stats.realtime_buffers_lost = Some(1);
+        assert!(stats.has_losses());
     }
 }
