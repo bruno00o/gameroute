@@ -1,5 +1,6 @@
+import { useEffect, useRef } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import * as m from '@/paraglide/messages'
 import { currentMatch, currentTrace, liveScreen } from '@/lib/live'
@@ -34,6 +35,18 @@ function LivePage() {
   const sessionId = status?.sessionId ?? currentSessionId ?? 0
   const { detailQuery, matchesQuery } = useSessionData(screen === 'idle' ? 0 : sessionId)
   const matches = matchesQuery.data
+  const queryClient = useQueryClient()
+  const shownMatch = useRef<string | null>(null)
+  const liveMatch = status
+    ? `${status.sessionId} ${status.serverIp} ${status.matchStartedAt}`
+    : null
+  useEffect(() => {
+    const previous = shownMatch.current
+    shownMatch.current = liveMatch
+    if (previous != null && liveMatch != null && previous !== liveMatch) {
+      queryClient.invalidateQueries({ queryKey: ['session', sessionId] })
+    }
+  }, [liveMatch, queryClient, sessionId])
   const measured = screen === 'live' || screen === 'frozen'
   const { data: incidents } = useQuery({
     queryKey: ['live', 'incidents', sessionId],
