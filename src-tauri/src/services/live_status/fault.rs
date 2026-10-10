@@ -1,3 +1,4 @@
+use super::window::WindowStats;
 use crate::config::LIVE_STATUS_MIN_PROBES;
 use crate::models::hop::ProbedHop;
 use crate::models::insights::IncidentCause;
@@ -164,11 +165,41 @@ fn bracket(
     (located, zones)
 }
 
+pub fn router_only(floor: &WindowStats, beyond: &WindowStats) -> Vec<IncidentCause> {
+    let mut cleared = Vec::new();
+    if beyond.sample_count < LIVE_STATUS_MIN_PROBES {
+        return cleared;
+    }
+    if beyond.jitter_ms.is_some_and(|j| jitter_status(j).is_none()) {
+        cleared.push(IncidentCause::Jitter);
+    }
+    let enough = beyond.sent >= i64::from(LIVE_STATUS_MIN_PROBES) && beyond.sent * 2 >= floor.sent;
+    let lossless = beyond
+        .loss_floor_pct
+        .is_some_and(|l| loss_status(l).is_none());
+    if enough && lossless {
+        cleared.push(IncidentCause::Loss);
+    }
+    cleared
+}
+
+pub fn confirmed(stats: &WindowStats, router_only: &[IncidentCause]) -> WindowStats {
+    let mut stats = stats.clone();
+    if router_only.contains(&IncidentCause::Jitter) {
+        stats.jitter_ms = None;
+    }
+    if router_only.contains(&IncidentCause::Loss) {
+        stats.loss_floor_pct = stats.loss_floor_pct.map(|_| 0.0);
+    }
+    stats
+}
+
 pub fn localise(
     readings: &[LiveReading],
     primary: LivePoint,
     cause: IncidentCause,
     route: &MatchRoute,
+    router_only: &[IncidentCause],
 ) -> Option<LiveFault> {
     let mut path: Vec<&LiveReading> = readings
         .iter()
@@ -180,6 +211,8 @@ pub fn localise(
         .map(|reading| {
             if reading.point == primary {
                 Verdict::Bad
+            } else if reading.point == LivePoint::Floor && router_only.contains(&cause) {
+                Verdict::Clean
             } else {
                 verdict(reading, cause)
             }

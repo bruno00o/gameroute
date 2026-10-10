@@ -1,6 +1,9 @@
-use super::fault::{localise, zone_evidence, MatchRoute};
-use super::window::{Observation, PointWindow, WindowStats};
-use crate::config::{LIVE_STATUS_FALL_SECS, LIVE_STATUS_RISE_SECS, LIVE_STATUS_WINDOW_SECS};
+use super::fault::{confirmed, localise, router_only, zone_evidence, MatchRoute};
+use super::window::{window_stats, Observation, PointWindow, WindowStats};
+use crate::config::{
+    LIVE_STATUS_FALL_SECS, LIVE_STATUS_LOSS_WINDOW_SECS, LIVE_STATUS_PROBE_STALE_SECS,
+    LIVE_STATUS_RISE_SECS, LIVE_STATUS_WINDOW_SECS,
+};
 use crate::models::game_ping::GamePingSample;
 use crate::models::insights::{IncidentCause, PingBasis, PingSource, UsualPing};
 use crate::models::live_probe::{LiveProbeSample, ProbeTarget};
@@ -243,7 +246,38 @@ impl LiveMachine {
         );
     }
 
-    fn reading(&self, window: &PointWindow, now: DateTime<Utc>) -> LiveReading {
+    fn router_only(&self, now: DateTime<Utc>) -> Vec<IncidentCause> {
+        let Some(floor) = self.windows.get(&LivePoint::Floor) else {
+            return Vec::new();
+        };
+        let zone = floor
+            .basis
+            .measured_hop
+            .filter(|_| !floor.basis.at_destination)
+            .and_then(|hop| self.route.as_ref()?.hop(hop))
+            .map(|hop| hop.zone);
+        let Some((_, observations)) = self
+            .region
+            .as_ref()
+            .filter(|_| matches!(zone, Some(RouteZone::Home | RouteZone::Isp)))
+        else {
+            return Vec::new();
+        };
+        let fresh = observations
+            .back()
+            .is_some_and(|o| now - o.at <= Duration::seconds(LIVE_STATUS_PROBE_STALE_SECS));
+        if !fresh {
+            return Vec::new();
+        }
+        router_only(&floor.stats(now), &window_stats(observations, now, false))
+    }
+
+    fn reading(
+        &self,
+        window: &PointWindow,
+        now: DateTime<Utc>,
+        router_only: &[IncidentCause],
+    ) -> LiveReading {
         let stats = window.stats(now);
         let basis = &window.basis;
         let route = self.route.as_ref();
@@ -267,7 +301,7 @@ impl LiveMachine {
         };
         let usual = self.usuals.get(basis).cloned().unwrap_or_default();
         let (status, cause) = if window.evaluable(&stats) {
-            rate(&stats, usual.median_ms)
+            rate(&confirmed(&stats, router_only), usual.median_ms)
         } else {
             (Severity::Unmeasured, None)
         };
@@ -488,16 +522,23 @@ impl LiveMachine {
             window.prune(now);
         }
         if let Some((_, observations)) = self.region.as_mut() {
-            let oldest = now - Duration::seconds(LIVE_STATUS_WINDOW_SECS);
+            let oldest = now - Duration::seconds(LIVE_STATUS_LOSS_WINDOW_SECS);
             while observations.front().is_some_and(|o| o.at <= oldest) {
                 observations.pop_front();
             }
         }
 
+        let router_only = self.router_only(now);
         let points: Vec<LiveReading> = self
             .windows
             .values()
-            .map(|window| self.reading(window, now))
+            .map(|window| {
+                let cleared = match window.point {
+                    LivePoint::Floor => router_only.as_slice(),
+                    _ => &[],
+                };
+                self.reading(window, now, cleared)
+            })
             .collect();
         let usable: Vec<LiveReading> = points
             .iter()
@@ -551,7 +592,7 @@ impl LiveMachine {
                 .filter(|reading| rank(reading.status) > rank(Severity::Ok))
                 .and_then(|reading| {
                     let route = self.route.clone().unwrap_or_default();
-                    localise(&usable, reading.point, reading.cause?, &route)
+                    localise(&usable, reading.point, reading.cause?, &route, &router_only)
                 });
             self.track_fault(located, now);
             incident = self.follow_incident(primary.as_ref(), now);

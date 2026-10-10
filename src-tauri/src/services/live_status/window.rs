@@ -72,6 +72,40 @@ pub fn trimmed_jitter(rtts: &[f64]) -> Option<f64> {
     Some(round(kept.iter().sum::<f64>() / kept.len() as f64))
 }
 
+pub fn window_stats(
+    observations: &VecDeque<Observation>,
+    now: DateTime<Utc>,
+    reported_jitter: bool,
+) -> WindowStats {
+    let since = now - Duration::seconds(LIVE_STATUS_WINDOW_SECS);
+    let loss_since = now - Duration::seconds(LIVE_STATUS_LOSS_WINDOW_SECS);
+    let recent: Vec<&Observation> = observations
+        .iter()
+        .filter(|observation| observation.at > since && observation.at <= now)
+        .collect();
+    let rtts: Vec<f64> = recent.iter().filter_map(|o| o.rtt_ms).collect();
+    let jitter_ms = if reported_jitter {
+        median(recent.iter().filter_map(|o| o.jitter_ms).collect()).map(round)
+    } else {
+        trimmed_jitter(&rtts)
+    };
+    let (sent, lost) = observations
+        .iter()
+        .filter(|observation| observation.at > loss_since && observation.at <= now)
+        .fold((0, 0), |(sent, lost), o| {
+            (sent + o.sent, lost + o.lost.min(o.sent))
+        });
+    WindowStats {
+        sample_count: recent.len() as u32,
+        median_ms: median(rtts).map(round),
+        jitter_ms,
+        sent,
+        lost,
+        loss_pct: (sent > 0).then(|| round(lost as f64 * 100.0 / sent as f64)),
+        loss_floor_pct: loss_floor_pct(lost, sent),
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct PointWindow {
     pub point: LivePoint,
@@ -122,36 +156,7 @@ impl PointWindow {
     }
 
     pub fn stats(&self, now: DateTime<Utc>) -> WindowStats {
-        let since = now - Duration::seconds(LIVE_STATUS_WINDOW_SECS);
-        let loss_since = now - Duration::seconds(LIVE_STATUS_LOSS_WINDOW_SECS);
-        let recent: Vec<&Observation> = self
-            .observations
-            .iter()
-            .filter(|observation| observation.at > since && observation.at <= now)
-            .collect();
-        let rtts: Vec<f64> = recent.iter().filter_map(|o| o.rtt_ms).collect();
-        let jitter_ms = match self.point {
-            LivePoint::Game => {
-                median(recent.iter().filter_map(|o| o.jitter_ms).collect()).map(round)
-            }
-            _ => trimmed_jitter(&rtts),
-        };
-        let (sent, lost) = self
-            .observations
-            .iter()
-            .filter(|observation| observation.at > loss_since && observation.at <= now)
-            .fold((0, 0), |(sent, lost), o| {
-                (sent + o.sent, lost + o.lost.min(o.sent))
-            });
-        WindowStats {
-            sample_count: recent.len() as u32,
-            median_ms: median(rtts).map(round),
-            jitter_ms,
-            sent,
-            lost,
-            loss_pct: (sent > 0).then(|| round(lost as f64 * 100.0 / sent as f64)),
-            loss_floor_pct: loss_floor_pct(lost, sent),
-        }
+        window_stats(&self.observations, now, self.point == LivePoint::Game)
     }
 
     pub fn evaluable(&self, stats: &WindowStats) -> bool {
