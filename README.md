@@ -106,7 +106,8 @@ pnpm tauri build
 
 ```bash
 pnpm test          # Vitest
-pnpm lint          # ESLint
+pnpm lint          # Biome
+pnpm format:check  # Biome
 
 # Rust (from src-tauri/)
 cargo test --all-targets
