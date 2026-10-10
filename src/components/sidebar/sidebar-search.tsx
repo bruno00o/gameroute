@@ -31,6 +31,7 @@ export function SidebarSearch() {
     <SidebarGroup>
       <SidebarGroupContent className="relative group-data-[collapsible=icon]:hidden">
         <button
+          type="button"
           onClick={() => setOpen(true)}
           className="border-line-strong bg-muted text-ui text-ink-subtle hover:text-foreground flex h-8 w-full cursor-pointer items-center gap-2 rounded-sm border pr-1.5 pl-8"
         >
