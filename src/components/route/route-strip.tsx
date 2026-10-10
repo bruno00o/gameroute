@@ -111,16 +111,16 @@ function RouteStrip({
               >
                 <span
                   className={cn(
-                    'bg-foreground z-[1] size-2.5 flex-none rounded-full shadow-[0_0_0_2px_var(--card)]',
+                    'z-[1] size-2.5 flex-none rounded-full bg-(--zone) shadow-[0_0_0_2px_var(--card)]',
                     vertical ? 'mt-0.5 -mb-0.5' : '-mr-0.5',
-                    i === 0 && 'bg-card shadow-[inset_0_0_0_2px_var(--ink),0_0_0_2px_var(--card)]'
+                    i === 0 && 'bg-card shadow-[inset_0_0_0_2px_var(--zone),0_0_0_2px_var(--card)]'
                   )}
                 />
                 <span
                   className={cn(
                     'h-1.5 flex-1',
                     vertical && 'h-auto min-h-7 w-1.5',
-                    (status && pipeColor[status]) || (i % 2 ? 'bg-route-b' : 'bg-route-a')
+                    (status && pipeColor[status]) || 'bg-(--zone)'
                   )}
                 />
               </div>

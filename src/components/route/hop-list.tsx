@@ -161,6 +161,10 @@ function HopList({
                   className="col-[3/-1] flex flex-wrap items-baseline gap-x-2 pt-3 pb-1"
                 >
                   <span className="text-overline text-ink-subtle font-stretch-[88%] uppercase">
+                    <span
+                      aria-hidden="true"
+                      className="mr-1.5 inline-block size-2 rounded-full bg-(--zone)"
+                    />
                     {zone}
                   </span>
                   {name && <span className="text-ui text-foreground font-semibold">{name}</span>}
