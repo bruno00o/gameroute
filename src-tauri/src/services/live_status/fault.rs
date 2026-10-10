@@ -1,4 +1,4 @@
-use super::window::WindowStats;
+use super::window::{loss_floor_pct, WindowStats};
 use crate::config::LIVE_STATUS_MIN_PROBES;
 use crate::models::hop::ProbedHop;
 use crate::models::insights::IncidentCause;
@@ -165,6 +165,15 @@ fn bracket(
     (located, zones)
 }
 
+pub fn beacon_lossless(probe: &WindowStats, beacon: &WindowStats) -> bool {
+    beacon.sample_count >= LIVE_STATUS_MIN_PROBES
+        && beacon.sent >= i64::from(LIVE_STATUS_MIN_PROBES)
+        && beacon.sent * 2 >= probe.sent
+        && beacon
+            .loss_floor_pct
+            .is_some_and(|l| loss_status(l).is_none())
+}
+
 pub fn router_only(floor: &WindowStats, beyond: &WindowStats) -> Vec<IncidentCause> {
     let mut cleared = Vec::new();
     if beyond.sample_count < LIVE_STATUS_MIN_PROBES {
@@ -173,23 +182,59 @@ pub fn router_only(floor: &WindowStats, beyond: &WindowStats) -> Vec<IncidentCau
     if beyond.jitter_ms.is_some_and(|j| jitter_status(j).is_none()) {
         cleared.push(IncidentCause::Jitter);
     }
-    let enough = beyond.sent >= i64::from(LIVE_STATUS_MIN_PROBES) && beyond.sent * 2 >= floor.sent;
-    let lossless = beyond
-        .loss_floor_pct
-        .is_some_and(|l| loss_status(l).is_none());
-    if enough && lossless {
+    if beacon_lossless(floor, beyond) {
         cleared.push(IncidentCause::Loss);
     }
     cleared
 }
 
-pub fn confirmed(stats: &WindowStats, router_only: &[IncidentCause]) -> WindowStats {
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Confirmation {
+    pub router_only: Vec<IncidentCause>,
+    pub local_loss: Option<f64>,
+    pub game_lossless: bool,
+}
+
+impl Confirmation {
+    pub fn cleared(&self, point: LivePoint) -> Vec<IncidentCause> {
+        let mut cleared = match point {
+            LivePoint::Floor => self.router_only.clone(),
+            _ => Vec::new(),
+        };
+        let loss = match point {
+            LivePoint::Game => false,
+            LivePoint::Gateway => self.game_lossless || self.local_loss.is_some(),
+            _ => self.game_lossless,
+        };
+        if loss && !cleared.contains(&IncidentCause::Loss) {
+            cleared.push(IncidentCause::Loss);
+        }
+        cleared
+    }
+
+    pub fn explained_lost(&self, point: LivePoint, sent: i64) -> i64 {
+        match (point, self.local_loss) {
+            (LivePoint::IspEdge | LivePoint::Floor, Some(rate)) => {
+                (rate * sent as f64).round() as i64
+            }
+            _ => 0,
+        }
+    }
+}
+
+pub fn confirmed(
+    stats: &WindowStats,
+    cleared: &[IncidentCause],
+    explained_lost: i64,
+) -> WindowStats {
     let mut stats = stats.clone();
-    if router_only.contains(&IncidentCause::Jitter) {
+    if cleared.contains(&IncidentCause::Jitter) {
         stats.jitter_ms = None;
     }
-    if router_only.contains(&IncidentCause::Loss) {
+    if cleared.contains(&IncidentCause::Loss) {
         stats.loss_floor_pct = stats.loss_floor_pct.map(|_| 0.0);
+    } else if explained_lost > 0 {
+        stats.loss_floor_pct = loss_floor_pct((stats.lost - explained_lost).max(0), stats.sent);
     }
     stats
 }

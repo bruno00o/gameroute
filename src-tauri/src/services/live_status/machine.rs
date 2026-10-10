@@ -1,4 +1,6 @@
-use super::fault::{confirmed, localise, router_only, zone_evidence, MatchRoute};
+use super::fault::{
+    beacon_lossless, confirmed, localise, router_only, zone_evidence, Confirmation, MatchRoute,
+};
 use super::window::{window_stats, Observation, PointWindow, WindowStats};
 use crate::config::{
     LIVE_STATUS_FALL_SECS, LIVE_STATUS_LOSS_WINDOW_SECS, LIVE_STATUS_PROBE_STALE_SECS,
@@ -246,39 +248,66 @@ impl LiveMachine {
         );
     }
 
-    fn router_only(&self, now: DateTime<Utc>) -> Vec<IncidentCause> {
-        let Some(floor) = self.windows.get(&LivePoint::Floor) else {
-            return Vec::new();
-        };
-        let zone = floor
-            .basis
-            .measured_hop
-            .filter(|_| !floor.basis.at_destination)
-            .and_then(|hop| self.route.as_ref()?.hop(hop))
-            .map(|hop| hop.zone);
-        let Some((_, observations)) = self
-            .region
-            .as_ref()
-            .filter(|_| matches!(zone, Some(RouteZone::Home | RouteZone::Isp)))
-        else {
-            return Vec::new();
-        };
+    fn beacon(&self, now: DateTime<Utc>) -> Option<WindowStats> {
+        let (_, observations) = self.region.as_ref()?;
         let fresh = observations
             .back()
             .is_some_and(|o| now - o.at <= Duration::seconds(LIVE_STATUS_PROBE_STALE_SECS));
-        if !fresh {
-            return Vec::new();
+        fresh.then(|| window_stats(observations, now, false))
+    }
+
+    fn confirmation(&self, now: DateTime<Utc>) -> Confirmation {
+        let beacon = self.beacon(now);
+        let stats = |point: LivePoint| self.windows.get(&point).map(|window| window.stats(now));
+        let floor_zone = self.windows.get(&LivePoint::Floor).and_then(|floor| {
+            let hop = floor
+                .basis
+                .measured_hop
+                .filter(|_| !floor.basis.at_destination)?;
+            self.route.as_ref()?.hop(hop).map(|hop| hop.zone)
+        });
+        let router_only = match (stats(LivePoint::Floor), &beacon) {
+            (Some(floor), Some(beacon))
+                if matches!(floor_zone, Some(RouteZone::Home | RouteZone::Isp)) =>
+            {
+                router_only(&floor, beacon)
+            }
+            _ => Vec::new(),
+        };
+        let local_loss = stats(LivePoint::Gateway)
+            .zip(beacon.as_ref())
+            .filter(|(gateway, beacon)| gateway.sent > 0 && beacon_lossless(gateway, beacon))
+            .map(|(gateway, _)| gateway.lost as f64 / gateway.sent as f64);
+        let game_lossless = self
+            .windows
+            .get(&LivePoint::Game)
+            .filter(|window| window.is_fresh(now))
+            .map(|window| window.stats(now))
+            .is_some_and(|game| {
+                game.sent > 0
+                    && game
+                        .loss_floor_pct
+                        .is_some_and(|l| loss_status(l).is_none())
+            });
+        Confirmation {
+            router_only,
+            local_loss,
+            game_lossless,
         }
-        router_only(&floor.stats(now), &window_stats(observations, now, false))
     }
 
     fn reading(
         &self,
         window: &PointWindow,
         now: DateTime<Utc>,
-        router_only: &[IncidentCause],
+        confirmation: &Confirmation,
     ) -> LiveReading {
         let stats = window.stats(now);
+        let checked = confirmed(
+            &stats,
+            &confirmation.cleared(window.point),
+            confirmation.explained_lost(window.point, stats.sent),
+        );
         let basis = &window.basis;
         let route = self.route.as_ref();
         let route_hop = match window.point {
@@ -301,7 +330,7 @@ impl LiveMachine {
         };
         let usual = self.usuals.get(basis).cloned().unwrap_or_default();
         let (status, cause) = if window.evaluable(&stats) {
-            rate(&confirmed(&stats, router_only), usual.median_ms)
+            rate(&checked, usual.median_ms)
         } else {
             (Severity::Unmeasured, None)
         };
@@ -319,7 +348,7 @@ impl LiveMachine {
             trace_ms: route_hop.and_then(|hop| hop.rtt_ms),
             jitter_ms: stats.jitter_ms,
             loss_pct: stats.loss_pct,
-            loss_floor_pct: stats.loss_floor_pct,
+            loss_floor_pct: checked.loss_floor_pct,
             lost: stats.lost,
             sent: stats.sent,
             sample_count: stats.sample_count,
@@ -528,17 +557,11 @@ impl LiveMachine {
             }
         }
 
-        let router_only = self.router_only(now);
+        let confirmation = self.confirmation(now);
         let points: Vec<LiveReading> = self
             .windows
             .values()
-            .map(|window| {
-                let cleared = match window.point {
-                    LivePoint::Floor => router_only.as_slice(),
-                    _ => &[],
-                };
-                self.reading(window, now, cleared)
-            })
+            .map(|window| self.reading(window, now, &confirmation))
             .collect();
         let usable: Vec<LiveReading> = points
             .iter()
@@ -592,7 +615,8 @@ impl LiveMachine {
                 .filter(|reading| rank(reading.status) > rank(Severity::Ok))
                 .and_then(|reading| {
                     let route = self.route.clone().unwrap_or_default();
-                    localise(&usable, reading.point, reading.cause?, &route, &router_only)
+                    let cleared = &confirmation.router_only;
+                    localise(&usable, reading.point, reading.cause?, &route, cleared)
                 });
             self.track_fault(located, now);
             incident = self.follow_incident(primary.as_ref(), now);
