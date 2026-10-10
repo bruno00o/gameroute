@@ -72,7 +72,7 @@ function Sparkline({
       <svg
         role="img"
         aria-label={
-          lastValue == null ? label : `${label} · ${formatMs(lastValue, { digits: 0, atLeast })}`
+          lastValue == null ? label : `${label}, ${formatMs(lastValue, { digits: 0, atLeast })}`
         }
         width={width}
         height={height}

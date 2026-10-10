@@ -83,7 +83,7 @@ describe('Match route', () => {
     renderAt('/sessions/1/matches/3')
 
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(
-      'Match 3 · 16:27 → 17:09'
+      'Match 3, 16:27 → 17:09'
     )
   })
 
@@ -93,7 +93,7 @@ describe('Match route', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/sessions/1/matches/2'))
     expect(router.state.location.search).toEqual({})
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(
-      'Match 2 · 15:54 → 16:25'
+      'Match 2, 15:54 → 16:25'
     )
   })
 
@@ -109,7 +109,7 @@ describe('Match route', () => {
     await waitFor(() => expect(router.state.location.search).toEqual({}))
     expect(router.state.location.pathname).toBe('/sessions/1')
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(
-      'VALORANT · 15:40 → 20:14'
+      'VALORANT, 15:40 → 20:14'
     )
   })
 

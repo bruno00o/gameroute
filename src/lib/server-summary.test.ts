@@ -47,9 +47,9 @@ describe('homeVerdict', () => {
 
     expect(verdict.status).toBe('ok')
     expect(verdict.title).toBe(
-      `31${NB}ms median on League of Legends · Riot Games, 0.4% loss`
+      `31${NB}ms median on League of Legends, Riot Games, 0.4% loss`
     )
-    expect(verdict.scope).toBe('Last 7 days · 7 matches · 2 game servers')
+    expect(verdict.scope).toBe('Last 7 days, 7 matches, 2 game servers')
     expect(verdict.sentences).toEqual(['None of the 2 measured servers is above a threshold.'])
   })
 

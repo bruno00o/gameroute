@@ -114,7 +114,7 @@ export function cellDescription(
   if (cell.source === 'game') parts.push(m.ping_by_game())
   if (cell.lossPct) parts.push(m.home_loss({ loss: formatLoss(cell.lossPct) }))
   if (isBeyondThreshold(cell.status)) parts.push(severityLabel(cell.status))
-  return parts.join(' · ')
+  return parts.join(', ')
 }
 
 export type GridFacts = {

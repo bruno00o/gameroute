@@ -32,7 +32,7 @@ function Measure({ value, notes }: { value: string; notes: string[] }) {
       <span>{value}</span>
       {notes.length > 0 && (
         <span className="text-label text-ink-subtle max-w-[26ch] text-right font-sans font-normal whitespace-normal">
-          {notes.join(' · ')}
+          {notes.join(', ')}
         </span>
       )}
     </span>

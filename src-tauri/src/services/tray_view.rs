@@ -5,7 +5,7 @@ use crate::models::severity::Severity;
 use crate::services::alert_text::Locale;
 
 const NBSP: char = '\u{a0}';
-const SEPARATOR: &str = " · ";
+const SEPARATOR: &str = ", ";
 const MIN_GAME_CHARS: usize = 8;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -307,11 +307,11 @@ mod tests {
 
         assert_eq!(
             tooltip(input(&live), Locale::Fr),
-            "GameRoute · VALORANT · ≥\u{a0}18\u{a0}ms (jusqu'au saut 8) · Bon"
+            "GameRoute, VALORANT, ≥\u{a0}18\u{a0}ms (jusqu'au saut 8), Bon"
         );
         assert_eq!(
             tooltip(input(&live), Locale::En),
-            "GameRoute · VALORANT · ≥\u{a0}18\u{a0}ms (up to hop 8) · Good"
+            "GameRoute, VALORANT, ≥\u{a0}18\u{a0}ms (up to hop 8), Good"
         );
     }
 
@@ -330,7 +330,7 @@ mod tests {
 
         assert_eq!(
             tooltip(input(&live), Locale::Es),
-            "GameRoute · Counter-Strike 2 · 31\u{a0}ms · Bueno"
+            "GameRoute, Counter-Strike 2, 31\u{a0}ms, Bueno"
         );
     }
 
@@ -349,7 +349,7 @@ mod tests {
 
         assert_eq!(
             tooltip(input(&live), Locale::Fr),
-            "GameRoute · League of Legends · 38\u{a0}ms (mesuré par le jeu) · Bon"
+            "GameRoute, League of Legends, 38\u{a0}ms (mesuré par le jeu), Bon"
         );
     }
 
@@ -367,9 +367,9 @@ mod tests {
         );
         live.status = Severity::Degraded;
 
-        assert!(tooltip(input(&live), Locale::Fr).ends_with("· Dégradé"));
+        assert!(tooltip(input(&live), Locale::Fr).ends_with(", Dégradé"));
         live.status = Severity::Critical;
-        assert!(tooltip(input(&live), Locale::En).ends_with("· Critical"));
+        assert!(tooltip(input(&live), Locale::En).ends_with(", Critical"));
     }
 
     #[test]
@@ -380,7 +380,7 @@ mod tests {
 
         assert_eq!(
             tooltip(input(&live), Locale::En),
-            "GameRoute · VALORANT · In match · Good"
+            "GameRoute, VALORANT, In match, Good"
         );
     }
 
@@ -398,11 +398,11 @@ mod tests {
             let current = status("VALORANT", state, None);
             assert_eq!(
                 tooltip(input(&current), Locale::Fr),
-                format!("GameRoute · VALORANT · {fr}")
+                format!("GameRoute, VALORANT, {fr}")
             );
             assert_eq!(
                 tooltip(input(&current), Locale::En),
-                format!("GameRoute · VALORANT · {en}")
+                format!("GameRoute, VALORANT, {en}")
             );
         }
     }
@@ -418,8 +418,8 @@ mod tests {
             monitoring: true,
         };
 
-        assert_eq!(tooltip(off, Locale::Fr), "GameRoute · Surveillance arrêtée");
-        assert_eq!(tooltip(on, Locale::Fr), "GameRoute · Aucun jeu ouvert");
+        assert_eq!(tooltip(off, Locale::Fr), "GameRoute, Surveillance arrêtée");
+        assert_eq!(tooltip(on, Locale::Fr), "GameRoute, Aucun jeu ouvert");
         assert_eq!(summary(on, Locale::En), "No game open");
     }
 
@@ -437,7 +437,7 @@ mod tests {
         );
 
         assert_eq!(
-            format!("GameRoute · {}", summary(input(&live), Locale::Fr)),
+            format!("GameRoute, {}", summary(input(&live), Locale::Fr)),
             tooltip(input(&live), Locale::Fr)
         );
     }
@@ -460,7 +460,7 @@ mod tests {
 
         assert!(text.chars().count() <= TRAY_TOOLTIP_MAX_CHARS);
         assert!(text.contains('…'));
-        assert!(text.ends_with("≥\u{a0}18\u{a0}ms (jusqu'au saut 8) · Bon"));
+        assert!(text.ends_with("≥\u{a0}18\u{a0}ms (jusqu'au saut 8), Bon"));
     }
 
     #[test]

@@ -48,7 +48,7 @@ describe('ProcessSelector', () => {
     expect(items[1]).toHaveTextContent('3 UDP sockets')
     expect(items[1]).toHaveTextContent('4 processes')
     expect(items[2]).toHaveTextContent('No UDP socket')
-    expect(screen.getByText('3 programs open · those with UDP sockets first')).toBeInTheDocument()
+    expect(screen.getByText('3 programs open, those with UDP sockets first')).toBeInTheDocument()
   })
 
   it('only starts once a program is chosen', async () => {

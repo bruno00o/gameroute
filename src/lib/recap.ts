@@ -73,7 +73,7 @@ export function incidentValues(incident: MatchIncident): string {
   if (incident.jitterMs != null) {
     parts.push(m.recap_value_jitter({ value: formatMs(incident.jitterMs) }))
   }
-  return parts.join(' · ')
+  return parts.join(', ')
 }
 
 export function longestIncident(recap: MatchRecap): MatchIncident | null {

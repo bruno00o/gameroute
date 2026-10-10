@@ -59,7 +59,7 @@ function LiveFlows({ status, match, serverName }: LiveFlowsProps) {
     status.primary ? readingBasis(status.primary) : null,
   ]
     .filter(Boolean)
-    .join(' · ')
+    .join(', ')
 
   return (
     <Panel

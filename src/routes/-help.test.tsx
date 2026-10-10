@@ -50,7 +50,7 @@ describe('Help', () => {
         'Jitter',
         `≥${NB}17${NB}ms`,
         "Doesn't answer pings",
-        'Ignores some pings · normal',
+        'Ignores some pings, which is normal',
         'Problem hop',
         'Your ISP',
         'Transit',

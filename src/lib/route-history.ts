@@ -123,7 +123,7 @@ export function changeFacts(change: RouteChange, usual: UsualRoute | undefined):
     change.returned ? m.route_change_returned() : null,
   ]
     .filter((fact): fact is string => fact != null)
-    .join(' · ')
+    .join(', ')
 }
 
 export function changePeriod(change: RouteChange): string {

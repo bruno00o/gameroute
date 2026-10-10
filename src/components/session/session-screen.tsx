@@ -52,7 +52,7 @@ function SessionHeader({
         <h1 className="text-title text-foreground font-stretch-[106%]">{title}</h1>
         {facts.length > 0 && (
           <p className="text-data-sm text-muted-foreground font-mono tabular-nums">
-            {facts.join(' · ')}
+            {facts.join(', ')}
           </p>
         )}
       </div>
@@ -101,7 +101,7 @@ function SessionScreen({
   return (
     <div data-slot="session-screen" className="flex min-h-full flex-col">
       <SessionHeader
-        title={`${detail.gameName} · ${sessionSpan(detail)}`}
+        title={`${detail.gameName}, ${sessionSpan(detail)}`}
         facts={facts}
         actions={actions}
       />
@@ -136,11 +136,11 @@ function SessionScreen({
               matches={matches}
               voice={voicePeriods}
               matchesLabel={
-                gameServer ? `${m.session_matches()} · ${gameServer}` : m.session_matches()
+                gameServer ? `${m.session_matches()}, ${gameServer}` : m.session_matches()
               }
               voiceLabel={
                 voiceServer
-                  ? `${m.chronology_voice_lane()} · ${voiceServer}`
+                  ? `${m.chronology_voice_lane()}, ${voiceServer}`
                   : m.chronology_voice_lane()
               }
               now={now}

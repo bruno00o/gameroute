@@ -85,7 +85,7 @@ describe('RouteMapView', () => {
     expect(screen.getByRole('img')).toHaveAccessibleName('Route map: Paris, Frankfurt, Amsterdam')
     expect(screen.getByText('Your ISP')).toBeInTheDocument()
     expect(screen.getByText('Valve')).toBeInTheDocument()
-    expect(screen.getByText('France · your ISP’s country')).toBeInTheDocument()
+    expect(screen.getByText('France, your ISP’s country')).toBeInTheDocument()
     expect(screen.getByText('Located: 4 of 10')).toBeInTheDocument()
   })
 
@@ -94,7 +94,7 @@ describe('RouteMapView', () => {
       <RouteMapView geo={geoOf([place({})], { riot: true })} atlas={atlas} />
     )
     expect(points(container)).toHaveLength(1)
-    expect(screen.getByText('Riot Games · region can’t be located')).toBeInTheDocument()
+    expect(screen.getByText('Riot Games, region can’t be located')).toBeInTheDocument()
     expect(screen.getByText(/Riot servers can’t be located/)).toBeInTheDocument()
   })
 
@@ -157,7 +157,7 @@ describe('RouteMap', () => {
       'Route map: Paris, Frankfurt'
     )
     expect(points(container)).toHaveLength(2)
-    expect(screen.getByText('Riot Games · region can’t be located')).toBeInTheDocument()
+    expect(screen.getByText('Riot Games, region can’t be located')).toBeInTheDocument()
     expect(resolveHostnames).toHaveBeenCalledWith([
       '162.249.72.5',
       '62.115.118.58',

@@ -12,13 +12,13 @@ afterEach(cleanup)
 describe('Panel', () => {
   it('names its region with the short label and shows the factual title under it', () => {
     render(
-      <Panel label="Match server" title="Valorant · Paris · 203.0.113.200">
+      <Panel label="Match server" title="Valorant, Paris, 203.0.113.200">
         Body
       </Panel>
     )
 
     const region = screen.getByRole('region', { name: 'Match server' })
-    expect(region).toHaveTextContent('Valorant · Paris · 203.0.113.200')
+    expect(region).toHaveTextContent('Valorant, Paris, 203.0.113.200')
     expect(screen.getByRole('heading', { level: 2, name: 'Match server' })).toBeInTheDocument()
   })
 

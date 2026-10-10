@@ -111,7 +111,8 @@ function HopRow(props: HopRowProps) {
         <div role="cell" className="flex min-w-0 flex-col py-[5px]">
           <span className="text-ui text-foreground flex items-center gap-1.5 font-semibold [overflow-wrap:anywhere]">
             <SeverityGlyph status="unmeasured" size={9} />
-            {name} · {m.hop_silent()}
+            {name}
+            <span className="text-ink-subtle font-normal">{m.hop_silent()}</span>
           </span>
           {detail && ip && ip !== name && (
             <span className="text-data-sm text-ink-subtle font-mono [overflow-wrap:anywhere]">
@@ -149,7 +150,7 @@ function HopRow(props: HopRowProps) {
   const secondary = detail
     ? [primary !== hop.ip ? hop.ip : null, hop.source && hop.source !== 'ICMP' ? hop.source : null]
         .filter(Boolean)
-        .join(' · ')
+        .join(', ')
     : null
 
   return (

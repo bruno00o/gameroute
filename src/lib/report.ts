@@ -224,7 +224,7 @@ export function reportDocument(sources: ReportSource[], options: ReportOptions):
   }
   const document: ReportDocument = {
     title,
-    prepared: `${prepared} · ${addressee}`,
+    prepared: `${prepared}, ${addressee}`,
     empty: null,
     summary: { heading: headings.summary, lines: [] },
     matchesHeading: headings.matches,
@@ -256,7 +256,7 @@ export function reportDocument(sources: ReportSource[], options: ReportOptions):
   )({ count, games: games.join(', ') }, tr)
 
   const summary = document.summary.lines
-  summary.push(`${matchesLine} · ${period}`)
+  summary.push(`${matchesLine}, ${period}`)
 
   const lossOrigin = (entry: Entry): string[] => {
     const { trace } = entry
@@ -334,7 +334,7 @@ export function reportDocument(sources: ReportSource[], options: ReportOptions):
     const stops = route.segments.map(segment => {
       const name = segmentName(segment)
       const asn = segment.asn != null ? ` (AS${segment.asn})` : ''
-      const label = name ? `${zone(segment.zone)} · ${name}${asn}` : zone(segment.zone)
+      const label = name ? `${zone(segment.zone)}, ${name}${asn}` : zone(segment.zone)
       return `${label} +${ms(segment.addedMs)}`
     })
     const destinationName = shortOperatorName(route.destinationName) ?? zone('service')
@@ -394,7 +394,7 @@ export function reportDocument(sources: ReportSource[], options: ReportOptions):
       if (hop.hostname && ip && hop.hostname !== ip) return `${hop.hostname} (${ip})`
       return hop.hostname ?? ip
     })()
-    const parts: (string | null)[] = [String(hop.hopNumber), label, address]
+    const parts: (string | null)[] = [label, address]
     const row: ReportHopRow = {
       text: '',
       number: hop.hopNumber,
@@ -422,7 +422,7 @@ export function reportDocument(sources: ReportSource[], options: ReportOptions):
         parts.push(row.note)
       }
     }
-    row.text = parts.filter(part => part != null).join(' · ')
+    row.text = `${hop.hopNumber}. ${parts.filter(part => part != null).join(', ')}`
     return row
   }
 
@@ -447,7 +447,7 @@ export function reportDocument(sources: ReportSource[], options: ReportOptions):
           tr
         ),
         m.report_match_server(
-          { server: `${flowServerName(match)}${asn} · ${match.ip} · ${port}` },
+          { server: `${flowServerName(match)}${asn}, ${match.ip}, ${port}` },
           tr
         ),
       ],
@@ -466,7 +466,7 @@ export function reportDocument(sources: ReportSource[], options: ReportOptions):
               game: detail.gameName,
               pings: regionPings
                 .map(item => `${item.region} ${formatMs(item.pingMs, { digits: 0, locale })}`)
-                .join(' · '),
+                .join(', '),
             },
             tr
           )
@@ -502,7 +502,7 @@ export function reportDocument(sources: ReportSource[], options: ReportOptions):
         m.report_ping_usual({ value: exact(usual), count: String(measure.usual!.sampleCount) }, tr)
       )
     }
-    lines.push(m.report_match_ping({ value: pingParts.join(' · ') }, tr))
+    lines.push(m.report_match_ping({ value: pingParts.join(', ') }, tr))
 
     const figures: ReportFigures = { time: span, ping: pingParts[0], loss: null, jitter: null }
     block.figures = figures
@@ -560,7 +560,7 @@ export function reportDocument(sources: ReportSource[], options: ReportOptions):
       if (silentDestination) {
         const note = m.hop_silent_router({}, tr)
         rows.push({
-          text: [zone('service'), trace.targetIp, note].join(' · '),
+          text: [zone('service'), trace.targetIp, note].join(', '),
           number: null,
           zone: zone('service'),
           address: trace.targetIp,

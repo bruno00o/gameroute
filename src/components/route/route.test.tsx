@@ -190,8 +190,8 @@ describe('HopList', () => {
       .filter(group => group.hasAttribute('aria-label'))
     expect(groups.map(group => group.getAttribute('aria-label'))).toEqual([
       'Your home',
-      'Your ISP · SFR',
-      'Transit · RETN',
+      'Your ISP, SFR',
+      'Transit, RETN',
     ])
 
     const numbers = (group: HTMLElement) =>
@@ -226,7 +226,7 @@ describe('HopList', () => {
 
     const row = rowOf(6)
     expect(row).toHaveAttribute('data-kind', 'silent')
-    expect(row).toHaveTextContent("This router doesn't answer pings · normal")
+    expect(row).toHaveTextContent("This router doesn't answer pings, which is normal")
     expect(row.querySelector('[data-rail]')).toHaveAttribute('data-rail', 'hatched')
     expect(
       cells(row)
@@ -240,7 +240,7 @@ describe('HopList', () => {
 
     const row = rowOf(1)
     expect(row).toHaveAttribute('data-kind', 'rate-limited')
-    expect(row).toHaveTextContent('Ignores some pings · normal')
+    expect(row).toHaveTextContent('Ignores some pings, which is normal')
     const loss = cells(row)[2]
     expect(loss).toHaveTextContent('67%')
     expect(loss.className).not.toMatch(/text-(watch|degraded|critical)/)
@@ -289,7 +289,7 @@ describe('HopList', () => {
     const rows = hopRows(container)
     const destination = rows[rows.length - 1]
     expect(destination).toHaveAttribute('data-kind', 'destination-silent')
-    expect(destination).toHaveTextContent("Riot Games · Doesn't answer pings")
+    expect(destination).toHaveTextContent("Riot GamesDoesn't answer pings")
     expect(destination).toHaveTextContent('Measured up to hop 8 (RETN).')
     expect(cells(destination)[3]).toHaveTextContent(`≥ 31.0`)
   })

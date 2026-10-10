@@ -201,7 +201,7 @@ function RouteMapView({
           ))}
           {drawing.spots.map(spot => (
             <g key={spot.key}>
-              <title>{[spot.name, details(spot.key)].filter(Boolean).join(' · ')}</title>
+              <title>{[spot.name, details(spot.key)].filter(Boolean).join(', ')}</title>
               {spot.zones.map((zone, i) => (
                 <circle
                   key={zone ?? 'none'}

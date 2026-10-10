@@ -184,7 +184,7 @@ describe('Games', () => {
     renderPage()
 
     expect(await screen.findByRole('row', { name: /VALORANT/ })).toBeInTheDocument()
-    expect(await screen.findByText('Games: 5 · Monitored: 4')).toBeInTheDocument()
+    expect(await screen.findByText('Games: 5, monitored: 4')).toBeInTheDocument()
     expect(within(row(/VALORANT/)).getByText('VALORANT-Win64-Shipping.exe')).toBeInTheDocument()
     expect(getGamesMock).toHaveBeenCalledWith(20, 0)
   })
@@ -204,11 +204,11 @@ describe('Games', () => {
     renderPage()
     await screen.findByRole('row', { name: /VALORANT/ })
 
-    expect(cells(/VALORANT/)[2]).toHaveTextContent('Riot Games · AS6507')
-    expect(cells(/VALORANT/)[2]).toHaveTextContent('game UDP 7000–7999 · voice separate')
+    expect(cells(/VALORANT/)[2]).toHaveTextContent('Riot Games, AS6507')
+    expect(cells(/VALORANT/)[2]).toHaveTextContent('game UDP 7000–7999, voice separate')
     expect(cells(/League of Legends/)[2]).toHaveTextContent('game UDP 7000–7999')
     expect(cells(/League of Legends/)[2]).not.toHaveTextContent('voice')
-    expect(cells(/Counter-Strike 2/)[2]).toHaveTextContent('Valve · relay')
+    expect(cells(/Counter-Strike 2/)[2]).toHaveTextContent('Valve, relay')
     expect(cells(/Counter-Strike 2/)[2]).toHaveTextContent('the relay hides the match server')
     expect(cells(/Rocket League/)[2]).toHaveTextContent('No profile')
     expect(cells(/Rocket League/)[2]).toHaveTextContent('longest UDP flow')

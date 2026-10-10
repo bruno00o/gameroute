@@ -288,7 +288,7 @@ describe('History screen', () => {
     expect(cellAt(1, 9)).toHaveAttribute('data-tint', 'unknown')
     expect(cellAt(1, 9)).toHaveAttribute('title', expect.stringContaining('no ping measured'))
     expect(cellAt(2, 3)).toHaveAttribute('data-tint', 'never')
-    expect(cellAt(2, 3)).toHaveAttribute('title', 'Wednesday 3:00 · no match')
+    expect(cellAt(2, 3)).toHaveAttribute('title', 'Wednesday 3:00, no match')
   })
 
   it('switches game and keeps a game-measured ping free of the lower-bound flag', async () => {

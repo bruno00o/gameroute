@@ -311,7 +311,7 @@ describe('Route screen', () => {
     expect(screen.getByText('Via Cogent instead of RETN')).toBeInTheDocument()
     expect(
       screen.getByText(
-        `≥ 20 ms vs ≥ 17 ms on the usual route · no loss · Back on the usual route afterwards`
+        `≥ 20 ms vs ≥ 17 ms on the usual route, no loss, Back on the usual route afterwards`
       )
     ).toBeInTheDocument()
     const changes = screen.getByRole('region', { name: 'Route changes' })

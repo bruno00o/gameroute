@@ -70,7 +70,7 @@ function LivePage() {
   const match = currentMatch(matches, status)
   const trace = currentTrace(detailQuery.data, status)
   const title = match
-    ? `${status.gameName} · ${m.match_title({ number: String(match.number) })}`
+    ? `${status.gameName}, ${m.match_title({ number: String(match.number) })}`
     : status.gameName
 
   return (

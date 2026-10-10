@@ -101,7 +101,7 @@ function Latency({ cells }: { cells: TimelineCell[] }) {
 function cellTitle(cell: TimelineCell, bucketSecs: number): string {
   const range = `${formatElapsed(cell.offsetSecs)}–${formatElapsed(cell.offsetSecs + bucketSecs)}`
   const ping = cell.pingMs == null ? null : formatRouteMs(cell.pingMs)
-  return [range, severityLabel(cell.status), ping].filter(Boolean).join(' · ')
+  return [range, severityLabel(cell.status), ping].filter(Boolean).join(', ')
 }
 
 function MatchTimeline({ cells, bucketSecs, durationSecs, className }: MatchTimelineProps) {

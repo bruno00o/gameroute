@@ -179,7 +179,7 @@ function MatchRoute({
   const name = flowServerName(match)
   const title = [timing && traceSource(timing), hopCount(traceroute.hops.length)]
     .filter(Boolean)
-    .join(' · ')
+    .join(', ')
 
   return (
     <Panel
@@ -348,7 +348,7 @@ function MatchScreen({
 
   const traceroute = traceOf(match, detail.traceroutes)
   const timing = traceTiming(match, matches, detail.endedAt)
-  const title = `${m.match_title({ number: String(match.number) })} · ${formatClock(match.startedAt)} → ${formatClock(match.endedAt)}`
+  const title = `${m.match_title({ number: String(match.number) })}, ${formatClock(match.startedAt)} → ${formatClock(match.endedAt)}`
 
   return (
     <div data-slot="match-screen" className="flex min-h-full flex-col">

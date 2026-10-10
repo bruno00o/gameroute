@@ -172,17 +172,17 @@ describe('route changes', () => {
 
   it('compares the total with the usual one, from the last router when the server is silent', () => {
     expect(changeFacts(change(), usual())).toBe(
-      `≥${NB}20${NB}ms vs ≥${NB}17${NB}ms on the usual route · no loss`
+      `≥${NB}20${NB}ms vs ≥${NB}17${NB}ms on the usual route, no loss`
     )
     expect(changeFacts(change(), usual({ destinationSilent: false }))).toBe(
-      `20${NB}ms vs 17${NB}ms on the usual route · no loss`
+      `20${NB}ms vs 17${NB}ms on the usual route, no loss`
     )
   })
 
   it('adds the number of matches, the loss and the return to the usual route', () => {
     const facts = changeFacts(change({ traceCount: 2, lossPct: 3.5, returned: true }), usual())
     expect(facts).toBe(
-      `2 matches · ≥${NB}20${NB}ms vs ≥${NB}17${NB}ms on the usual route · 3.5% loss · Back on the usual route afterwards`
+      `2 matches, ≥${NB}20${NB}ms vs ≥${NB}17${NB}ms on the usual route, 3.5% loss, Back on the usual route afterwards`
     )
   })
 

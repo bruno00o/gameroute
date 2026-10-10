@@ -33,7 +33,7 @@ function routeLine(route: OperatorRoute): string {
   const stops = route.segments.map(segment => {
     const name = segmentName(segment)
     const asn = segment.asn != null ? ` (AS${segment.asn})` : ''
-    const label = name ? `${zoneLabel(segment.zone)} · ${name}${asn}` : zoneLabel(segment.zone)
+    const label = name ? `${zoneLabel(segment.zone)}, ${name}${asn}` : zoneLabel(segment.zone)
     return `${label} +${formatRouteMs(segment.addedMs)}`
   })
   if (route.destinationSilent) {
@@ -53,7 +53,7 @@ export function sessionDiagnostic(
 
   lines.push(m.diagnostic_title({ game: detail.gameName }))
   lines.push(
-    `${formatDay(detail.startedAt, { weekday: true })} · ${sessionSpan(detail)} · ${duration}`
+    `${formatDay(detail.startedAt, { weekday: true })}, ${sessionSpan(detail)}, ${duration}`
   )
 
   const verdict = sessionVerdict(matches, detail.traceroutes, thresholds, detail.endedAt === null)
@@ -62,7 +62,7 @@ export function sessionDiagnostic(
     return lines.join('\n')
   }
 
-  lines.push('', `${severityLabel(verdict.status)} · ${verdict.title}`)
+  lines.push('', `${severityLabel(verdict.status)}: ${verdict.title}`)
   if (verdict.sentences.length > 0) lines.push(verdict.sentences.join(' '))
 
   const reference = verdict.reference
@@ -73,7 +73,7 @@ export function sessionDiagnostic(
     lines.push('', `${m.session_route()}${when}`, routeLine(route))
   }
 
-  lines.push('', `${m.session_matches()} · ${verdict.scope}`)
+  lines.push('', `${m.session_matches()}: ${verdict.scope}`)
   for (const match of matches) {
     const provenance = flowProvenance(match, matches, detail.traceroutes, detail.endedAt, {
       withOffset: true,
@@ -97,7 +97,7 @@ export function sessionDiagnostic(
         })
       )
     }
-    lines.push(parts.join(' · '))
+    lines.push(parts.join(', '))
   }
 
   lines.push('', m.matches_note())

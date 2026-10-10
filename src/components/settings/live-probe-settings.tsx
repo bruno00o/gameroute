@@ -71,7 +71,7 @@ function LiveProbeSettings() {
           {config.beacons.map(beacon => (
             <SwitchField
               key={beacon.id}
-              label={`${beacon.provider} · ${beacon.region}`}
+              label={`${beacon.provider}, ${beacon.region}`}
               description={beacon.host}
               checked={beacon.enabled}
               onCheckedChange={value => toggleBeacon(beacon.id, value)}

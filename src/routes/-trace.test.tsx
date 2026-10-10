@@ -246,7 +246,7 @@ describe('Trace screen', () => {
     start(target(GAME_IP, 'game'))
     addHops(GAME_IP, 0.6, null, 17.2)
 
-    const silent = await screen.findByText("This router doesn't answer pings · normal")
+    const silent = await screen.findByText("This router doesn't answer pings, which is normal")
     expect(silent.closest('[role="row"]')).toHaveAttribute('data-kind', 'silent')
     expect(screen.queryByText(/timeout/i)).not.toBeInTheDocument()
     expect(document.querySelector('[data-status="critical"]')).toBeNull()
@@ -259,8 +259,8 @@ describe('Trace screen', () => {
 
     const game = (await screen.findByText(/^Game server/)).closest('section')!
     const voice = screen.getByText(/^Voice chat/).closest('section')!
-    expect(game).toHaveTextContent(`${GAME_IP} · UDP 7220 · In progress`)
-    expect(voice).toHaveTextContent(`${VOICE_IP} · UDP 27015 · Queued`)
+    expect(game).toHaveTextContent(`${GAME_IP}, UDP 7220, In progress`)
+    expect(voice).toHaveTextContent(`${VOICE_IP}, UDP 27015, Queued`)
     expect(
       within(voice).getByText('This trace starts when the previous one finishes.')
     ).toBeVisible()
@@ -280,7 +280,7 @@ describe('Trace screen', () => {
     expect(within(strip).getByText('RETN')).toBeInTheDocument()
     const panel = strip.closest('section')!
     expect(within(panel).getByText('Degraded')).toBeInTheDocument()
-    expect(panel).toHaveTextContent(`Game server · Riot Games`)
+    expect(panel).toHaveTextContent(`Game server, Riot Games`)
     expect(panel).toHaveTextContent('4 hops')
     expect(document.querySelector('[data-kind="pending"]')).toBeNull()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
@@ -299,7 +299,7 @@ describe('Trace screen', () => {
       'up to the last responding router'
     )
     const destination = document.querySelector('[data-kind="destination-silent"]')
-    expect(destination).toHaveTextContent("Riot Games · Doesn't answer pings")
+    expect(destination).toHaveTextContent("Riot GamesDoesn't answer pings")
     expect(destination).toHaveTextContent('Measured up to hop 4 (RETN).')
   })
 
@@ -331,7 +331,7 @@ describe('Trace screen', () => {
     finish(complete(GAME_IP, { success: false, status: 'unmeasured', hops: [], route: null }))
 
     expect(await screen.findByText('No router replied to this trace.')).toBeInTheDocument()
-    expect(screen.getByText(new RegExp(`${GAME_IP} · UDP 7220 · No reply`))).toBeInTheDocument()
+    expect(screen.getByText(new RegExp(`${GAME_IP}, UDP 7220, No reply`))).toBeInTheDocument()
     expect(document.querySelector('[data-slot="status-pill"]')).toBeNull()
   })
 
@@ -421,7 +421,7 @@ describe('Manual trace', () => {
     addHops('162.249.72.1', 0.6)
 
     const panel = (await screen.findByText(/^Entered address/)).closest('section')!
-    expect(panel).toHaveTextContent('162.249.72.1 · In progress')
+    expect(panel).toHaveTextContent('162.249.72.1, In progress')
     expect(screen.queryByText('Game server')).not.toBeInTheDocument()
   })
 

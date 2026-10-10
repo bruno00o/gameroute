@@ -30,15 +30,15 @@ const NB = ' '
 
 describe('flowServerLabel', () => {
   it('names the operator and port without a city for Riot', () => {
-    expect(flowServerLabel(sessionMatches()[0])).toBe('Riot Games · UDP 7284')
+    expect(flowServerLabel(sessionMatches()[0])).toBe('Riot Games, UDP 7284')
   })
 
   it('keeps the city of a voice server', () => {
-    expect(flowServerLabel(teamVoice())).toBe('Microsoft · Paris · UDP 27020')
+    expect(flowServerLabel(teamVoice())).toBe('Microsoft, Paris, UDP 27020')
   })
 
   it('falls back to the address when the operator is unknown', () => {
-    expect(flowServerLabel({ ...sessionMatches()[0], operator: null })).toBe(`${RIOT} · UDP 7284`)
+    expect(flowServerLabel({ ...sessionMatches()[0], operator: null })).toBe(`${RIOT}, UDP 7284`)
   })
 })
 
@@ -97,7 +97,7 @@ describe('ping measured by the game before the match', () => {
     expect(formatFlowPing(matchMeasure(valorant))).toBe(`≥${NB}18${NB}ms`)
     expect(pingSourceNote(valorant, riotRoute())).toBe('measured up to hop 3 (RETN)')
     expect(regionPingsText(valorant, 'VALORANT')).toBe(
-      `Ping measured by VALORANT before the match: Paris 4${NB}ms · Frankfurt 13${NB}ms · London 14${NB}ms`
+      `Ping measured by VALORANT before the match: Paris 4${NB}ms, Frankfurt 13${NB}ms, London 14${NB}ms`
     )
     expect(regionPingsText(matches[0], 'VALORANT')).toBeNull()
   })
@@ -204,17 +204,17 @@ describe('sessionDiagnostic', () => {
     const text = sessionDiagnostic(sessionDetail(), sessionMatches())
     const lines = text.split('\n')
 
-    expect(lines[0]).toBe('GameRoute diagnostic · VALORANT')
-    expect(lines[1]).toMatch(/15:40 → 20:14 · 4\sh 34\smin$/)
-    expect(text).toContain(`Good · ≥${NB}18${NB}ms to the server, no loss`)
+    expect(lines[0]).toBe('GameRoute diagnostic: VALORANT')
+    expect(lines[1]).toMatch(/15:40 → 20:14, 4\sh 34\smin$/)
+    expect(text).toContain(`Good: ≥${NB}18${NB}ms to the server, no loss`)
     expect(text).toContain(
-      `Your home +0.6${NB}ms → Your ISP · SFR (AS15557) +3.0${NB}ms → Transit · RETN (AS9002) +14${NB}ms → Riot Games (doesn't answer pings) = ≥${NB}18${NB}ms`
+      `Your home +0.6${NB}ms → Your ISP, SFR (AS15557) +3.0${NB}ms → Transit, RETN (AS9002) +14${NB}ms → Riot Games (doesn't answer pings) = ≥${NB}18${NB}ms`
     )
     expect(text).toContain(
-      `1. 15:45 · 6:36 · Riot Games · UDP 7284 · ping ≥${NB}18${NB}ms (measured up to hop 3 (RETN), trace at 0:41) · loss 0% · jitter 1.0${NB}ms · Good · voice Microsoft · Paris · UDP 27020: 14${NB}ms`
+      `1. 15:45, 6:36, Riot Games, UDP 7284, ping ≥${NB}18${NB}ms (measured up to hop 3 (RETN), trace at 0:41), loss 0%, jitter 1.0${NB}ms, Good, voice Microsoft, Paris, UDP 27020: 14${NB}ms`
     )
     expect(text).toContain(
-      '3. 16:27 · 42:36 · Riot Games · UDP 7220 · ping — · loss — · jitter — · Not measurable'
+      '3. 16:27, 42:36, Riot Games, UDP 7220, ping —, loss —, jitter —, Not measurable'
     )
     expect(lines[lines.length - 1]).toBe(
       'Ping, loss and jitter come from one trace per server. Jitter is the spread of its 3 probes.'

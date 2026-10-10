@@ -123,7 +123,7 @@ export function ProcessSelector({
                             : null,
                         ]
                           .filter(Boolean)
-                          .join(' · ')}
+                          .join(', ')}
                       </span>
                     </span>
                     <span

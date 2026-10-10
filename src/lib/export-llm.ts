@@ -118,7 +118,7 @@ export function generateSessionExport(detail: SessionDetail, matches: SessionMat
     lines.push('<game-servers>')
     for (const s of gsServers) {
       lines.push(
-        `- ${s.ip} (${s.protocol}:${s.port}) — ${formatDuration(s.totalDurationSecs, EN)}, ${s.totalPacketCount} packets, ${s.periodCount} period(s)`,
+        `- ${s.ip} (${s.protocol}:${s.port}), ${formatDuration(s.totalDurationSecs, EN)}, ${s.totalPacketCount} packets, ${s.periodCount} period(s)`,
       )
     }
     lines.push('</game-servers>')

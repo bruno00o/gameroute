@@ -91,7 +91,7 @@ function sessionDuration(session: SessionListItem) {
       {formatDuration(computeDurationSecs(session.startedAt, session.endedAt))}
       {qualifier && (
         <span className="text-label text-muted-foreground font-sans font-normal">
-          {` · ${qualifier}`}
+          {` (${qualifier})`}
         </span>
       )}
     </span>

@@ -281,7 +281,7 @@ describe('Live screen', () => {
     )
     expect(document.querySelector('[data-slot=live-value]')).toHaveTextContent('≥ 18')
     const readout = document.querySelector<HTMLElement>('[data-slot=live-readout]')!
-    expect(within(readout).getByText('Signal frozen · 6 s ago')).toBeInTheDocument()
+    expect(within(readout).getByText('Signal frozen 6 s ago')).toBeInTheDocument()
     expect(screen.getByText('No new measurement for 6 s')).toBeInTheDocument()
     expect(within(readout).getByText('Not measurable')).toBeInTheDocument()
   })
@@ -305,7 +305,7 @@ describe('Live screen', () => {
     await waitFor(() => expect(listeners.status).toBeDefined())
     emit(liveStatus({ state: 'frozen', frozenReason: 'capture_service' }))
 
-    await screen.findByText('Signal frozen · 0 s ago')
+    await screen.findByText('Signal frozen 0 s ago')
     await waitFor(() =>
       expect(screen.queryByText('The capture service is not responding')).not.toBeInTheDocument()
     )
@@ -453,7 +453,7 @@ describe('Live points and flows', () => {
     expect(
       [...points.querySelectorAll('tbody tr')].map(row => row.getAttribute('data-point'))
     ).toEqual(['gateway', 'floor'])
-    expect(points.textContent).toContain('Last router that answers · hop 8 · RETN')
+    expect(points.textContent).toContain('Last router that answers, hop 8, RETN')
     expect(plain(points.textContent)).toContain('≥ 38 ms')
     expect(points.querySelector('[data-slot=sparkline]')).toBeNull()
     expect(document.querySelectorAll('[data-slot=sparkline]')).toHaveLength(1)
@@ -512,7 +512,7 @@ describe('Live timeline', () => {
     ])
     expect(within(timeline).getByText('5:00 – 6:00')).toBeVisible()
     expect(within(timeline).getByText('4% loss at RETN')).toBeVisible()
-    expect(within(timeline).getByText('now · 10:00')).toBeVisible()
+    expect(within(timeline).getByText('now (10:00)')).toBeVisible()
     expect(getMatchIncidents).toHaveBeenCalledWith(7)
   })
 

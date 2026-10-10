@@ -118,7 +118,7 @@ function RecapFacts({
         label={m.recap_kpi_ping()}
         detail={[pointLabel(point, route), usual && m.recap_usual({ usual })]
           .filter(Boolean)
-          .join(' · ')}
+          .join(', ')}
       >
         {point.pingMs != null && formatRouteMs(point.pingMs, point.atLeast)}
       </Fact>

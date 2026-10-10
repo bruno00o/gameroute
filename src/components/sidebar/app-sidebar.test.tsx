@@ -127,7 +127,7 @@ describe('AppSidebar', () => {
 
     const monitor = document.querySelector<HTMLElement>('[data-slot=sidebar-monitor]')!
     expect(within(monitor).getByRole('status')).toHaveTextContent('In match')
-    expect(monitor).toHaveTextContent('203.0.113.200 · UDP 7220')
+    expect(monitor).toHaveTextContent('203.0.113.200, UDP 7220')
     expect(within(monitor).getByRole('button', { name: 'Stop' })).toBeInTheDocument()
   })
 

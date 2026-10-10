@@ -104,7 +104,7 @@ function adviceFor(zone: FaultZone | null): string[] {
 
 function zoneName(zone: RouteZone, evidence: ZoneEvidence | undefined): string {
   const operator = shortOperatorName(evidence?.operator)
-  return operator ? `${zoneLabel(zone)} · ${operator}` : zoneLabel(zone)
+  return operator ? `${zoneLabel(zone)} (${operator})` : zoneLabel(zone)
 }
 
 function zoneView(
