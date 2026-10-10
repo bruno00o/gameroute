@@ -44,8 +44,6 @@
   "sessions_search_label": "Search sessions",
   "sessions_summary_one": "{count} session since {date}",
   "sessions_summary_other": "{count} sessions since {date}",
-  "sessions_filter_game": "Filter by game",
-  "sessions_filter_game_all": "All",
   "sessions_filter_quality": "Filter by quality",
   "sessions_filter_quality_all": "All",
   "sessions_filter_quality_review": "To review",
@@ -339,7 +337,6 @@
   "network_game_servers_title": "Game Servers",
   "network_other_servers_title": "Other Servers",
   "route_page_subtitle": "Milliseconds added by each operator · last {days} days",
-  "route_page_game": "Choose the game",
   "route_usual_label": "Usual route",
   "route_usual_matches": "Matches on this route: {count} of {total}",
   "route_limit_note": "{destination} doesn’t answer pings, which is normal. Measurement goes up to the last router that answers (hop {hop}, {operator}); what the last stretch adds can’t be measured.",
@@ -956,5 +953,13 @@
   "settings_probes_zones_description": "One packet per second to your router and one to the last router of your ISP. They tell whether the problem comes from your home.",
   "report_matches_show_ok": "Also show matches without problem",
   "report_matches_selected": "Matches selected: {count}",
-  "report_matches_no_problem": "No match with a problem in the recent sessions."
+  "report_matches_no_problem": "No match with a problem in the recent sessions.",
+  "game_select_label": "Game",
+  "game_select_prefix": "Game:",
+  "game_select_all": "All games",
+  "game_select_all_short": "All",
+  "game_select_search": "Search games",
+  "game_select_none": "No matching game",
+  "game_select_sessions_one": "{count} session",
+  "game_select_sessions_other": "{count} sessions"
 }

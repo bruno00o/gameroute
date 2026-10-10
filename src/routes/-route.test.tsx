@@ -320,7 +320,15 @@ describe('Route screen', () => {
     const router = renderRoute()
 
     await screen.findByText('Matches on this route: 20 of 23')
-    await user.click(screen.getByRole('button', { name: 'League of Legends' }))
+    const picker = screen.getByRole('combobox', { name: 'Game' })
+    expect(picker).toHaveTextContent('VALORANT')
+    await user.click(picker)
+    const options = await screen.findAllByRole('option')
+    expect(options.map(option => option.textContent)).toEqual([
+      'VALORANT2323 matches',
+      'League of Legends44 matches',
+    ])
+    await user.click(options[1])
 
     expect(await screen.findByText('Matches on this route: 4 of 4')).toBeInTheDocument()
     expect(router.state.location.search).toEqual({ game: 'League of Legends' })

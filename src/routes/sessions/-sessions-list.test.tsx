@@ -71,7 +71,10 @@ function page(items: SessionListItem[], overrides: Partial<SessionListPage> = {}
     total: items.length,
     recorded: 65,
     firstStartedAt: new Date(year, 6, 10, 19, 27).toISOString(),
-    games: ['League of Legends', 'VALORANT'],
+    games: [
+      { name: 'League of Legends', sessionCount: 21 },
+      { name: 'VALORANT', sessionCount: 44 },
+    ],
     ...overrides,
   }
 }
@@ -210,8 +213,20 @@ describe('Sessions list', () => {
     renderPage()
     await screen.findByRole('row', { name: /League of Legends/ })
 
-    await userEvent.click(screen.getByRole('button', { name: 'League of Legends' }))
-    await waitFor(() => expect(lastFilter()).toEqual({ game: 'League of Legends', toReview: false }))
+    const picker = screen.getByRole('combobox', { name: 'Game' })
+    expect(picker).toHaveTextContent('Game:All')
+    await userEvent.click(picker)
+    const options = await screen.findAllByRole('option')
+    expect(options.map(option => option.textContent)).toEqual([
+      'All games6565 sessions',
+      'VALORANT4444 sessions',
+      'League of Legends2121 sessions',
+    ])
+    await userEvent.click(options[2])
+    await waitFor(() =>
+      expect(lastFilter()).toEqual({ game: 'League of Legends', toReview: false })
+    )
+    expect(picker).toHaveTextContent('Game:League of Legends')
 
     listSessions.mockResolvedValue(page([]))
     await userEvent.click(screen.getByRole('button', { name: 'To review' }))

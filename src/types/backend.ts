@@ -71,7 +71,12 @@ export type SessionListPage = {
   total: number
   recorded: number
   firstStartedAt: string | null
-  games: string[]
+  games: SessionGame[]
+}
+
+export type SessionGame = {
+  name: string
+  sessionCount: number
 }
 
 export type SessionDetail = {

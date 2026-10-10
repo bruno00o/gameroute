@@ -23,9 +23,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Segmented } from '@/components/ui/segmented'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/empty-state'
+import { GameSelect } from '@/components/game-select'
 import { LoadError } from '@/components/load-error'
 import { Panel } from '@/components/panel'
 import { ServerTable } from '@/components/home/server-table'
@@ -113,11 +113,14 @@ function RoutePage() {
         {m.route_page_traces()}
       </Link>
       {routes && routes.length > 1 && usual && (
-        <Segmented
-          label={m.route_page_game()}
-          options={routes.map(route => ({ value: route.gameName, label: route.gameName }))}
+        <GameSelect
+          games={routes.map(route => ({ name: route.gameName, count: route.totalTraces }))}
           value={usual.gameName}
+          countLabel={count =>
+            counted(count, m.session_matches_count_one, m.session_matches_count_other)
+          }
           onValueChange={value =>
+            value &&
             navigate({ to: '/route', search: { game: value, operator: undefined }, replace: true })
           }
         />

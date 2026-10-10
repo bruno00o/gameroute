@@ -55,7 +55,7 @@ function mockSessions(matches: SessionMatch[] = withWatchOnSecond()) {
     total: 1,
     recorded: 1,
     firstStartedAt: sessionDetail().startedAt,
-    games: ['VALORANT'],
+    games: [{ name: 'VALORANT', sessionCount: 1 }],
   })
   vi.mocked(getSessionMatches).mockResolvedValue(matches)
   vi.mocked(getSessionDetail).mockResolvedValue(sessionDetail())

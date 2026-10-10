@@ -65,7 +65,14 @@ pub struct SessionListPage {
     pub total: i64,
     pub recorded: i64,
     pub first_started_at: Option<String>,
-    pub games: Vec<String>,
+    pub games: Vec<SessionGame>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionGame {
+    pub name: String,
+    pub session_count: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
