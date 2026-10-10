@@ -330,7 +330,6 @@
   "home_ready_service_on": "El servicio de captura está activo.",
   "home_ready_service_off": "El servicio de captura no responde.",
 
-  "network_map_empty": "Aún no hay servidores ubicados.",
   "network_map_latency": "Latencia",
   "network_problem_hops_title": "Saltos problemáticos recurrentes",
   "network_col_asn": "ASN",
@@ -360,7 +359,6 @@
   "route_changes_more": "Ver {count} más",
   "route_changes_less": "Ver menos",
   "route_map_label": "Mapa",
-  "route_map_note": "El mapa sitúa a tu ISP y el tránsito, pero no el servidor de juego: las bases de direcciones lo colocan en la sede del editor, no en su centro de datos.",
   "route_map_latest": "Última partida por esta ruta: {date}",
   "route_open_match": "Abrir la partida",
   "route_empty_title": "Aún no hay ruta medida",
@@ -461,7 +459,7 @@
   "help_faq_update_q": "¿Puede GameRoute actualizarse durante una partida?",
   "help_faq_update_a": "La actualización que se ofrece al arrancar espera a que se cierre el juego monitoreado, y solo se instala si aceptas. Si la lanzas tú desde la pantalla {settings} durante una partida, GameRoute te avisa de que detendrá la medición.",
   "help_faq_data_q": "¿Qué datos salen de este PC?",
-  "help_faq_data_a": "Tus sesiones se quedan en una base de datos local, en este PC. GameRoute se conecta a GitHub para las actualizaciones, a Steam para las imágenes de los juegos y a CARTO para el fondo del mapa, y sus trazas envían sondas a los servidores de tus juegos. Durante una partida también envía pequeñas sondas, una por segundo cada una: al router, al último router de tu proveedor, al último router que responde en la ruta y a un punto de medición público de la región del juego (AWS, Valve o Epic). Estos puntos ven tu dirección IP, como en cualquier conexión, y cada sonda se puede desactivar en los ajustes de captura. Los operadores y los países se leen sin conexión en las bases GeoLite2 incluidas con la app. No hay telemetría. Un uso compartido anónimo, que tendrías que activar tú, está previsto para la versión 1.0; todavía no existe.",
+  "help_faq_data_a": "Tus sesiones se quedan en una base de datos local, en este PC. GameRoute se conecta a GitHub para las actualizaciones y a Steam para las imágenes de los juegos, pide el nombre de los routers a tu servidor DNS para el mapa, y sus trazas envían sondas a los servidores de tus juegos. Durante una partida también envía pequeñas sondas, una por segundo cada una: al router, al último router de tu proveedor, al último router que responde en la ruta y a un punto de medición público de la región del juego (AWS, Valve o Epic). Estos puntos ven tu dirección IP, como en cualquier conexión, y cada sonda se puede desactivar en los ajustes de captura. Los operadores y los países se leen sin conexión en las bases GeoLite2 incluidas con la app. No hay telemetría. Un uso compartido anónimo, que tendrías que activar tú, está previsto para la versión 1.0; todavía no existe.",
   "help_data_attribution": "Operadores y países: bases GeoLite2 de MaxMind, consultadas sin conexión y actualizadas con cada versión de GameRoute. Este producto incluye datos GeoLite2 creados por MaxMind, disponibles en {url}, con licencia CC BY-SA 4.0.",
 
   "error_title": "No se pudo mostrar esta pantalla.",
@@ -553,7 +551,7 @@
   "settings_probes_beacons": "Puntos de medición",
   "settings_local_title": "Datos en este PC",
   "settings_local_description": "Sin cuenta ni nube. Los operadores se identifican sin conexión, con las bases GeoLite2 incluidas en GameRoute.",
-  "settings_local_connections": "GameRoute se conecta a GitHub para las actualizaciones, a Steam para las imágenes de los juegos y a CARTO para el mapa.",
+  "settings_local_connections": "GameRoute se conecta a GitHub para las actualizaciones y a Steam para las imágenes de los juegos. El mapa pide el nombre de los routers a tu servidor DNS.",
   "settings_local_probes": "Durante una partida, GameRoute también envía pequeñas sondas, una por segundo cada una: al router (se queda en tu red local), al último router de tu proveedor, al último router que responde en la ruta y a un punto de medición público de la región del juego (AWS, Valve o Epic). Estos routers y puntos ven tu dirección IP, como en cualquier conexión. Cada sonda se puede desactivar en los ajustes de captura.",
   "settings_storage_database": "Base local",
   "settings_storage_sessions": "Sesiones",
@@ -961,5 +959,11 @@
   "game_select_search": "Buscar un juego",
   "game_select_none": "Ningún juego coincide",
   "game_select_sessions_one": "{count} sesión",
-  "game_select_sessions_other": "{count} sesiones"
+  "game_select_sessions_other": "{count} sesiones",
+  "route_map_source": "Las posiciones salen del nombre de los routers y, para los servidores de Valve, Microsoft, Amazon, Google y CDN, de GeoLite. Los servidores de Riot no se pueden ubicar.",
+  "route_map_located": "Ubicados: {located} de {total}",
+  "route_map_riot": "Riot Games · región no localizable",
+  "route_map_home_country": "{country} · país de tu proveedor",
+  "route_map_none": "Ningún punto de esta ruta se puede ubicar.",
+  "route_map_aria": "Mapa de la ruta: {places}"
 }

@@ -293,10 +293,4 @@
   [data-zone='service'] {
     --zone: var(--zone-service);
   }
-  .maplibregl-popup-content {
-    @apply bg-transparent! shadow-none! p-0! rounded-none!;
-  }
-  .maplibregl-popup-tip {
-    @apply hidden!;
-  }
 }

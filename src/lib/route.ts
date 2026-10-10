@@ -1,5 +1,5 @@
 import * as m from '@/paraglide/messages'
-import type { DbHop, OperatorRoute, ResolvedIpData, RouteSegment, RouteZone } from '@/types/backend'
+import type { DbHop, OperatorRoute, RouteSegment, RouteZone } from '@/types/backend'
 import { formatMs } from '@/lib/format'
 import { shortOperatorName } from '@/lib/operators'
 
@@ -36,57 +36,4 @@ export function lastRespondingHop(hops: DbHop[]): DbHop | undefined {
     if (hops[i].latencyAvg != null) return hops[i]
   }
   return undefined
-}
-
-export type RouteMapStop = {
-  ip: string
-  hopNumber: number | null
-  latency: number | null
-  operator: string | null
-  silent: boolean
-}
-
-export type RouteMapPoint = { lon: number; lat: number; stops: RouteMapStop[] }
-
-export function routeMapPoints(
-  hops: DbHop[],
-  targetIp: string,
-  asnData: Map<string, ResolvedIpData>
-): RouteMapPoint[] {
-  const operator = (ip: string) => {
-    const info = asnData.get(ip)?.asnInfo
-    return shortOperatorName(info?.org ?? info?.isp)
-  }
-  const stops: RouteMapStop[] = hops.flatMap(hop =>
-    hop.ip
-      ? [
-          {
-            ip: hop.ip,
-            hopNumber: hop.hopNumber,
-            latency: hop.latencyAvg,
-            operator: operator(hop.ip),
-            silent: false,
-          },
-        ]
-      : []
-  )
-  if (!stops.some(stop => stop.ip === targetIp)) {
-    stops.push({
-      ip: targetIp,
-      hopNumber: null,
-      latency: null,
-      operator: operator(targetIp),
-      silent: true,
-    })
-  }
-
-  const points: RouteMapPoint[] = []
-  for (const stop of stops) {
-    const { lat, lon } = asnData.get(stop.ip)?.geo ?? {}
-    if (lat == null || lon == null) continue
-    const near = points.find(p => Math.abs(p.lon - lon) < 0.01 && Math.abs(p.lat - lat) < 0.01)
-    if (near) near.stops.push(stop)
-    else points.push({ lon, lat, stops: [stop] })
-  }
-  return points
 }

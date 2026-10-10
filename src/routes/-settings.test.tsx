@@ -233,7 +233,7 @@ describe('Privacy settings', () => {
     expect(screen.getByText('70')).toBeInTheDocument()
     expect(screen.getByText('7,878')).toBeInTheDocument()
     expect(
-      screen.getByText(/GitHub for updates, Steam for game images and CARTO/)
+      screen.getByText(/Steam for game images. The map asks your DNS server for router names/)
     ).toBeInTheDocument()
     expect(await screen.findByText(/^412 addresses cached\./)).toBeInTheDocument()
     expect(screen.queryByRole('switch')).not.toBeInTheDocument()

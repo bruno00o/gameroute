@@ -7,7 +7,7 @@ import * as m from '@/paraglide/messages'
 import { useAsnResolution } from '@/hooks/use-asn-resolution'
 import { cancelTraceroute, getIgnoredConnectionCount, traceAddress } from '@/lib/tauri'
 import { shortOperatorName } from '@/lib/operators'
-import { hopCount, routeMapPoints } from '@/lib/route'
+import { hopCount } from '@/lib/route'
 import {
   isValidTraceAddress,
   liveHopToDbHop,
@@ -257,9 +257,6 @@ function TraceResultBody({
 }) {
   const [showMap, setShowMap] = useState(false)
   const { route, hops } = result
-  const ips = useMemo(() => [...new Set([ip, ...hops.flatMap(hop => hop.ip ?? [])])], [ip, hops])
-  const { data: asnData } = useAsnResolution(ips)
-  const points = useMemo(() => routeMapPoints(hops, ip, asnData), [hops, ip, asnData])
   const lastHop = route && hops.find(hop => hop.hopNumber === route.lastRespondingHop)
 
   return (
@@ -273,7 +270,7 @@ function TraceResultBody({
         />
       )}
       <HopList hops={hops} targetIp={ip} route={route} mode={mode} destinationName={name} />
-      {points.length > 0 && (
+      {hops.some(hop => hop.ip) && (
         <div className="mt-3">
           <Button
             variant="ghost"
@@ -283,7 +280,7 @@ function TraceResultBody({
           >
             {showMap ? m.route_hide_map() : m.route_show_map()}
           </Button>
-          {showMap && <RouteMap className="mt-3" points={points} />}
+          {showMap && <RouteMap className="mt-3" hops={hops} targetIp={ip} route={route} />}
         </div>
       )}
     </>

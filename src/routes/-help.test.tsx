@@ -107,7 +107,9 @@ describe('Help', () => {
     expect(screen.getByText(/use “Select process” next to “Start”/)).toBeInTheDocument()
 
     await user.click(question(/What data leaves this PC\?/))
-    const data = screen.getByText(/GitHub for updates, to Steam for game images and to CARTO/)
+    const data = screen.getByText(
+      /GitHub for updates and to Steam for game images, asks your DNS server for router names/
+    )
     expect(data).toHaveTextContent('to your router')
     expect(data).toHaveTextContent('to a public measurement point')
     expect(data).toHaveTextContent('see your public IP address')
