@@ -965,5 +965,6 @@
   "route_map_riot": "Riot Games · region can’t be located",
   "route_map_home_country": "{country} · your ISP’s country",
   "route_map_none": "No point on this route can be located.",
-  "route_map_aria": "Route map: {places}"
+  "route_map_aria": "Route map: {places}",
+  "route_contrib_deduced": "deduced from the game ping"
 }

@@ -965,5 +965,6 @@
   "route_map_riot": "Riot Games · région non localisable",
   "route_map_home_country": "{country} · pays de votre FAI",
   "route_map_none": "Aucun point de cette route n'est localisable.",
-  "route_map_aria": "Carte de la route : {places}"
+  "route_map_aria": "Carte de la route : {places}",
+  "route_contrib_deduced": "déduit du ping du jeu"
 }

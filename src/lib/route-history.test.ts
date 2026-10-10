@@ -35,6 +35,7 @@ function usual(overrides: Partial<UsualRoute['route']> = {}, gameName = 'VALORAN
     traceCount: 3,
     totalTraces: 3,
     persistentLoss: null,
+    gamePing: null,
     route: {
       segments: [
         segment({ zone: 'home', firstHop: 1, lastHop: 2, hops: 2 }),

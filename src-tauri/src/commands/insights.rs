@@ -78,12 +78,14 @@ async fn route_history(days: Option<u32>) -> Result<RouteHistory, CommandError> 
     let traceroutes = get_traceroute_repository()
         .ok_or_else(|| CommandError::repo_not_initialized("Traceroute"))?;
     let metadata = get_ip_metadata_repository();
+    let game_pings = get_game_ping_repository();
 
     let days = days.unwrap_or(ROUTE_HISTORY_DAYS).clamp(1, 3650);
     route_history::route_history(
         &analytics,
         &periods,
         &traceroutes,
+        game_pings.as_deref(),
         metadata.as_deref(),
         Utc::now() - Duration::days(i64::from(days)),
     )

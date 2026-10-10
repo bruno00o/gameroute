@@ -88,6 +88,7 @@ function valorant(overrides: Partial<UsualRoute> = {}): UsualRoute {
     traceCount: 20,
     totalTraces: 23,
     persistentLoss: null,
+    gamePing: null,
     route: {
       segments: [
         segment({ zone: 'home', firstHop: 1, lastHop: 2, hops: 2, addedMs: 0.6 }),
@@ -258,6 +259,37 @@ describe('Route screen', () => {
     expect(rows[3]).toHaveAttribute('data-silent', 'true')
     expect(rows[3]).toHaveTextContent('not measurable')
     expect(screen.getByText('Median over 20 matches')).toBeInTheDocument()
+  })
+
+  it('totals the route with the ping measured by the game and deduces the last segment', async () => {
+    vi.mocked(getUsualRoute).mockResolvedValue([
+      valorant({ gamePing: { medianMs: 25.4, matchCount: 18, deducedMs: 8.2 } }),
+    ])
+    renderRoute()
+
+    const list = await screen.findByRole('list', { name: 'Added by each operator' })
+    const total = document.querySelector('[data-slot="route-total"]')
+    expect(total).toHaveTextContent('25 ms')
+    expect(total).not.toHaveTextContent('≥')
+    expect(total).toHaveTextContent('measured by the game')
+    const last = within(list).getAllByRole('listitem')[3]
+    expect(last).toHaveAttribute('data-deduced', 'true')
+    expect(last).toHaveTextContent('+8.2 ms')
+    expect(last).toHaveTextContent('deduced from the game ping')
+    expect(last).not.toHaveTextContent('not measurable')
+  })
+
+  it('keeps the last segment unmeasurable when the game ping is below the trace', async () => {
+    vi.mocked(getUsualRoute).mockResolvedValue([
+      valorant({ gamePing: { medianMs: 15, matchCount: 18, deducedMs: null } }),
+    ])
+    renderRoute()
+
+    const list = await screen.findByRole('list', { name: 'Added by each operator' })
+    const last = within(list).getAllByRole('listitem')[3]
+    expect(document.querySelector('[data-slot="route-total"]')).toHaveTextContent('15 ms')
+    expect(last).not.toHaveAttribute('data-deduced')
+    expect(last).toHaveTextContent('not measurable')
   })
 
   it('colours a segment only when its problem persists', async () => {
