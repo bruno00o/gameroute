@@ -51,7 +51,7 @@ use db::{get_ip_metadata_repository, get_session_repository};
 use services::app_settings::SettingsStore;
 use services::mini_window::MiniWindowState;
 use services::shell_settings::ShellSettingsStore;
-use services::{asn_resolver, flow_kind, game_logs, mini_window, tray, tray_view};
+use services::{asn_resolver, flow_kind, game_logs, mini_window, traceroute, tray, tray_view};
 use tauri::path::BaseDirectory;
 use tauri::Manager;
 
@@ -200,6 +200,8 @@ pub fn run() {
                     });
 
                     tauri::async_runtime::spawn(asn_resolver::backfill_ip_metadata());
+
+                    tauri::async_runtime::spawn(traceroute::recheck_problem_hops());
 
                     tauri::async_runtime::spawn(game_logs::import::backfill_game_pings());
 

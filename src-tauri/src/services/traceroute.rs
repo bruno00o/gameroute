@@ -7,7 +7,7 @@ use crate::models::flow_kind::FlowKind;
 use crate::models::hop::ProbedHop;
 use crate::models::session::HopData;
 use crate::models::HopResult;
-use crate::services::asn_resolver::record_operators;
+use crate::services::asn_resolver::{get_resolver, record_operators, resolve_ip};
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Instant;
@@ -356,10 +356,24 @@ fn is_jittery<H: ProbedHop>(hop: &H) -> bool {
         .is_some_and(|(min, max)| max - min >= LATENCY_SPIKE_THRESHOLD)
 }
 
+fn operator_of(ip: &str) -> Option<String> {
+    let info = resolve_ip(ip)?.asn_info;
+    info.org.or(info.isp).map(|name| name.to_lowercase()).or(info.asn)
+}
+
 fn persistent_onset<H: ProbedHop>(
     hops: &[H],
     target_ip: &str,
     affected: fn(&H) -> bool,
+) -> Option<usize> {
+    onset_with(hops, target_ip, affected, operator_of)
+}
+
+fn onset_with<H: ProbedHop>(
+    hops: &[H],
+    target_ip: &str,
+    affected: fn(&H) -> bool,
+    operator_of: impl Fn(&str) -> Option<String>,
 ) -> Option<usize> {
     let responding: Vec<usize> = (0..hops.len()).filter(|&i| hops[i].responded()).collect();
     let tail = responding.iter().rev().take_while(|&&i| affected(&hops[i])).count();
@@ -367,19 +381,72 @@ fn persistent_onset<H: ProbedHop>(
         .last()
         .is_some_and(|&i| hops[i].ip() == Some(target_ip));
 
-    match tail {
-        0 => None,
-        1 if !reached => None,
-        n => Some(responding[responding.len() - n]),
-    }
+    let onset = match tail {
+        0 => return None,
+        1 if !reached => return None,
+        n => responding.len() - n,
+    };
+
+    let inside_silent_destination = !reached
+        && operator_of(target_ip).is_some_and(|destination| {
+            responding[onset..]
+                .iter()
+                .all(|&i| hops[i].ip().and_then(&operator_of).as_ref() == Some(&destination))
+        });
+
+    (!inside_silent_destination).then(|| responding[onset])
 }
 
-pub fn identify_problem_hop(hops: &[HopResult], target_ip: &str) -> Option<i32> {
+fn problem_position<H: ProbedHop>(hops: &[H], target_ip: &str) -> Option<usize> {
     [is_lossy, is_jittery]
         .into_iter()
         .filter_map(|affected| persistent_onset(hops, target_ip, affected))
         .min()
-        .map(|i| hops[i].hop_number as i32)
+}
+
+pub fn identify_problem_hop(hops: &[HopResult], target_ip: &str) -> Option<i32> {
+    problem_position(hops, target_ip).map(|i| hops[i].hop_number as i32)
+}
+
+pub async fn recheck_problem_hops() {
+    let (Some(traceroutes), Some(hop_repo), Some(_)) = (
+        get_traceroute_repository(),
+        get_hop_repository(),
+        get_resolver(),
+    ) else {
+        return;
+    };
+
+    let flagged = match traceroutes.get_flagged_traceroutes().await {
+        Ok(flagged) => flagged,
+        Err(e) => {
+            log::error!("Failed to load flagged traceroutes: {}", e);
+            return;
+        }
+    };
+
+    let mut updated = 0;
+    for (id, target_ip, stored) in flagged {
+        let hops = match hop_repo.get_hops_for_traceroute(id).await {
+            Ok(hops) => hops,
+            Err(e) => {
+                log::error!("Failed to load hops of traceroute {}: {}", id, e);
+                continue;
+            }
+        };
+        let problem = problem_position(&hops, &target_ip).map(|i| hops[i].hop_number);
+        if problem == Some(stored) {
+            continue;
+        }
+        match traceroutes.set_problem_hop(id, problem).await {
+            Ok(()) => updated += 1,
+            Err(e) => log::error!("Failed to update traceroute {}: {}", id, e),
+        }
+    }
+
+    if updated > 0 {
+        log::info!("Rechecked problem hops: {} traceroutes updated", updated);
+    }
 }
 
 pub fn persistent_loss_onset<H: ProbedHop>(hops: &[H], target_ip: &str) -> Option<usize> {
@@ -762,6 +829,46 @@ mod tests {
         );
     }
 
+    const VOICE: &str = "20.47.65.125";
+
+    fn azure_operator(ip: &str) -> Option<String> {
+        match ip.split('.').next()? {
+            "20" | "51" => Some("microsoft corporation".to_string()),
+            "62" => Some("telia company ab".to_string()),
+            _ => None,
+        }
+    }
+
+    fn silent_voice_route(telia_lost: usize) -> Vec<HopResult> {
+        vec![
+            lossy(1, "192.168.1.254", 0.5, 0, 10),
+            lossy(2, "194.6.145.208", 4.0, 0, 10),
+            lossy(3, "62.115.56.149", 13.7, telia_lost, 10),
+            lossy(4, "51.10.8.254", 13.7, 0, 10),
+            lossy(5, "51.10.9.146", 18.0, 6, 10),
+            lossy(6, "51.10.9.144", 14.2, 6, 10),
+        ]
+    }
+
+    #[test]
+    fn loss_only_inside_a_silent_destination_network_is_not_flagged() {
+        let hops = silent_voice_route(0);
+        assert_eq!(onset_with(&hops, VOICE, is_lossy, azure_operator), None);
+    }
+
+    #[test]
+    fn loss_starting_before_a_silent_destination_network_is_flagged() {
+        let mut hops = silent_voice_route(4);
+        hops[3] = lossy(4, "51.10.8.254", 13.7, 5, 10);
+        assert_eq!(onset_with(&hops, VOICE, is_lossy, azure_operator), Some(2));
+    }
+
+    #[test]
+    fn loss_inside_an_unknown_destination_network_is_still_flagged() {
+        let hops = silent_voice_route(0);
+        assert_eq!(onset_with(&hops, VOICE, is_lossy, |_| None), Some(4));
+    }
+
     #[test]
     fn distance_jump_with_stable_rtt_is_not_flagged() {
         assert_eq!(identify_problem_hop(&distance_jump_route(), TARGET), None);
@@ -881,3 +988,4 @@ mod tests {
         assert_eq!(probe_protocol("ICMP (tracert)"), None);
     }
 }
+
