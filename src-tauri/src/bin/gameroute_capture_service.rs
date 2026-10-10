@@ -69,6 +69,9 @@ mod service {
     /// ETW session name used by pktmon in real-time mode.
     const PKTMON_SESSION_NAME: &str = "PktMon";
 
+    /// Ethernet (14) + IPv6 (40) + UDP (8) = 62 bytes: enough for the addresses and ports.
+    const PKTMON_PKT_SIZE: u32 = 64;
+
     /// Timeout for a single traceroute operation (seconds).
     const TRACEROUTE_TIMEOUT_SECS: u64 = 30;
 
@@ -264,14 +267,8 @@ mod service {
 
         // Spawn pktmon in real-time capture mode (stays alive as a child process)
         let child = Command::new("pktmon")
-            .args([
-                "start",
-                "--capture",
-                "--log-mode",
-                "real-time",
-                "--pkt-size",
-                "128",
-            ])
+            .args(["start", "--capture", "--log-mode", "real-time", "--pkt-size"])
+            .arg(PKTMON_PKT_SIZE.to_string())
             .creation_flags(CREATE_NO_WINDOW)
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
@@ -763,7 +760,6 @@ mod service {
     ) {
         let record = &*event_record;
 
-        // Skip events with no user data
         if record.UserData.is_null() || record.UserDataLength == 0 {
             return;
         }
@@ -775,114 +771,74 @@ mod service {
             record.UserDataLength as usize,
         );
 
-        // pktmon events have a metadata header before the raw Ethernet frame.
-        // Find the frame by scanning for EtherType + IP version signature:
-        //   08 00 45 = IPv4 over Ethernet (EtherType 0x0800, IP version 4 IHL 5)
-        //   86 dd 60 = IPv6 over Ethernet (EtherType 0x86DD, IP version 6)
-        // The Ethernet frame starts 12 bytes before the EtherType (6 dst MAC + 6 src MAC).
-        let mut parsed = false;
-
-        for i in 12..user_data.len().saturating_sub(2) {
-            let is_ipv4 = user_data[i] == 0x08
-                && user_data[i + 1] == 0x00
-                && i + 2 < user_data.len()
-                && user_data[i + 2] & 0xF0 == 0x40;
-            let is_ipv6 = user_data[i] == 0x86
-                && user_data[i + 1] == 0xDD
-                && i + 2 < user_data.len()
-                && user_data[i + 2] & 0xF0 == 0x60;
-
-            if is_ipv4 || is_ipv6 {
-                let eth_start = i - 12; // Ethernet frame starts 12 bytes before EtherType
-                if let Some((local_port, remote_ip, remote_port)) =
-                    try_parse_udp_endpoint(&user_data[eth_start..], &ctx.local_ports)
-                {
-                    if let Ok(mut endpoints) = ctx.endpoints.lock() {
-                        *endpoints
-                            .entry((local_port, remote_ip, remote_port))
-                            .or_insert(0) += 1;
-                    }
-                    parsed = true;
-                }
-                break;
-            }
-        }
-
-        // Fallback: try parsing as raw IP at known offsets
-        if !parsed {
-            for &offset in &[48, 34, 20, 14, 0] {
-                if offset + 20 > user_data.len() {
-                    continue;
-                }
-                // Check for IPv4 (0x45..0x4F) or IPv6 (0x60)
-                let first = user_data[offset];
-                if first & 0xF0 != 0x40 && first & 0xF0 != 0x60 {
-                    continue;
-                }
-                if let Some((local_port, remote_ip, remote_port)) =
-                    try_parse_ip_endpoint(&user_data[offset..], &ctx.local_ports)
-                {
-                    if let Ok(mut endpoints) = ctx.endpoints.lock() {
-                        *endpoints
-                            .entry((local_port, remote_ip, remote_port))
-                            .or_insert(0) += 1;
-                    }
-                    break;
-                }
+        if let Some(endpoint) = endpoint_from_pktmon_event(user_data, &ctx.local_ports) {
+            if let Ok(mut endpoints) = ctx.endpoints.lock() {
+                *endpoints.entry(endpoint).or_insert(0) += 1;
             }
         }
     }
 
-    /// Try to parse a UDP endpoint from raw Ethernet frame bytes.
+    /// pktmon events carry a metadata header before the packet, truncated to --pkt-size.
+    /// The Ethernet frame is found by scanning for an EtherType followed by a matching IP
+    /// version nibble (08 00 4x for IPv4, 86 dd 6x for IPv6), 12 bytes after the frame start.
+    /// Raw IP packets at known offsets are the fallback.
+    fn endpoint_from_pktmon_event(
+        user_data: &[u8],
+        local_ports: &HashSet<u16>,
+    ) -> Option<(u16, String, u16)> {
+        for i in 12..user_data.len().saturating_sub(2) {
+            let version = user_data[i + 2] & 0xF0;
+            let is_ipv4 = user_data[i] == 0x08 && user_data[i + 1] == 0x00 && version == 0x40;
+            let is_ipv6 = user_data[i] == 0x86 && user_data[i + 1] == 0xDD && version == 0x60;
+            if is_ipv4 || is_ipv6 {
+                if let Some(found) = try_parse_udp_endpoint(&user_data[i - 12..], local_ports) {
+                    return Some(found);
+                }
+            }
+        }
+
+        [48, 34, 20, 14, 0].iter().find_map(|&offset| {
+            let first = *user_data.get(offset)? & 0xF0;
+            if offset + 20 > user_data.len() || (first != 0x40 && first != 0x60) {
+                return None;
+            }
+            try_parse_ip_endpoint(&user_data[offset..], local_ports)
+        })
+    }
+
+    /// Lax parsing: pktmon truncates packets, so the IP and UDP length fields are larger
+    /// than the captured bytes. Only the addresses and ports are needed.
     fn try_parse_udp_endpoint(
         data: &[u8],
         local_ports: &HashSet<u16>,
     ) -> Option<(u16, String, u16)> {
-        use etherparse::SlicedPacket;
-
-        if let Ok(parsed) = SlicedPacket::from_ethernet(data) {
-            if let Some(result) = extract_udp_from_parsed(&parsed, local_ports) {
-                return Some(result);
-            }
-        }
-
-        None
+        let parsed = etherparse::LaxSlicedPacket::from_ethernet(data).ok()?;
+        extract_udp_from_parsed(&parsed, local_ports)
     }
 
-    /// Try to parse a UDP endpoint from raw IP packet bytes.
     fn try_parse_ip_endpoint(
         data: &[u8],
         local_ports: &HashSet<u16>,
     ) -> Option<(u16, String, u16)> {
-        use etherparse::SlicedPacket;
-
-        if data.len() >= 20 {
-            if let Ok(parsed) = SlicedPacket::from_ip(data) {
-                if let Some(result) = extract_udp_from_parsed(&parsed, local_ports) {
-                    return Some(result);
-                }
-            }
-        }
-
-        None
+        let parsed = etherparse::LaxSlicedPacket::from_ip(data).ok()?;
+        extract_udp_from_parsed(&parsed, local_ports)
     }
 
-    /// Extract UDP endpoint info from a parsed packet.
     fn extract_udp_from_parsed(
-        parsed: &etherparse::SlicedPacket,
+        parsed: &etherparse::LaxSlicedPacket,
         local_ports: &HashSet<u16>,
     ) -> Option<(u16, String, u16)> {
-        use etherparse::{NetSlice, TransportSlice};
+        use etherparse::{LaxNetSlice, TransportSlice};
 
         let (src_ip, dst_ip) = match &parsed.net {
-            Some(NetSlice::Ipv4(ipv4)) => {
+            Some(LaxNetSlice::Ipv4(ipv4)) => {
                 let header = ipv4.header();
                 (
                     std::net::IpAddr::V4(header.source_addr()),
                     std::net::IpAddr::V4(header.destination_addr()),
                 )
             }
-            Some(NetSlice::Ipv6(ipv6)) => {
+            Some(LaxNetSlice::Ipv6(ipv6)) => {
                 let header = ipv6.header();
                 (
                     std::net::IpAddr::V6(header.source_addr()),
@@ -1046,6 +1002,123 @@ mod service {
         fn a_truncated_request_is_still_an_error() {
             assert!(handle_client_request(&mut conn(&[8, 0])).is_err());
             assert!(handle_client_request(&mut conn(&[8, 0, 0, 0, b'{'])).is_err());
+        }
+    }
+
+    #[cfg(test)]
+    mod pktmon_tests {
+        use super::*;
+        use etherparse::{PacketBuilder, VlanId};
+
+        const LOCAL: [u8; 4] = [192, 168, 1, 10];
+        const SERVER: [u8; 4] = [203, 0, 113, 5];
+        const LOCAL6: [u8; 16] = [0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x0a];
+        const SERVER6: [u8; 16] = [0x20, 0x01, 0x0d, 0xb8, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x05];
+
+        fn ports() -> HashSet<u16> {
+            [50000].into_iter().collect()
+        }
+
+        fn pktmon_event(metadata: &[u8], packet: Vec<u8>) -> Vec<u8> {
+            let mut event = metadata.to_vec();
+            event.extend_from_slice(&packet[..packet.len().min(PKTMON_PKT_SIZE as usize)]);
+            event
+        }
+
+        fn game_payload() -> Vec<u8> {
+            vec![0x5a; 400]
+        }
+
+        fn ipv4_frame(src: ([u8; 4], u16), dst: ([u8; 4], u16)) -> Vec<u8> {
+            let mut frame = Vec::new();
+            PacketBuilder::ethernet2([1; 6], [2; 6])
+                .ipv4(src.0, dst.0, 64)
+                .udp(src.1, dst.1)
+                .write(&mut frame, &game_payload())
+                .unwrap();
+            frame
+        }
+
+        #[test]
+        fn outgoing_ipv4_packet_truncated_to_pkt_size_is_counted() {
+            let event = pktmon_event(&[0xaa; 38], ipv4_frame((LOCAL, 50000), (SERVER, 7777)));
+            assert_eq!(event.len(), 38 + 64);
+            assert_eq!(
+                endpoint_from_pktmon_event(&event, &ports()),
+                Some((50000, "203.0.113.5".to_string(), 7777))
+            );
+        }
+
+        #[test]
+        fn incoming_ipv4_packet_truncated_to_pkt_size_is_counted() {
+            let event = pktmon_event(&[0xaa; 38], ipv4_frame((SERVER, 7777), (LOCAL, 50000)));
+            assert_eq!(
+                endpoint_from_pktmon_event(&event, &ports()),
+                Some((50000, "203.0.113.5".to_string(), 7777))
+            );
+        }
+
+        #[test]
+        fn ipv6_packet_truncated_to_pkt_size_is_counted() {
+            let mut frame = Vec::new();
+            PacketBuilder::ethernet2([1; 6], [2; 6])
+                .ipv6(LOCAL6, SERVER6, 64)
+                .udp(50000, 3074)
+                .write(&mut frame, &game_payload())
+                .unwrap();
+            let event = pktmon_event(&[0xaa; 38], frame);
+            assert_eq!(event.len(), 38 + 64);
+            assert_eq!(
+                endpoint_from_pktmon_event(&event, &ports()),
+                Some((50000, "2001:db8:1::5".to_string(), 3074))
+            );
+        }
+
+        #[test]
+        fn vlan_tagged_ipv4_packet_truncated_to_pkt_size_is_counted() {
+            let mut frame = Vec::new();
+            PacketBuilder::ethernet2([1; 6], [2; 6])
+                .single_vlan(VlanId::try_new(10).unwrap())
+                .ipv4(LOCAL, SERVER, 64)
+                .udp(50000, 7777)
+                .write(&mut frame, &game_payload())
+                .unwrap();
+            assert_eq!(
+                endpoint_from_pktmon_event(&pktmon_event(&[0xaa; 38], frame), &ports()),
+                Some((50000, "203.0.113.5".to_string(), 7777))
+            );
+        }
+
+        #[test]
+        fn a_false_signature_in_the_metadata_does_not_hide_the_frame() {
+            let mut metadata = [0xaa; 38];
+            metadata[16..19].copy_from_slice(&[0x08, 0x00, 0x45]);
+            let event = pktmon_event(&metadata, ipv4_frame((LOCAL, 50000), (SERVER, 7777)));
+            assert_eq!(
+                endpoint_from_pktmon_event(&event, &ports()),
+                Some((50000, "203.0.113.5".to_string(), 7777))
+            );
+        }
+
+        #[test]
+        fn raw_ip_packet_at_a_known_offset_is_counted() {
+            let mut packet = Vec::new();
+            PacketBuilder::ipv4(SERVER, LOCAL, 64)
+                .udp(7777, 50000)
+                .write(&mut packet, &game_payload())
+                .unwrap();
+            let event = pktmon_event(&[0xaa; 48], packet);
+            assert_eq!(
+                endpoint_from_pktmon_event(&event, &ports()),
+                Some((50000, "203.0.113.5".to_string(), 7777))
+            );
+        }
+
+        #[test]
+        fn traffic_on_other_ports_is_ignored() {
+            let event = pktmon_event(&[0xaa; 38], ipv4_frame((LOCAL, 50001), (SERVER, 7777)));
+            assert_eq!(endpoint_from_pktmon_event(&event, &ports()), None);
+            assert_eq!(endpoint_from_pktmon_event(&[0xaa; 20], &ports()), None);
         }
     }
 }
