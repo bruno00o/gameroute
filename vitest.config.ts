@@ -1,4 +1,4 @@
-import path from 'path'
+import path from 'node:path'
 import { paraglideVitePlugin } from '@inlang/paraglide-js'
 import { defineConfig } from 'vitest/config'
 

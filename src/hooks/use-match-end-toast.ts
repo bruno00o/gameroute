@@ -61,10 +61,9 @@ export function useMatchEndToast() {
     }
 
     const unlisten = onLiveStatus(status => {
-      const next =
-        status && status.matchStartedAt
-          ? { sessionId: status.sessionId, matchStartedAt: status.matchStartedAt }
-          : null
+      const next = status?.matchStartedAt
+        ? { sessionId: status.sessionId, matchStartedAt: status.matchStartedAt }
+        : null
       const previous = current
       current = next
       if (
