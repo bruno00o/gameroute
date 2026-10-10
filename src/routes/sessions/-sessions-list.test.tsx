@@ -138,7 +138,9 @@ describe('Sessions list', () => {
 
     const noMatch = screen
       .getAllByRole('row')
-      .find(r => r.textContent?.startsWith('VALORANT') && within(r).queryAllByText('—').length === 2)!
+      .find(
+        r => r.textContent?.startsWith('VALORANT') && within(r).queryAllByText('—').length === 2
+      )!
     const noMatchCells = within(noMatch).getAllByRole('cell')
     expect(noMatchCells[3]).toHaveTextContent('0')
     expect(noMatchCells[5]).toHaveTextContent('—')

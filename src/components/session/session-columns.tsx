@@ -14,7 +14,9 @@ const NBSP = ' '
 
 export function sessionColumns({
   sortable,
-}: { sortable?: boolean } = {}): DataTableColumn<SessionListItem>[] {
+}: {
+  sortable?: boolean
+} = {}): DataTableColumn<SessionListItem>[] {
   return [
     {
       key: 'gameName',
