@@ -62,7 +62,7 @@ GameRoute is a Windows desktop app that detects running games, captures server c
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) 22+
-- [pnpm](https://pnpm.io/) 10+
+- [pnpm](https://pnpm.io/) 12+
 - [Rust](https://rustup.rs/) (stable)
 - [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with "Desktop development with C++"
 
