@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.20](https://github.com/bruno00o/gameroute/compare/v0.1.19...v0.1.20) (2026-10-10)
+
+
+### Features
+
+* **capture:** report pktmon real-time losses with each capture ([9e89474](https://github.com/bruno00o/gameroute/commit/9e89474780d8af8b370914f96ccff66afffd3f51))
+
+
+### Bug Fixes
+
+* **capture:** count pktmon packets truncated to 64 bytes ([5a5409b](https://github.com/bruno00o/gameroute/commit/5a5409b16ef8e4694e6c5121a51b4aec0a792398))
+* **capture:** keep pktmon in real time without filling a log file ([01057f8](https://github.com/bruno00o/gameroute/commit/01057f8e1ff66f276381978845db5eeb8640a61f))
+
 ## [0.1.19](https://github.com/bruno00o/gameroute/compare/v0.1.18...v0.1.19) (2026-10-10)
 
 
