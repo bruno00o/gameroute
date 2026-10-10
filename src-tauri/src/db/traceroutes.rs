@@ -217,6 +217,33 @@ impl TracerouteRepository {
         Ok(())
     }
 
+    pub async fn get_flagged_traceroutes(&self) -> Result<Vec<(i64, String, i32)>, DbError> {
+        sqlx::query_as(
+            "SELECT id, target_ip, problem_hop_index FROM traceroutes WHERE problem_hop_index IS NOT NULL",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Into::into)
+    }
+
+    pub async fn set_problem_hop(&self, id: i64, problem_hop: Option<i32>) -> Result<(), DbError> {
+        let mut tx = self.pool.begin().await?;
+        sqlx::query("UPDATE traceroutes SET problem_hop_index = $1 WHERE id = $2")
+            .bind(problem_hop)
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query(
+            "UPDATE hops SET is_problem_hop = COALESCE(hop_number = $1, 0) WHERE traceroute_id = $2",
+        )
+        .bind(problem_hop)
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
     pub async fn delete_traceroutes_for_session(&self, session_id: i64) -> Result<(), DbError> {
         sqlx::query("DELETE FROM traceroutes WHERE session_id = $1")
             .bind(session_id)
@@ -357,6 +384,39 @@ mod tests {
         let tr = repo.get_traceroute(id).await.unwrap().unwrap();
         assert_eq!(tr.completed_at, Some("2026-01-25T10:00:25Z".to_string()));
         assert_eq!(tr.problem_hop_index, Some(5));
+    }
+
+    #[tokio::test]
+    async fn clearing_a_problem_hop_updates_the_trace_and_its_hops() {
+        let repo = create_test_repo().await;
+        let data =
+            TracerouteData::new(1, "20.47.65.125".to_string(), "2026-01-25T10:00:00Z".to_string());
+        let id = repo.insert_traceroute(&data).await.unwrap();
+        repo.update_traceroute_completed(id, "2026-01-25T10:00:25Z", Some(2), None)
+            .await
+            .unwrap();
+        for (hop, flagged) in [(1, false), (2, true)] {
+            sqlx::query("INSERT INTO hops (traceroute_id, hop_number, is_problem_hop) VALUES ($1, $2, $3)")
+                .bind(id)
+                .bind(hop)
+                .bind(flagged)
+                .execute(&repo.pool)
+                .await
+                .unwrap();
+        }
+
+        assert_eq!(
+            repo.get_flagged_traceroutes().await.unwrap(),
+            vec![(id, "20.47.65.125".to_string(), 2)]
+        );
+        repo.set_problem_hop(id, None).await.unwrap();
+
+        assert!(repo.get_flagged_traceroutes().await.unwrap().is_empty());
+        let flagged: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM hops WHERE is_problem_hop = 1")
+            .fetch_one(&repo.pool)
+            .await
+            .unwrap();
+        assert_eq!(flagged.0, 0);
     }
 
     #[tokio::test]
