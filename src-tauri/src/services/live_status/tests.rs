@@ -785,7 +785,7 @@ fn faults_are_located_only_as_far_as_the_evidence_goes() {
     let server = reading(LivePoint::Game, None, Some(RouteZone::Service), 3.0);
 
     let located = |readings: &[LiveReading], primary| {
-        localise(readings, primary, IncidentCause::Loss, &route)
+        localise(readings, primary, IncidentCause::Loss, &route, &[])
             .unwrap()
             .zone
     };
@@ -824,6 +824,7 @@ fn faults_are_located_only_as_far_as_the_evidence_goes() {
         LivePoint::Floor,
         IncidentCause::Loss,
         &empty,
+        &[],
     )
     .unwrap();
     assert_eq!(fault.zone, FaultZone::Unlocated);
@@ -982,4 +983,129 @@ fn the_game_usual_only_uses_reported_pings_from_the_same_operator() {
         Some(14.0)
     );
     assert_eq!(usual_for(&history, &floor_basis(), before).sample_count, 0);
+}
+
+fn isp_floor() -> ProbeTarget {
+    target(PingSource::Floor, RIOT, Some(4), SFR_EDGE)
+}
+
+fn spiky(sec: i64, calm: f64) -> Option<f64> {
+    let spike = (40..100).contains(&sec) && sec % 2 == 0;
+    Some(if spike { calm + 55.0 } else { calm })
+}
+
+fn last_router(each: impl Fn(i64) -> Second) -> Vec<Tick> {
+    run(&mut machine(), 0..150, each)
+}
+
+fn opened(ticks: &[Tick]) -> crate::models::live_status::MatchIncident {
+    changes(ticks)
+        .first()
+        .map(|change| (*change).clone().record())
+        .expect("an incident should open")
+}
+
+#[test]
+fn spikes_only_the_last_visible_router_answers_are_ignored() {
+    let ticks = last_router(|sec| {
+        vec![
+            (gateway(), Some(1.2)),
+            (isp_floor(), spiky(sec, 6.5)),
+            (beacon(), Some(4.5)),
+        ]
+    });
+    assert!(changes(&ticks).is_empty());
+    assert!(ticks[19..]
+        .iter()
+        .all(|tick| tick.status.status == Severity::Ok));
+    let floor = ticks[80].status.primary.as_ref().unwrap();
+    assert_eq!(floor.point, LivePoint::Floor);
+    assert_eq!(floor.status, Severity::Ok);
+    assert!(floor.jitter_ms.unwrap() >= 30.0);
+
+    let ticks = last_router(|sec| {
+        let lost = sec >= 30 && sec % 5 == 0;
+        vec![
+            (gateway(), Some(1.2)),
+            (isp_floor(), (!lost).then_some(6.5)),
+            (beacon(), Some(4.5)),
+        ]
+    });
+    assert!(changes(&ticks).is_empty());
+}
+
+#[test]
+fn spikes_the_region_beacon_also_sees_still_count() {
+    let ticks = last_router(|sec| {
+        vec![
+            (gateway(), Some(1.2)),
+            (isp_floor(), spiky(sec, 6.5)),
+            (beacon(), spiky(sec, 4.5)),
+        ]
+    });
+    let incident = opened(&ticks);
+    assert_eq!(incident.cause, Some(IncidentCause::Jitter));
+    assert_eq!(incident.zone, Some(FaultZone::Isp));
+    assert_eq!(incident.at_hop, Some(4));
+
+    let ticks = last_router(|sec| {
+        vec![
+            (gateway(), spiky(sec, 1.2)),
+            (isp_floor(), spiky(sec, 6.5)),
+            (beacon(), spiky(sec, 4.5)),
+        ]
+    });
+    let incident = opened(&ticks);
+    assert_eq!(incident.cause, Some(IncidentCause::Jitter));
+    assert_eq!(incident.zone, Some(FaultZone::Home));
+}
+
+#[test]
+fn without_a_clean_probe_beyond_the_router_its_spikes_count() {
+    let alone = last_router(|sec| vec![(gateway(), Some(1.2)), (isp_floor(), spiky(sec, 6.5))]);
+    let silent_beacon = last_router(|sec| {
+        vec![
+            (gateway(), Some(1.2)),
+            (isp_floor(), spiky(sec, 6.5)),
+            (beacon(), (sec < 50).then_some(4.5)),
+        ]
+    });
+    let transit = last_router(|sec| {
+        vec![
+            (gateway(), Some(0.6)),
+            (floor(), spiky(sec, 17.0)),
+            (beacon(), Some(4.5)),
+        ]
+    });
+    for ticks in [alone, silent_beacon, transit] {
+        assert_eq!(opened(&ticks).cause, Some(IncidentCause::Jitter));
+    }
+}
+
+#[test]
+fn a_router_cleared_by_the_beacon_moves_a_game_fault_past_it() {
+    let mut machine = machine();
+    let ticks: Vec<Tick> = (0..150)
+        .map(|sec| {
+            for (target, rtt) in [
+                (gateway(), Some(1.2)),
+                (isp_floor(), spiky(sec, 6.5)),
+                (beacon(), Some(4.5)),
+            ] {
+                machine.observe_probe(&sample(&target, sec, rtt), asn(&target), at(sec));
+            }
+            if sec % 5 == 0 {
+                let mut sample = game(sec, 31.0, 0);
+                sample.jitter_ms = Some(if sec >= 40 { 20.0 } else { 2.0 });
+                machine.observe_game(&sample, at(sec));
+            }
+            machine.tick(at(sec), false)
+        })
+        .collect();
+    let incident = opened(&ticks);
+    assert_eq!(incident.cause, Some(IncidentCause::Jitter));
+    assert!(!incident.at_least);
+    let fault = ticks[90].status.fault.as_ref().unwrap();
+    assert_eq!(fault.after_point, Some(LivePoint::Floor));
+    assert_eq!(fault.zone, FaultZone::NotHome);
 }
