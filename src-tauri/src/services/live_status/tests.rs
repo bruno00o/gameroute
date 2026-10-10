@@ -1109,3 +1109,113 @@ fn a_router_cleared_by_the_beacon_moves_a_game_fault_past_it() {
     assert_eq!(fault.after_point, Some(LivePoint::Floor));
     assert_eq!(fault.zone, FaultZone::NotHome);
 }
+
+fn saturated(sec: i64) -> bool {
+    sec >= 30 && sec % 10 == 0
+}
+
+fn loaded_pc(beacon_drops: bool, extra_floor_loss: impl Fn(i64) -> bool) -> Vec<Tick> {
+    run(&mut machine_with_usual(), 0..300, |sec| {
+        let dropped = saturated(sec);
+        vec![
+            (gateway(), (!dropped).then_some(0.6)),
+            (isp_edge(), (!dropped).then_some(3.7)),
+            (
+                floor(),
+                (!dropped && !extra_floor_loss(sec)).then_some(17.0),
+            ),
+            (beacon(), (!(beacon_drops && dropped)).then_some(4.5)),
+        ]
+    })
+}
+
+fn point(tick: &Tick, point: LivePoint) -> &LiveReading {
+    tick.status
+        .points
+        .iter()
+        .find(|reading| reading.point == point)
+        .unwrap()
+}
+
+#[test]
+fn probe_loss_the_region_beacon_did_not_see_is_not_rated() {
+    let ticks = loaded_pc(false, |_| false);
+    assert!(changes(&ticks).is_empty());
+    assert!(ticks[19..]
+        .iter()
+        .all(|tick| tick.status.status == Severity::Ok));
+    let gateway = point(&ticks[299], LivePoint::Gateway);
+    assert_eq!(gateway.status, Severity::Ok);
+    assert_eq!(gateway.loss_pct, Some(10.0));
+    assert_eq!(gateway.loss_floor_pct, Some(0.0));
+    let floor = point(&ticks[299], LivePoint::Floor);
+    assert_eq!(floor.status, Severity::Ok);
+    assert_eq!(floor.loss_pct, Some(10.0));
+}
+
+#[test]
+fn probe_loss_the_region_beacon_also_sees_still_counts() {
+    let ticks = loaded_pc(true, |_| false);
+    let last = &ticks[299].status;
+    assert!(rank(last.status) >= rank(Severity::Degraded));
+    assert_eq!(last.cause, Some(IncidentCause::Loss));
+    let fault = last.fault.as_ref().unwrap();
+    assert_eq!(fault.zone, FaultZone::Home);
+    assert_eq!(fault.at_point, LivePoint::Gateway);
+}
+
+#[test]
+fn loss_beyond_the_isp_on_a_loaded_pc_is_located_past_home() {
+    let ticks = loaded_pc(false, |sec| sec >= 30 && sec % 20 == 5);
+    let last = &ticks[299].status;
+    assert_eq!(last.cause, Some(IncidentCause::Loss));
+    assert!(rank(last.status) < rank(Severity::Critical));
+    let fault = last.fault.as_ref().unwrap();
+    assert_eq!(fault.zone, FaultZone::Transit);
+    assert_eq!(fault.after_point, Some(LivePoint::IspEdge));
+    assert_eq!(zone(&ticks[299], RouteZone::Home), ZoneVerdict::Clear);
+    let incident = opened(&ticks);
+    assert_eq!(incident.cause, Some(IncidentCause::Loss));
+    assert!(changes(&ticks)
+        .iter()
+        .all(|change| (*change).clone().record().zone != Some(FaultZone::Home)));
+}
+
+#[test]
+fn probe_loss_the_game_did_not_see_is_not_rated() {
+    let mut machine = machine_with_usual();
+    let ticks: Vec<Tick> = (0..200)
+        .map(|sec| {
+            let dropped = saturated(sec);
+            for (target, rtt) in [
+                (gateway(), (!dropped).then_some(0.6)),
+                (floor(), (!dropped).then_some(17.0)),
+            ] {
+                machine.observe_probe(&sample(&target, sec, rtt), asn(&target), at(sec));
+            }
+            if sec % 5 == 0 {
+                machine.observe_game(&game(sec, 31.0, 0), at(sec));
+            }
+            machine.tick(at(sec), false)
+        })
+        .collect();
+    assert!(changes(&ticks).is_empty());
+    for probe in [LivePoint::Gateway, LivePoint::Floor] {
+        let reading = point(&ticks[199], probe);
+        assert_eq!(reading.status, Severity::Ok);
+        assert!(reading.loss_pct.unwrap() >= 9.0);
+    }
+
+    let ticks = run(&mut machine_with_usual(), 0..200, |sec| {
+        let dropped = saturated(sec);
+        vec![
+            (gateway(), (!dropped).then_some(0.6)),
+            (floor(), (!dropped).then_some(17.0)),
+        ]
+    });
+    assert_eq!(
+        point(&ticks[199], LivePoint::Gateway).cause,
+        Some(IncidentCause::Loss)
+    );
+    assert_eq!(opened(&ticks).zone, Some(FaultZone::Home));
+}
