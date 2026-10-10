@@ -88,13 +88,57 @@ afterEach(() => {
 })
 
 describe('Reports', () => {
-  it('lists the matches and ticks the one that departs from the usual ping with a comparison match', async () => {
+  it('lists only the matches with a problem, ticked, and counts them', async () => {
     renderPage()
 
     const second = await screen.findByRole('checkbox', { name: /match 2/ })
     expect(second).toBeChecked()
+    expect(screen.queryByRole('checkbox', { name: /match 1/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: /match 3/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Matches selected: 1')).toBeInTheDocument()
+  })
+
+  it('adds the matches without problem on request, with one ticked to compare', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('checkbox', { name: /match 2/ })
+
+    await user.click(screen.getByRole('switch', { name: 'Also show matches without problem' }))
+
     expect(screen.getByRole('checkbox', { name: /match 1/ })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /match 2/ })).toBeChecked()
     expect(screen.getByRole('checkbox', { name: /match 3/ })).not.toBeChecked()
+    expect(screen.getByText('Matches selected: 2')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('switch', { name: 'Also show matches without problem' }))
+
+    expect(screen.queryByRole('checkbox', { name: /match 1/ })).not.toBeInTheDocument()
+    expect(screen.getByText('Matches selected: 1')).toBeInTheDocument()
+  })
+
+  it('says so when no match has a problem and keeps the option to show them all', async () => {
+    const user = userEvent.setup()
+    mockSessions(sessionMatches())
+    renderPage()
+
+    expect(
+      await screen.findByText('No match with a problem in the recent sessions.')
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    expect(screen.getByText('Matches selected: 0')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('switch', { name: 'Also show matches without problem' }))
+
+    expect(screen.getByRole('checkbox', { name: /match 2/ })).toBeChecked()
+  })
+
+  it('shows all the matches from the start when opened on a session without problem', async () => {
+    vi.spyOn(Route, 'useSearch').mockReturnValue({ session: 1 })
+    mockSessions(sessionMatches())
+    renderPage()
+
+    expect(await screen.findByRole('checkbox', { name: /match 2/ })).toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Also show matches without problem' })).toBeChecked()
   })
 
   it('previews the text of the selected matches and copies exactly that text', async () => {
@@ -176,6 +220,9 @@ describe('Reports', () => {
     const user = userEvent.setup()
     renderPage()
     await waitFor(() => expect(preview()).toHaveTextContent('For SFR support'))
+
+    await user.click(screen.getByRole('button', { name: 'VALORANT support' }))
+    expect(preview()).toHaveTextContent('For VALORANT support')
 
     await user.click(screen.getByRole('button', { name: 'Forum or Discord' }))
 

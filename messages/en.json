@@ -702,10 +702,10 @@
   "report_recipient_hint": "The recipient only changes the address line of the text.",
   "report_recipient_support": "{name} support",
   "report_recipient_isp_unknown": "ISP support",
-  "report_recipient_publisher_unknown": "Publisher support",
+  "report_recipient_publisher_unknown": "Game support",
   "report_recipient_forum": "Forum or Discord",
   "report_matches_label": "Which matches?",
-  "report_matches_hint": "A match without loss serves as a point of comparison.",
+  "report_matches_hint": "A match without problem serves as a point of comparison.",
   "report_matches_limit": "The {count} most recent matches are listed.",
   "report_matches_empty_title": "No match recorded",
   "report_matches_empty_body": "The report is built from measured matches. Start a monitored game, then come back here.",
@@ -953,5 +953,8 @@
   "live_timeline_now": "now · {elapsed}",
   "live_timeline_since": "since {from}",
   "settings_probes_zones": "Router and ISP router probes (every second, during matches)",
-  "settings_probes_zones_description": "One packet per second to your router and one to the last router of your ISP. They tell whether the problem comes from your home."
+  "settings_probes_zones_description": "One packet per second to your router and one to the last router of your ISP. They tell whether the problem comes from your home.",
+  "report_matches_show_ok": "Also show matches without problem",
+  "report_matches_selected": "Matches selected: {count}",
+  "report_matches_no_problem": "No match with a problem in the recent sessions."
 }

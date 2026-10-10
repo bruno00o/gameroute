@@ -68,8 +68,9 @@ export function reportIspName(sources: ReportSource[]): string | null {
   )
 }
 
-export function reportPublisherName(sources: ReportSource[]): string | null {
-  return mostCommon(sources.map(({ match }) => shortOperatorName(match.operator?.name)))
+export function reportGameName(sources: ReportSource[]): string | null {
+  const names = new Set(sources.map(({ detail }) => detail.gameName))
+  return names.size === 1 ? [...names][0] : null
 }
 
 function isPrivateAddress(ip: string): boolean {
@@ -211,7 +212,7 @@ export function reportDocument(sources: ReportSource[], options: ReportOptions):
       const name = reportIspName(ordered)
       return name ? m.report_for_support({ name }, tr) : m.report_for_isp_unknown({}, tr)
     }
-    const name = reportPublisherName(ordered)
+    const name = reportGameName(ordered)
     return name ? m.report_for_support({ name }, tr) : m.report_for_publisher_unknown({}, tr)
   })()
 
@@ -381,7 +382,7 @@ export function reportDocument(sources: ReportSource[], options: ReportOptions):
 
   const hopRow = (hop: DbHop, trace: TracerouteWithHops): ReportHopRow => {
     const segment = segmentAt(trace.route, hop.hopNumber)
-    const home = segment?.zone === 'home' || (hop.ip != null && isPrivateAddress(hop.ip))
+    const home = segment ? segment.zone === 'home' : hop.ip != null && isPrivateAddress(hop.ip)
     const label = home
       ? zone('home')
       : segment
@@ -669,25 +670,34 @@ export function reportCandidateKey(sessionId: number, number: number): string {
 
 const PROBLEM_STATUSES = new Set(['watch', 'degraded', 'critical'])
 
+export function isProblemCandidate(candidate: ReportCandidate): boolean {
+  return PROBLEM_STATUSES.has(candidate.match.status)
+}
+
 export function defaultReportSelection(
   candidates: ReportCandidate[],
-  focusSessionId?: number
+  focusSessionId?: number,
+  withReference = false
 ): string[] {
   const pool =
     focusSessionId == null
       ? candidates
       : candidates.filter(candidate => candidate.sessionId === focusSessionId)
   const measured = pool.filter(candidate => matchMeasure(candidate.match)?.pingMs != null)
-  const problems = measured.filter(candidate => PROBLEM_STATUSES.has(candidate.match.status))
+  const problems = measured.filter(isProblemCandidate)
 
-  if (problems.length === 0) return measured.slice(0, 1).map(candidate => candidate.key)
+  if (problems.length === 0) {
+    return withReference ? measured.slice(0, 1).map(candidate => candidate.key) : []
+  }
 
   const selected = problems.slice(0, focusSessionId == null ? 3 : 5)
-  const reference = candidates.find(
-    candidate =>
-      candidate.gameName === selected[0].gameName &&
-      candidate.match.status === 'ok' &&
-      matchMeasure(candidate.match)?.pingMs != null
-  )
+  const reference = withReference
+    ? candidates.find(
+        candidate =>
+          candidate.gameName === selected[0].gameName &&
+          candidate.match.status === 'ok' &&
+          matchMeasure(candidate.match)?.pingMs != null
+      )
+    : undefined
   return [...selected, ...(reference ? [reference] : [])].map(candidate => candidate.key)
 }
