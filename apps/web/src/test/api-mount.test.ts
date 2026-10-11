@@ -10,7 +10,7 @@ describe('api mount', () => {
   it('forwards /api/health to the Hono app', async () => {
     const res = await handler({ request: new Request('https://gameroute.test/api/health') })
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ ok: true, version: API_VERSION })
+    expect(await res.json()).toEqual({ ok: true, version: API_VERSION, db: 'not_configured' })
   })
 
   it('serves the OpenAPI document', async () => {
