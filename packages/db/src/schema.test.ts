@@ -45,10 +45,10 @@ describe.skipIf(!adminUrl)('schema', () => {
     await db?.$client.end()
     for (let attempt = 0; attempt < 50; attempt++) {
       const { rows } = await admin.execute<{ count: number }>(
-        sql`select count(*)::int as count from pg_stat_activity where datname = ${name}`,
+        sql`select count(*)::int as count from pg_stat_activity where datname = ${name}`
       )
       if (rows[0]?.count === 0) break
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await new Promise(resolve => setTimeout(resolve, 100))
     }
     await admin?.execute(sql.raw(`drop database if exists ${name}`))
     await admin?.$client.end()
