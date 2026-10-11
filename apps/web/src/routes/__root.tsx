@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { NotFound } from '@/components/NotFound'
 import { SiteFooter } from '@/components/SiteFooter'
 import { SiteHeader } from '@/components/SiteHeader'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { pageHead } from '@/lib/head'
 import { m } from '@/paraglide/messages'
 import { getLocale } from '@/paraglide/runtime'
@@ -48,12 +49,14 @@ function RootDocument({ children }: { children: ReactNode }) {
 
 function RootLayout() {
   return (
-    <div className="flex min-h-screen flex-col">
-      <SiteHeader />
-      <main className="flex-1">
-        <Outlet />
-      </main>
-      <SiteFooter />
-    </div>
+    <TooltipProvider>
+      <div className="flex min-h-screen flex-col">
+        <SiteHeader />
+        <main className="flex-1">
+          <Outlet />
+        </main>
+        <SiteFooter />
+      </div>
+    </TooltipProvider>
   )
 }

@@ -5,7 +5,7 @@ export function Logo({ size = 30 }: { size?: number }) {
   return (
     <span
       aria-hidden="true"
-      className="inline-flex shrink-0 items-center justify-center rounded-[3px] bg-action text-on-action"
+      className="inline-flex shrink-0 items-center justify-center rounded-sm bg-foreground text-background"
       style={{ width: size, height: size }}
     >
       <svg

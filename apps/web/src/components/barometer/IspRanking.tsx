@@ -1,14 +1,26 @@
 import { Link } from '@tanstack/react-router'
+import { InfoTip } from '@/components/InfoTip'
+import { Small } from '@/components/Typography'
+import { Progress, ProgressLabel } from '@/components/ui/progress'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import {
   type CollectingIsp,
   MIN_MATCHES,
   MIN_PLAYERS,
   type RankedIsp,
   type Ranking,
-  rampClass,
+  rampColor,
   reliability,
 } from '@/data/barometer'
 import { formatNumber, formatPercent } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import { m } from '@/paraglide/messages'
 
 const RELIABILITY = {
@@ -16,9 +28,6 @@ const RELIABILITY = {
   medium: m.reliability_medium,
   low: m.reliability_low,
 }
-
-const ROW =
-  'grid grid-cols-[84px_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2.5 border-b py-3.5'
 
 interface Props {
   ranking: Ranking
@@ -31,14 +40,35 @@ export function IspRanking({ ranking, gameName }: Props) {
   }
 
   return (
-    <ol className="m-0 flex list-none flex-col border-t p-0">
-      {ranking.ranked.map(isp => (
-        <RankedRow key={isp.asn} isp={isp} />
-      ))}
-      {ranking.collecting.map(isp => (
-        <CollectingRow key={isp.name} isp={isp} />
-      ))}
-    </ol>
+    <Table className="text-ui">
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <TableHead className="w-24 text-label text-muted-foreground">
+            {m.ranking_col_rank()}
+          </TableHead>
+          <TableHead className="text-label text-muted-foreground">{m.ranking_col_isp()}</TableHead>
+          <TableHead className="min-w-[200px] text-label text-muted-foreground">
+            {m.ranking_col_clean()}
+          </TableHead>
+          <TableHead className="text-label text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              {m.ranking_col_sample()}
+              <InfoTip label={m.ranking_sample_help_label()}>
+                {m.ranking_sample_help({ players: MIN_PLAYERS, matches: MIN_MATCHES })}
+              </InfoTip>
+            </span>
+          </TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {ranking.ranked.map(isp => (
+          <RankedRow key={isp.asn} isp={isp} />
+        ))}
+        {ranking.collecting.map(isp => (
+          <CollectingRow key={isp.name} isp={isp} />
+        ))}
+      </TableBody>
+    </Table>
   )
 }
 
@@ -48,100 +78,119 @@ function RankedRow({ isp }: { isp: RankedIsp }) {
   const high = Math.min(100, isp.cleanShare + isp.ciHalfWidth)
 
   return (
-    <li className={ROW}>
-      <span className="gw-num text-[13px] text-ink-muted">{rank}</span>
-      <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-[15px] leading-5 font-semibold">{isp.name}</span>
-        <span className="gw-num text-[11px] leading-[14px] text-ink-subtle">
-          {m.ranking_isp_meta({
-            asn: isp.asn,
-            players: formatNumber(isp.players),
-            matches: formatNumber(isp.matches),
-          })}
+    <TableRow>
+      <TableCell className="py-3.5 font-mono text-muted-foreground">{rank}</TableCell>
+      <TableCell className="py-3.5">
+        <span className="block text-[15px] leading-5 font-semibold">{isp.name}</span>
+        <span className="font-mono text-[11px] leading-[14px] text-subtle-foreground">
+          {m.ranking_asn({ asn: isp.asn })}
         </span>
-      </span>
-      <span className="flex flex-col items-end gap-0.5">
-        <span className="gw-big">{formatPercent(isp.cleanShare)}</span>
-        <span className="gw-num text-[11px] leading-[14px] text-ink-subtle">
-          {m.ranking_ci({
-            ci: formatNumber(isp.ciHalfWidth, 1),
-            reliability: RELIABILITY[reliability(isp.ciHalfWidth)](),
-          })}
-        </span>
-      </span>
-      <span className="gw-track col-[2/-1]" aria-hidden="true">
+      </TableCell>
+      <TableCell className="py-3.5">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="font-mono text-readout text-primary-ink tabular-nums">
+            {formatPercent(isp.cleanShare)}
+          </span>
+          <span className="font-mono text-[11px] leading-[14px] text-subtle-foreground">
+            {m.ranking_ci({
+              ci: formatNumber(isp.ciHalfWidth, 1),
+              reliability: RELIABILITY[reliability(isp.ciHalfWidth)](),
+            })}
+          </span>
+        </div>
         <span
-          className={`gw-fill ${rampClass(isp.cleanShare)}`}
-          style={{ width: `${isp.cleanShare}%` }}
-        />
-        <span className="gw-ci" style={{ left: `${low}%`, width: `${high - low}%` }} />
-      </span>
-    </li>
+          className="relative mt-2 block h-2 bg-muted ring-1 ring-border ring-inset"
+          aria-hidden="true"
+        >
+          <span
+            className={cn('absolute inset-y-0 left-0', rampColor(isp.cleanShare))}
+            style={{ width: `${isp.cleanShare}%` }}
+          />
+          <span
+            className="absolute -top-1 h-4 border-x-2 border-foreground"
+            style={{ left: `${low}%`, width: `${high - low}%` }}
+          >
+            <span className="absolute inset-x-0 top-[7px] h-0.5 bg-foreground" />
+          </span>
+        </span>
+      </TableCell>
+      <TableCell className="py-3.5 text-muted-foreground">
+        {m.ranking_sample({
+          players: formatNumber(isp.players),
+          matches: formatNumber(isp.matches),
+        })}
+      </TableCell>
+    </TableRow>
   )
 }
 
 function CollectingRow({ isp }: { isp: CollectingIsp }) {
   return (
-    <li className={ROW}>
-      <span className="text-[13px] text-ink-subtle">{m.ranking_unranked()}</span>
-      <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-[15px] leading-5 font-semibold text-ink-muted">{isp.name}</span>
-        <span className="text-xs text-ink-subtle">{m.ranking_collecting()}</span>
-      </span>
-      <span className="text-right text-xs text-ink-muted">
-        {m.ranking_players_needed({ count: formatNumber(isp.players), required: MIN_PLAYERS })}
-      </span>
-      <Progress value={isp.players} max={MIN_PLAYERS} className="col-[2/-1]" />
-    </li>
+    <TableRow>
+      <TableCell className="py-3.5 text-subtle-foreground">{m.ranking_unranked()}</TableCell>
+      <TableCell className="py-3.5">
+        <span className="block text-[15px] leading-5 font-semibold text-muted-foreground">
+          {isp.name}
+        </span>
+        <span className="text-label text-subtle-foreground">{m.ranking_collecting()}</span>
+      </TableCell>
+      <TableCell colSpan={2} className="py-3.5">
+        <CollectProgress players={isp.players} label={m.ranking_players_needed} />
+      </TableCell>
+    </TableRow>
+  )
+}
+
+function CollectProgress({
+  players,
+  label,
+}: {
+  players: number
+  label: (inputs: { count: string; required: number }) => string
+}) {
+  return (
+    <Progress value={Math.min(players, MIN_PLAYERS)} max={MIN_PLAYERS} className="gap-1.5">
+      <ProgressLabel className="text-label font-normal text-muted-foreground">
+        {label({ count: formatNumber(players), required: MIN_PLAYERS })}
+      </ProgressLabel>
+    </Progress>
   )
 }
 
 function RankingEmpty({ players, gameName }: { players: number; gameName: string }) {
   return (
-    <div className="flex flex-col gap-3 rounded-[3px] border border-dashed border-line-strong p-5">
-      <p className="m-0 text-[15px] leading-5 font-semibold">
+    <div className="flex flex-col gap-3 border border-dashed border-border-strong bg-card p-5">
+      <p className="text-[15px] leading-5 font-semibold">
         {m.ranking_empty_title({ game: gameName })}
       </p>
-      <p className="gw-text text-sm leading-[21px]">
+      <p className="max-w-[65ch] text-[14px] leading-[21px] text-muted-foreground">
         {m.ranking_empty_text({ game: gameName, players: MIN_PLAYERS, matches: MIN_MATCHES })}
       </p>
-      <div className="flex max-w-[440px] flex-col gap-1.5">
-        <p className="m-0 text-xs text-ink-muted">
-          {m.ranking_empty_progress({ count: formatNumber(players), required: MIN_PLAYERS })}
-        </p>
-        <Progress value={players} max={MIN_PLAYERS} />
+      <div className="max-w-[440px]">
+        <CollectProgress players={players} label={m.ranking_empty_progress} />
       </div>
-      <p className="m-0 text-sm leading-5">
+      <p className="text-[14px] leading-5">
         <Link to="/telecharger">{m.ranking_empty_cta()}</Link>
       </p>
     </div>
   )
 }
 
-function Progress({ value, max, className }: { value: number; max: number; className?: string }) {
-  const width = `${Math.min(100, Math.round((value / max) * 100))}%`
-  return (
-    <span className={`gw-progress block ${className ?? ''}`} aria-hidden="true">
-      <span style={{ width }} />
-    </span>
-  )
-}
-
 export function RankingLegend() {
   return (
     <div className="flex flex-col gap-2">
-      <p className="gw-small flex flex-wrap items-center gap-x-2 gap-y-1">
+      <Small className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span>{m.ranking_ramp_start()}</span>
-        <span className="gw-ramp" aria-hidden="true">
-          <span className="gw-q1" />
-          <span className="gw-q2" />
-          <span className="gw-q3" />
-          <span className="gw-q4" />
-          <span className="gw-q5" />
+        <span className="inline-flex gap-0.5" aria-hidden="true">
+          <span className="h-3 w-[18px] bg-bar-1" />
+          <span className="h-3 w-[18px] bg-bar-2" />
+          <span className="h-3 w-[18px] bg-bar-3" />
+          <span className="h-3 w-[18px] bg-bar-4" />
+          <span className="h-3 w-[18px] bg-bar-5" />
         </span>
         <span>{m.ranking_ramp_end()}</span>
-      </p>
-      <p className="gw-small">{m.ranking_legend({ players: MIN_PLAYERS, matches: MIN_MATCHES })}</p>
+      </Small>
+      <Small>{m.ranking_legend({ players: MIN_PLAYERS, matches: MIN_MATCHES })}</Small>
     </div>
   )
 }
