@@ -78,7 +78,7 @@ describe('api', () => {
     expect(res.status).toBe(404)
   })
 
-  it('serves an OpenAPI document listing the health route', async () => {
+  it('serves an OpenAPI document listing the routes', async () => {
     const res = await createApp().request('/api/openapi.json')
     expect(res.status).toBe(200)
     const doc = (await res.json()) as {
@@ -88,7 +88,7 @@ describe('api', () => {
     }
     expect(doc.openapi).toBe('3.1.0')
     expect(doc.info).toEqual({ title: 'GameRoute API', version: API_VERSION })
-    expect(Object.keys(doc.paths)).toEqual(['/api/health'])
+    expect(Object.keys(doc.paths)).toEqual(['/api/health', '/api/reports', '/api/reports/{id}'])
   })
 
   it('answers unknown routes with a JSON 404', async () => {

@@ -55,25 +55,29 @@ const MARK =
 export interface OgHop {
   zone: RouteZone
   label: string
-  latencyMs: number
+  detail: string
+  silent?: boolean
 }
 
 export interface OgReport {
+  label: string
   game: string
   verdict: string
   hops: OgHop[]
-  culprit: RouteZone
+  culprit: RouteZone | null
+  note?: string
 }
 
 export const DEMO_REPORT: OgReport = {
+  label: 'Exemple de rapport',
   game: 'League of Legends, serveur EUW',
   verdict: 'La latence grimpe dans le transit, pas chez vous ni chez votre FAI.',
   culprit: 'transit',
   hops: [
-    { zone: 'home', label: 'Domicile', latencyMs: 1 },
-    { zone: 'isp', label: 'FAI exemple', latencyMs: 9 },
-    { zone: 'transit', label: 'Transit', latencyMs: 41 },
-    { zone: 'service', label: 'Serveur du jeu', latencyMs: 44 },
+    { zone: 'home', label: 'Domicile', detail: '1 ms' },
+    { zone: 'isp', label: 'FAI exemple', detail: '9 ms' },
+    { zone: 'transit', label: 'Transit', detail: '41 ms' },
+    { zone: 'service', label: 'Serveur du jeu', detail: '44 ms' },
   ],
 }
 
@@ -114,7 +118,14 @@ function hopCell(hop: OgHop, culprit: boolean): Node {
     h(
       'div',
       { display: 'flex', alignItems: 'center', height: 18 },
-      h('div', { flex: 1, height: culprit ? 18 : 10, borderRadius: 9, backgroundColor: color })
+      hop.silent
+        ? h('div', {
+            flex: 1,
+            height: 10,
+            borderRadius: 9,
+            border: `2px dashed ${COLORS.subtle}`,
+          })
+        : h('div', { flex: 1, height: culprit ? 18 : 10, borderRadius: 9, backgroundColor: color })
     ),
     h(
       'div',
@@ -124,12 +135,16 @@ function hopCell(hop: OgHop, culprit: boolean): Node {
         { fontSize: 26, fontWeight: culprit ? 800 : 700, color: culprit ? color : COLORS.ink },
         hop.label
       ),
-      h('div', { fontSize: 22, color: COLORS.muted }, `${hop.latencyMs} ms`)
+      h('div', { fontSize: 22, color: COLORS.muted }, hop.detail)
     )
   )
 }
 
-export function demoCard(report: OgReport = DEMO_REPORT): Node {
+export function demoCard(): Node {
+  return reportCard(DEMO_REPORT)
+}
+
+export function reportCard(report: OgReport): Node {
   return h(
     'div',
     {
@@ -159,7 +174,7 @@ export function demoCard(report: OgReport = DEMO_REPORT): Node {
           fontSize: 22,
           fontWeight: 700,
         },
-        'Exemple de rapport'
+        report.label
       )
     ),
     h(
@@ -168,7 +183,13 @@ export function demoCard(report: OgReport = DEMO_REPORT): Node {
       h('div', { fontSize: 28, color: COLORS.subtle }, report.game),
       h(
         'div',
-        { fontSize: 54, fontWeight: 800, lineHeight: 1.12, letterSpacing: -1, maxWidth: 1000 },
+        {
+          fontSize: report.verdict.length > 64 ? 46 : 54,
+          fontWeight: 800,
+          lineHeight: 1.12,
+          letterSpacing: -1,
+          maxWidth: 1040,
+        },
         report.verdict
       )
     ),
@@ -183,7 +204,9 @@ export function demoCard(report: OgReport = DEMO_REPORT): Node {
         backgroundColor: COLORS.surface,
         border: `2px solid ${COLORS.line}`,
       },
-      ...report.hops.map(hop => hopCell(hop, hop.zone === report.culprit))
+      ...(report.hops.length > 0
+        ? report.hops.map(hop => hopCell(hop, hop.zone === report.culprit))
+        : [h('div', { fontSize: 26, color: COLORS.muted }, report.note ?? '')])
     )
   )
 }
