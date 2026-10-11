@@ -1,10 +1,18 @@
 import type { Database } from '@gameroute/db'
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
+import type { OgWasmLoader } from './og'
 
 export const API_VERSION = '0.1.0'
 
+export type { OgWasm, OgWasmLoader, WasmSource } from './og'
+
 export interface ApiOptions {
   version?: string
+  db?: Database
+  og?: OgWasmLoader
+}
+
+export interface ApiBindings {
   db?: Database
 }
 
@@ -17,6 +25,7 @@ const HealthSchema = z
     ok: z.boolean(),
     version: z.string().openapi({ example: API_VERSION }),
     db: z.enum(DB_STATUSES),
+    dbLatencyMs: z.number().optional(),
   })
   .openapi('Health')
 
@@ -37,24 +46,39 @@ const healthRoute = createRoute({
   },
 })
 
-async function checkDb(db: Database | undefined): Promise<DbStatus> {
-  if (!db) return 'not_configured'
+async function checkDb(db: Database | undefined): Promise<{ db: DbStatus; dbLatencyMs?: number }> {
+  if (!db) return { db: 'not_configured' }
+  const start = performance.now()
   try {
     await db.execute('select 1')
-    return 'ok'
+    return { db: 'ok', dbLatencyMs: Math.round(performance.now() - start) }
   } catch {
-    return 'unavailable'
+    return { db: 'unavailable' }
   }
 }
 
-export function createApp({ version = API_VERSION, db }: ApiOptions = {}) {
-  const app = new OpenAPIHono().basePath('/api')
+const IMMUTABLE = 'public, max-age=31536000, immutable'
+const SHORT_LIVED = 'public, max-age=3600, s-maxage=86400'
+
+export function createApp({ version = API_VERSION, db, og }: ApiOptions = {}) {
+  const app = new OpenAPIHono<{ Bindings: ApiBindings | undefined }>().basePath('/api')
 
   app.openapi(healthRoute, async c => {
-    const status = await checkDb(db)
-    if (status === 'unavailable') return c.json({ ok: false, version, db: status }, 503)
-    return c.json({ ok: true, version, db: status }, 200)
+    const status = await checkDb(c.env?.db ?? db)
+    if (status.db === 'unavailable') return c.json({ ok: false, version, ...status }, 503)
+    return c.json({ ok: true, version, ...status }, 200)
   })
+
+  if (og) {
+    app.get('/og/demo.png', async c => {
+      const { demoCard, renderPng } = await import('./og')
+      const png = await renderPng(demoCard(), og)
+      return c.body(png, 200, {
+        'Content-Type': 'image/png',
+        'Cache-Control': c.req.query('v') ? IMMUTABLE : SHORT_LIVED,
+      })
+    })
+  }
 
   app.doc31('/openapi.json', {
     openapi: '3.1.0',
