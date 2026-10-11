@@ -17,7 +17,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
       <Link to="/" activeOptions={{ exact: true }} className={NAV_LINK} onClick={onNavigate}>
         {m.nav_barometer()}
       </Link>
-      <Link to="/methode" className={NAV_LINK} onClick={onNavigate}>
+      <Link to="/method" className={NAV_LINK} onClick={onNavigate}>
         {m.nav_method()}
       </Link>
     </>
@@ -39,7 +39,7 @@ export function SiteHeader() {
         </Link>
         <nav aria-label={m.nav_label()} className="hidden items-center gap-7 md:flex">
           <NavLinks />
-          <LinkButton to="/telecharger">{m.nav_download()}</LinkButton>
+          <LinkButton to="/download">{m.nav_download()}</LinkButton>
         </nav>
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger
@@ -60,7 +60,7 @@ export function SiteHeader() {
             </div>
             <nav aria-label={m.nav_label()} className="flex flex-col items-start gap-5">
               <NavLinks onNavigate={close} />
-              <LinkButton to="/telecharger" size="lg" onClick={close}>
+              <LinkButton to="/download" size="lg" onClick={close}>
                 {m.nav_download()}
               </LinkButton>
             </nav>

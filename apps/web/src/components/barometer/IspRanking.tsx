@@ -170,7 +170,7 @@ function RankingEmpty({ players, gameName }: { players: number; gameName: string
         <CollectProgress players={players} label={m.ranking_empty_progress} />
       </div>
       <p className="text-[14px] leading-5">
-        <Link to="/telecharger">{m.ranking_empty_cta()}</Link>
+        <Link to="/download">{m.ranking_empty_cta()}</Link>
       </p>
     </div>
   )
