@@ -13,6 +13,7 @@ pub mod ip_periods;
 pub mod live_probes;
 pub mod match_incidents;
 pub mod sessions;
+pub mod shared_reports;
 pub mod storage;
 pub mod traceroutes;
 
@@ -25,6 +26,7 @@ pub use ip_periods::get_ip_period_repository;
 pub use live_probes::get_live_probe_repository;
 pub use match_incidents::get_match_incident_repository;
 pub use sessions::get_session_repository;
+pub use shared_reports::get_shared_report_repository;
 pub use storage::get_storage_repository;
 pub use traceroutes::get_traceroute_repository;
 
@@ -79,6 +81,7 @@ pub fn init_repositories(pool: &SqlitePool) {
     game_pings::init_game_ping_repository(pool.clone());
     live_probes::init_live_probe_repository(pool.clone());
     match_incidents::init_match_incident_repository(pool.clone());
+    shared_reports::init_shared_report_repository(pool.clone());
 }
 
 #[cfg(test)]

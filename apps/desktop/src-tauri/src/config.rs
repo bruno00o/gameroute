@@ -241,3 +241,16 @@ pub const PIPE_BUSY_WAIT_MS: u32 = 2_000;
 
 /// Timeout (milliseconds) for traceroute via capture service (longer than capture).
 pub const TRACEROUTE_SERVICE_TIMEOUT_MS: u32 = 70_000;
+
+// ── Shared reports ─────────────────────────────────────────────────────────
+
+pub const REPORT_API_URL: &str = "https://gameroute-web.bruno-bb6.workers.dev";
+
+/// Read in debug builds only, to point the app at a local API.
+pub const REPORT_API_URL_ENV: &str = "GAMEROUTE_API_URL";
+
+pub const REPORT_API_TIMEOUT: Duration = Duration::from_secs(15);
+
+pub const REPORT_API_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+pub const REPORT_MAX_BYTES: usize = 64 * 1024;

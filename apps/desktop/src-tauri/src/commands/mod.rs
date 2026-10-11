@@ -7,6 +7,7 @@ pub mod live_status;
 pub mod mini;
 pub mod monitoring;
 pub mod network;
+pub mod reports;
 pub mod service;
 pub mod sessions;
 pub mod settings;

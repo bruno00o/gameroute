@@ -35,6 +35,7 @@ use commands::network::{
     get_ignored_connection_count, get_network_map_data, get_network_overview_stats,
     get_recurring_problem_hops, get_severity_thresholds, trace_address,
 };
+use commands::reports::{delete_shared_report, list_shared_reports, share_report};
 use commands::service::{check_capture_service_status, open_log_dir, restart_capture_service};
 use commands::sessions::{
     delete_session, get_match_recap, get_previous_session_id, get_session_detail,
@@ -327,6 +328,9 @@ pub fn run() {
             hide_mini_window,
             set_mini_collapsed,
             set_mini_always_on_top,
+            share_report,
+            list_shared_reports,
+            delete_shared_report,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
