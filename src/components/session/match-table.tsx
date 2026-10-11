@@ -4,16 +4,21 @@ import * as m from '@/paraglide/messages'
 import type { MeasuredFlow, SessionMatch, TracerouteWithHops } from '@/types/backend'
 import { formatClock, formatElapsed, formatMs } from '@/lib/format'
 import {
-  flowProvenance,
   flowServerLabel,
   formatFlowPing,
   formatLoss,
   matchMeasure,
+  pingSourceNote,
   regionPingsText,
   severityRank,
+  traceOf,
+  traceTiming,
+  traceTimingText,
 } from '@/lib/matches'
+import { cn } from '@/lib/utils'
 import { DataTable, type DataTableColumn } from '@/components/data-table'
 import { StatusPill } from '@/components/status/status-pill'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 type MatchTableProps = {
   matches: SessionMatch[]
@@ -26,14 +31,39 @@ type MatchTableProps = {
   className?: string
 }
 
-function Measure({ value, notes }: { value: string; notes: string[] }) {
+function Measure({
+  value,
+  point,
+  details,
+}: {
+  value: string
+  point: string | null
+  details: string[]
+}) {
+  const [label, ...more] = point ? [point, ...details] : details
+  const note = 'text-label text-ink-subtle text-right font-sans font-normal whitespace-nowrap'
+
   return (
     <span className="inline-flex flex-col items-end">
       <span>{value}</span>
-      {notes.length > 0 && (
-        <span className="text-label text-ink-subtle max-w-[26ch] text-right font-sans font-normal whitespace-normal">
-          {notes.join(', ')}
-        </span>
+      {more.length > 0 ? (
+        <Tooltip>
+          <TooltipTrigger
+            className={cn(
+              note,
+              'decoration-line-strong cursor-help underline decoration-dotted underline-offset-2'
+            )}
+          >
+            {label}
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="flex flex-col gap-1 text-left">
+            {more.map(detail => (
+              <span key={detail}>{detail}</span>
+            ))}
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        label && <span className={note}>{label}</span>
       )}
     </span>
   )
@@ -50,13 +80,19 @@ function MatchTable({
   className,
 }: MatchTableProps) {
   const columns = useMemo<DataTableColumn<SessionMatch>[]>(() => {
-    const provenance = (flow: MeasuredFlow) =>
-      flowProvenance(flow, matches, traceroutes, sessionEndedAt, { withOffset: detailed })
+    const point = (flow: MeasuredFlow) =>
+      pingSourceNote(flow, traceOf(flow, traceroutes)?.route)
 
-    const pingNotes = (match: SessionMatch) => {
-      const regions = detailed && gameName ? regionPingsText(match, gameName) : null
-      return regions ? [...provenance(match), regions] : provenance(match)
+    const timing = (flow: MeasuredFlow) => {
+      if (flow.game) return null
+      const when = traceTiming(flow, matches, sessionEndedAt)
+      return when && traceTimingText(when)
     }
+
+    const pingDetails = (match: SessionMatch) =>
+      [timing(match), gameName ? regionPingsText(match, gameName) : null].filter(
+        (detail): detail is string => detail != null
+      )
 
     const voice = (match: SessionMatch) => {
       if (!match.voice) return null
@@ -64,7 +100,14 @@ function MatchTable({
         return <span className="text-muted-foreground font-sans">{m.matches_no_trace()}</span>
       }
       if (match.voice.trace.pingMs == null) return null
-      return <Measure value={formatFlowPing(match.voice.trace)} notes={provenance(match.voice)} />
+      const when = timing(match.voice)
+      return (
+        <Measure
+          value={formatFlowPing(match.voice.trace)}
+          point={point(match.voice)}
+          details={when ? [when] : []}
+        />
+      )
     }
 
     return [
@@ -101,7 +144,11 @@ function MatchTable({
         sortValue: match => matchMeasure(match)?.pingMs,
         render: match =>
           matchMeasure(match)?.pingMs == null ? null : (
-            <Measure value={formatFlowPing(matchMeasure(match))} notes={pingNotes(match)} />
+            <Measure
+              value={formatFlowPing(matchMeasure(match))}
+              point={point(match)}
+              details={pingDetails(match)}
+            />
           ),
       },
       {

@@ -992,5 +992,7 @@
   "home_week_median": "Median this week: {values}.",
   "home_also_watch": "Also worth watching: {games}.",
   "home_others_fine_one": "Nothing to report on {game}.",
-  "home_others_fine_other": "Nothing to report on your {count} other games."
+  "home_others_fine_other": "Nothing to report on your {count} other games.",
+  "ping_point_hop": "up to hop {hop} ({operator})",
+  "ping_point_hop_plain": "up to hop {hop}"
 }

@@ -66,7 +66,7 @@ describe('ping measured by the game', () => {
 
   it('names where the match ping comes from', () => {
     expect(pingSourceNote(measured, null)).toBe('measured by the game')
-    expect(pingSourceNote(matches[0], riotRoute())).toBe('measured up to hop 3 (RETN)')
+    expect(pingSourceNote(matches[0], riotRoute())).toBe('up to hop 3 (RETN)')
   })
 
   it('keeps the trace loss when the game does not report any', () => {
@@ -95,7 +95,7 @@ describe('ping measured by the game before the match', () => {
 
   it('stays context and never replaces the lower bound of the trace', () => {
     expect(formatFlowPing(matchMeasure(valorant))).toBe(`≥${NB}18${NB}ms`)
-    expect(pingSourceNote(valorant, riotRoute())).toBe('measured up to hop 3 (RETN)')
+    expect(pingSourceNote(valorant, riotRoute())).toBe('up to hop 3 (RETN)')
     expect(regionPingsText(valorant, 'VALORANT')).toBe(
       `Ping measured by VALORANT before the match: Paris 4${NB}ms, Frankfurt 13${NB}ms, London 14${NB}ms`
     )

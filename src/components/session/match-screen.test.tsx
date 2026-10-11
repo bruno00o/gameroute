@@ -59,7 +59,7 @@ describe('MatchScreen', () => {
 
     const ping = fact(region('This match'), 'Ping')
     expect(ping).toHaveTextContent('≥ 18 ms')
-    expect(ping).toHaveTextContent('measured up to hop 3 (RETN)')
+    expect(ping).toHaveTextContent('up to hop 3 (RETN)')
     expect(region('Route')).toHaveTextContent("Riot GamesDoesn't answer pings")
   })
 

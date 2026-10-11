@@ -129,6 +129,16 @@ export function measuredUpTo(
   return operator ? m.measured_up_to({ hop, operator }) : m.measured_up_to_hop({ hop })
 }
 
+export function measuredPoint(
+  trace: PingMeasure | null | undefined,
+  route: OperatorRoute | null | undefined
+): string | null {
+  if (!trace || trace.atDestination || trace.measuredHop == null) return null
+  const hop = String(trace.measuredHop)
+  const operator = operatorAt(route, trace.measuredHop)
+  return operator ? m.ping_point_hop({ hop, operator }) : m.ping_point_hop_plain({ hop })
+}
+
 export type TraceTiming =
   | { kind: 'during'; offsetSecs: number }
   | { kind: 'match'; number: number }
@@ -195,7 +205,7 @@ export function pingSourceNote(
   flow: MeasuredFlow,
   route: OperatorRoute | null | undefined
 ): string | null {
-  return flow.game ? m.ping_by_game() : measuredUpTo(flow.trace, route)
+  return flow.game ? m.ping_by_game() : measuredPoint(flow.trace, route)
 }
 
 export function usualPing(trace: PingMeasure | null | undefined): number | null {
