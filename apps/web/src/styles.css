@@ -15,6 +15,9 @@
   --ink: #151a21;
   --ink-muted: #4d535b;
   --ink-subtle: #666c74;
+  --ok: #00774b;
+  --watch: #786900;
+  --degraded: #b84800;
   --critical: #a91228;
   --brand: #4a44c6;
   --brand-hover: #3b36a8;
@@ -45,6 +48,9 @@
     --ink: #eef0f3;
     --ink-muted: #b2b8bf;
     --ink-subtle: #999fa7;
+    --ok: #53e2a6;
+    --watch: #f5e05d;
+    --degraded: #fb8d41;
     --critical: #ff6367;
     --brand: #a5a1ff;
     --brand-hover: #c3c0ff;
@@ -111,6 +117,10 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-ok: var(--ok);
+  --color-watch: var(--watch);
+  --color-degraded: var(--degraded);
+  --color-critical: var(--critical);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

@@ -8,6 +8,8 @@ import type { ApiEnv, ApiServices } from './types'
 
 export const API_VERSION = '0.1.0'
 
+export { REPORT_ID_PATTERN } from './tokens'
+
 export type { OgWasm, OgWasmLoader, WasmSource } from './og'
 export type {
   ApiBindings,
