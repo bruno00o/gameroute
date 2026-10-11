@@ -13,10 +13,10 @@ dist-ssr
 *.local
 
 # Paraglide auto-generated
-src/paraglide/
+apps/desktop/src/paraglide/
 
 # TanStack Router auto-generated
-src/routeTree.gen.ts
+apps/desktop/src/routeTree.gen.ts
 
 # Environment files
 .env
@@ -35,13 +35,13 @@ src/routeTree.gen.ts
 *.sw?
 
 # Tauri build artifacts and temporary files
-src-tauri/binaries/
-src-tauri/PktMon.etl
-src-tauri/qc
-src-tauri/query
+apps/desktop/src-tauri/binaries/
+apps/desktop/src-tauri/PktMon.etl
+apps/desktop/src-tauri/qc
+apps/desktop/src-tauri/query
 
 # MaxMind GeoLite2 databases (downloaded via scripts/download-geolite.ps1)
-src-tauri/resources/*.mmdb
+apps/desktop/src-tauri/resources/*.mmdb
 
 .claude/
 .agents/

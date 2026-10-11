@@ -5,11 +5,17 @@
   "files": {
     "ignoreUnknown": true,
     "includes": [
-      "src/**/*.{ts,tsx,css}",
-      "*.ts",
+      "apps/*/src/**/*.{ts,tsx,css}",
+      "apps/*/*.ts",
+      "packages/*/src/**/*.{ts,tsx,css}",
+      "packages/*/*.ts",
       "biome.json",
-      "!src/paraglide",
-      "!src/routeTree.gen.ts"
+      "!**/src/paraglide",
+      "!**/src/routeTree.gen.ts",
+      "!**/src-tauri",
+      "!**/messages",
+      "!**/dist",
+      "!**/node_modules"
     ]
   },
   "formatter": {
