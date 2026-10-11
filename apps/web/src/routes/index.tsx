@@ -13,7 +13,8 @@ import { pageHead } from '@/lib/head'
 import { m } from '@/paraglide/messages'
 
 export const Route = createFileRoute('/')({
-  head: () => pageHead({ title: m.meta_home_title(), description: m.meta_home_description() }),
+  head: () =>
+    pageHead({ title: m.meta_home_title(), description: m.meta_home_description(), path: '/' }),
   component: HomePage,
 })
 

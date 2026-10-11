@@ -68,6 +68,19 @@ describe('api', () => {
     expect([view.getUint32(16), view.getUint32(20)]).toEqual([1200, 630])
   })
 
+  it('renders the site Open Graph card in each language', async () => {
+    const app = createApp({ og: loadWasm })
+    const pngs = await Promise.all(
+      ['fr', 'en', 'es'].map(async lang => {
+        const res = await app.request(`/api/og/site.png?lang=${lang}`)
+        expect(res.status).toBe(200)
+        expect(res.headers.get('content-type')).toBe('image/png')
+        return Buffer.from(await res.arrayBuffer()).toString('base64')
+      })
+    )
+    expect(new Set(pngs).size).toBe(3)
+  })
+
   it('marks versioned Open Graph URLs immutable', async () => {
     const res = await createApp({ og: loadWasm }).request('/api/og/demo.png?v=1')
     expect(res.headers.get('cache-control')).toBe('public, max-age=31536000, immutable')
