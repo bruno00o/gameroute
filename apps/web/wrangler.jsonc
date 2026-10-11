@@ -4,6 +4,13 @@
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/server.ts",
-  "workers_dev": false,
-  "preview_urls": false
+  "workers_dev": true,
+  "preview_urls": false,
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "6a9b86009b994097a6227ee979aa193e",
+      "localConnectionString": "postgres://gameroute:gameroute@127.0.0.1:5432/gameroute"
+    }
+  ]
 }

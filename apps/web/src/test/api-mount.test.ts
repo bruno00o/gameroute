@@ -16,7 +16,8 @@ describe('api mount', () => {
   it('serves the OpenAPI document', async () => {
     const res = await handler({ request: new Request('https://gameroute.test/api/openapi.json') })
     expect(res.status).toBe(200)
-    expect((await res.json()).paths).toHaveProperty('/api/health')
+    const doc = (await res.json()) as { paths: Record<string, unknown> }
+    expect(doc.paths).toHaveProperty('/api/health')
   })
 
   it('answers unknown API paths with a JSON 404', async () => {
