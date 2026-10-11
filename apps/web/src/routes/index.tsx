@@ -3,6 +3,10 @@ import { useState } from 'react'
 import { BarometerFilters } from '@/components/barometer/BarometerFilters'
 import { IspRanking, RankingLegend } from '@/components/barometer/IspRanking'
 import { ProblemZones } from '@/components/barometer/ProblemZones'
+import { SourceBadge } from '@/components/barometer/SourceBadge'
+import { Container } from '@/components/Container'
+import { Display, Heading, Lead, List, Small, Text, Title } from '@/components/Typography'
+import { LinkButton } from '@/components/LinkButton'
 import { type Country, GAMES, getRanking } from '@/data/barometer'
 import { countryName, formatNumber } from '@/lib/format'
 import { pageHead } from '@/lib/head'
@@ -21,11 +25,11 @@ function HomePage() {
 
   return (
     <>
-      <div className="border-b bg-tint-accent">
-        <section className="gw-wrap flex flex-col gap-7 pt-[72px] pb-20">
+      <div className="border-b bg-tint-primary">
+        <Container className="flex flex-col gap-7 pt-[72px] pb-20">
           <div className="flex max-w-[820px] flex-col gap-[18px]">
-            <h1 className="gw-display">{m.home_title()}</h1>
-            <p className="gw-lead">{m.home_lead()}</p>
+            <Display>{m.home_title()}</Display>
+            <Lead>{m.home_lead()}</Lead>
           </div>
 
           <BarometerFilters
@@ -41,66 +45,65 @@ function HomePage() {
               className="flex min-w-0 flex-[999_1_620px] flex-col gap-4"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-x-5 gap-y-1.5">
-                <h2 id="ranking-title" className="gw-h3">
+                <Heading id="ranking-title">
                   {m.ranking_title({ game: game.name, country: countryName(country) })}
-                </h2>
-                <p className="gw-small">
+                </Heading>
+                <Small>
                   {ranking.ranked.length > 0
                     ? m.ranking_sample({
                         players: formatNumber(ranking.players),
                         matches: formatNumber(ranking.matches),
                       })
                     : m.ranking_collecting()}
-                </p>
+                </Small>
               </div>
               <IspRanking ranking={ranking} gameName={game.name} />
               <RankingLegend />
             </section>
 
-            <aside className="flex min-w-0 flex-[1_1_300px] flex-col gap-4 pt-1">
-              <h2 className="gw-h3 text-[17px] leading-6">
+            <aside className="flex min-w-0 flex-[1_1_300px] flex-col items-start gap-4 pt-1">
+              <Heading className="text-subheading">
                 {m.aside_provides_title({ game: game.name })}
-              </h2>
-              <p className="gw-text text-sm leading-[22px]">
+              </Heading>
+              <SourceBadge gameMeasured={game.gameMeasuredPing} />
+              <Text className="text-[14px] leading-[22px]">
                 {game.gameMeasuredPing ? m.aside_game_ping() : m.aside_no_ping()}
-              </p>
-              <h2 className="gw-h3 mt-2 text-[17px] leading-6">{m.aside_clean_title()}</h2>
-              <p className="gw-text text-sm leading-[22px]">{m.aside_clean_text()}</p>
-              <Link to="/methode" hash="barometre" className="text-sm leading-5">
+              </Text>
+              <Heading className="mt-2 text-subheading">{m.aside_clean_title()}</Heading>
+              <Text className="text-[14px] leading-[22px]">{m.aside_clean_text()}</Text>
+              <Link to="/methode" hash="barometre" className="text-[14px] leading-5">
                 {m.aside_method_link()}
               </Link>
             </aside>
           </div>
-        </section>
+        </Container>
       </div>
 
       <ProblemZones />
 
       <section className="border-y bg-tint-calm">
-        <div className="gw-wrap grid grid-cols-[repeat(auto-fit,minmax(min(420px,100%),1fr))] gap-x-[72px] gap-y-8 py-20">
+        <Container className="grid grid-cols-[repeat(auto-fit,minmax(min(420px,100%),1fr))] gap-x-[72px] gap-y-8 py-20">
           <div className="flex min-w-0 flex-col gap-3.5">
-            <h2 className="gw-h2">{m.how_title()}</h2>
-            <ul className="gw-list">
+            <Title>{m.how_title()}</Title>
+            <List>
               <li>{m.how_probe()}</li>
               <li>{m.how_opt_in()}</li>
               <li>{m.how_bias()}</li>
-            </ul>
-            <p className="m-0 text-[15px] leading-6">
+            </List>
+            <p className="text-body">
               <Link to="/methode" hash="barometre">
                 {m.how_link()}
               </Link>
             </p>
           </div>
-          <div className="flex min-w-0 flex-col gap-3.5">
-            <h2 className="gw-h2">{m.add_title()}</h2>
-            <p className="gw-text">{m.add_text()}</p>
-            <div>
-              <Link to="/telecharger" className="gr-btn gr-btn--primary gr-btn--lg">
-                {m.add_cta()}
-              </Link>
-            </div>
+          <div className="flex min-w-0 flex-col items-start gap-3.5">
+            <Title>{m.add_title()}</Title>
+            <Text>{m.add_text()}</Text>
+            <LinkButton to="/telecharger" size="lg">
+              {m.add_cta()}
+            </LinkButton>
           </div>
-        </div>
+        </Container>
       </section>
     </>
   )

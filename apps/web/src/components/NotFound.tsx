@@ -1,14 +1,16 @@
 import { Link } from '@tanstack/react-router'
 import { m } from '@/paraglide/messages'
+import { Container } from './Container'
+import { Display, Lead } from './Typography'
 
 export function NotFound() {
   return (
-    <section className="gw-wrap flex flex-col items-start gap-5 pt-20 pb-24">
-      <h1 className="gw-display">{m.not_found_title()}</h1>
-      <p className="gw-lead">{m.not_found_text()}</p>
-      <Link to="/" className="text-[15px] leading-6">
+    <Container className="flex flex-col items-start gap-5 pt-20 pb-24">
+      <Display>{m.not_found_title()}</Display>
+      <Lead>{m.not_found_text()}</Lead>
+      <Link to="/" className="text-body">
         {m.not_found_home()}
       </Link>
-    </section>
+    </Container>
   )
 }

@@ -54,10 +54,10 @@ export function reliability(ciHalfWidth: number): Reliability {
   return 'low'
 }
 
-export function rampClass(cleanShare: number) {
-  if (cleanShare >= 94) return 'gw-q1'
-  if (cleanShare >= 92) return 'gw-q2'
-  if (cleanShare >= 89) return 'gw-q3'
-  if (cleanShare >= 85) return 'gw-q4'
-  return 'gw-q5'
+export function rampColor(cleanShare: number) {
+  if (cleanShare >= 94) return 'bg-bar-1'
+  if (cleanShare >= 92) return 'bg-bar-2'
+  if (cleanShare >= 89) return 'bg-bar-3'
+  if (cleanShare >= 85) return 'bg-bar-4'
+  return 'bg-bar-5'
 }
