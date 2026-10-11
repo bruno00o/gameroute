@@ -15,8 +15,18 @@ dist-ssr
 # Paraglide auto-generated
 apps/desktop/src/paraglide/
 
+apps/web/src/paraglide/
+
 # TanStack Router auto-generated
 apps/desktop/src/routeTree.gen.ts
+apps/web/src/routeTree.gen.ts
+
+# Web build output (TanStack Start, Cloudflare)
+.output
+.tanstack
+.wrangler
+.dev.vars*
+worker-configuration.d.ts
 
 # Environment files
 .env
