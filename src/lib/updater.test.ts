@@ -337,6 +337,41 @@ describe('releaseNotes', () => {
     ])
   })
 
+  it('keeps only features and bug fixes and drops commit and issue links', async () => {
+    const { releaseNotes } = await load()
+    const body = [
+      '### ⚠ BREAKING CHANGES',
+      '',
+      '* **db:** drop the old tables',
+      '',
+      '### Features',
+      '',
+      '* **home:** say it plainly ([#36](https://github.com/bruno00o/gameroute/issues/36)) ([9e89474](https://github.com/bruno00o/gameroute/commit/9e89474)), closes [#12](https://github.com/bruno00o/gameroute/issues/12)',
+      '* `trace`: follow https://example.com/docs (abc1234)',
+      '',
+      '### Performance Improvements',
+      '',
+      '* **live:** poll less',
+      '',
+      '### Bug Fixes',
+      '',
+      '* **route:** name a route without transit',
+    ].join('\n')
+
+    expect(releaseNotes(body)).toEqual([
+      'Say it plainly',
+      'Trace: follow',
+      'Name a route without transit',
+    ])
+  })
+
+  it('links to the release page of the offered version', async () => {
+    const { releaseUrl } = await load()
+
+    expect(releaseUrl('0.1.20')).toBe('https://github.com/bruno00o/gameroute/releases/tag/v0.1.20')
+    expect(releaseUrl('v0.1.20')).toBe('https://github.com/bruno00o/gameroute/releases/tag/v0.1.20')
+  })
+
   it('keeps plain lines when the body has no list', async () => {
     const { releaseNotes } = await load()
 

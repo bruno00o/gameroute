@@ -585,7 +585,7 @@
   "settings_wipe_done": "Se borraron todos los datos.",
   "settings_wipe_error": "No se pudo borrar todo. Detén el monitoreo y vuelve a intentarlo.",
   "updater_title": "GameRoute {version} está disponible",
-  "updater_update_now": "Actualizar y reiniciar",
+  "updater_update_now": "Actualizar ahora",
   "updater_later": "Más tarde",
   "updater_match_warning": "{game} se está monitoreando. Instalar ahora detiene la medición de la partida en curso.",
   "updater_no_match": "No hay ninguna partida en curso. GameRoute se reinicia tras la instalación.",
@@ -967,5 +967,8 @@
   "route_map_none": "Ningún punto de esta ruta se puede ubicar.",
   "route_map_aria": "Mapa de la ruta: {places}",
   "route_contrib_deduced": "deducido del ping del juego",
-  "route_limit_note_deduced": "{destination} no responde a los pings, lo cual es normal. Las trazas se detienen en el último router que responde (salto {hop}, {operator}); el último tramo, +{deduced}, se deduce del ping medido por el juego."
+  "route_limit_note_deduced": "{destination} no responde a los pings, lo cual es normal. Las trazas se detienen en el último router que responde (salto {hop}, {operator}); el último tramo, +{deduced}, se deduce del ping medido por el juego.",
+  "updater_more_one": "y {count} cambio más",
+  "updater_more_other": "y {count} cambios más",
+  "updater_all_notes": "Ver todas las novedades"
 }

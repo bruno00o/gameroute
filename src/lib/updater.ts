@@ -87,23 +87,49 @@ export async function checkForAppUpdatesOnStartup(): Promise<void> {
   }
 }
 
-const COMMIT_LINK = /\s*\(\[[0-9a-f]{7,40}\]\([^)]*\)\)\s*$/i
+export const RELEASE_NOTES_SHOWN = 8
+
+const RELEASES_URL = 'https://github.com/bruno00o/gameroute/releases/tag/v'
+const COMMIT_REFS = /\s*\((?:\[[^\]]*\]\([^)]*\)(?:,\s*)?)+\)/g
+const BARE_HASH = /\s*\(\s*[0-9a-f]{7,40}\s*\)/gi
+const CLOSES = /,?\s+closes\s+.*$/i
 const SCOPE = /^\*\*[^*]+:\*\*\s*/
 const MARKDOWN_LINK = /\[([^\]]+)\]\([^)]*\)/g
+const BARE_URL = /\s*<?https?:\/\/\S+>?/g
+const SECTION = /^#{3,}\s+(.*)$/
+const KEPT_SECTIONS = /^(features|bug fixes)$/i
+
+export function releaseUrl(version: string): string {
+  return `${RELEASES_URL}${version.replace(/^v/, '')}`
+}
 
 function plainNote(markdown: string): string {
   const text = markdown
-    .replace(COMMIT_LINK, '')
+    .replace(COMMIT_REFS, '')
+    .replace(BARE_HASH, '')
+    .replace(CLOSES, '')
     .replace(SCOPE, '')
     .replace(MARKDOWN_LINK, '$1')
-    .replace(/\*\*/g, '')
+    .replace(BARE_URL, '')
+    .replace(/\*\*|__|`/g, '')
     .trim()
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 export function releaseNotes(body: string | undefined): string[] {
   const lines = (body ?? '').split(/\r?\n/).map(line => line.trim())
-  const items = lines.flatMap(line => /^[*-]\s+(.+)$/.exec(line)?.[1] ?? [])
-  const notes = items.length > 0 ? items : lines.filter(line => line && !line.startsWith('#'))
+  const sectioned = lines.some(line => SECTION.test(line))
+  let keep = !sectioned
+  const items: string[] = []
+  for (const line of lines) {
+    const section = SECTION.exec(line)
+    if (section) keep = KEPT_SECTIONS.test(section[1].trim())
+    else if (keep) {
+      const item = /^[*-]\s+(.+)$/.exec(line)?.[1]
+      if (item) items.push(item)
+    }
+  }
+  const notes =
+    items.length > 0 || sectioned ? items : lines.filter(line => line && !line.startsWith('#'))
   return notes.map(plainNote).filter(Boolean)
 }

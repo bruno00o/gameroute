@@ -585,7 +585,7 @@
   "settings_wipe_done": "All data deleted.",
   "settings_wipe_error": "Couldn’t delete everything. Stop monitoring, then try again.",
   "updater_title": "GameRoute {version} is available",
-  "updater_update_now": "Update and restart",
+  "updater_update_now": "Update now",
   "updater_later": "Later",
   "updater_match_warning": "{game} is being monitored. Installing now stops measuring the current match.",
   "updater_no_match": "No match in progress. GameRoute restarts after installing.",
@@ -967,5 +967,8 @@
   "route_map_none": "No point on this route can be located.",
   "route_map_aria": "Route map: {places}",
   "route_contrib_deduced": "deduced from the game ping",
-  "route_limit_note_deduced": "{destination} doesn’t answer pings, which is normal. Traces stop at the last router that answers (hop {hop}, {operator}); the last stretch, +{deduced}, is deduced from the ping measured by the game."
+  "route_limit_note_deduced": "{destination} doesn’t answer pings, which is normal. Traces stop at the last router that answers (hop {hop}, {operator}); the last stretch, +{deduced}, is deduced from the ping measured by the game.",
+  "updater_more_one": "and {count} more change",
+  "updater_more_other": "and {count} more changes",
+  "updater_all_notes": "See all release notes"
 }
