@@ -18,7 +18,7 @@ import {
   formatLoss,
   formatUsualPing,
   matchMeasure,
-  measuredUpTo,
+  measuredPoint,
   pingSourceNote,
   regionPingsText,
   statusReason,
@@ -299,7 +299,7 @@ function VoicePanel({
         <Fact
           label={m.matches_col_ping()}
           detail={
-            trace ? measuredUpTo(trace, traceOf(voice, traceroutes)?.route) : m.matches_no_trace()
+            trace ? measuredPoint(trace, traceOf(voice, traceroutes)?.route) : m.matches_no_trace()
           }
         >
           {trace?.pingMs != null && formatFlowPing(trace)}

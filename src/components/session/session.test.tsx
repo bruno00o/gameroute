@@ -1,4 +1,5 @@
 import { cleanup, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import {
@@ -72,22 +73,35 @@ describe('MatchTable', () => {
 
     const ping = cellsOf(bodyRows()[0])[4]
     expect(ping).toHaveTextContent('≥ 18 ms')
-    expect(ping).toHaveTextContent('measured up to hop 3 (RETN)')
-    expect(ping).not.toHaveTextContent('trace at')
+    expect(ping.textContent).toBe('≥ 18 msup to hop 3 (RETN)')
   })
 
-  it('says which match a borrowed trace comes from', () => {
+  it('keeps the trace time and the region pings of the game in a tooltip', async () => {
+    const matches = sessionMatches()
+    matches[0].regionPings = {
+      measuredAt: matches[0].startedAt,
+      pings: [{ region: 'Paris', pingMs: 6 }],
+    }
+    renderTable({ matches, gameName: 'VALORANT' })
+
+    await userEvent.hover(within(cellsOf(bodyRows()[0])[4]).getByText('up to hop 3 (RETN)'))
+
+    expect(await screen.findByText('trace at 0:41')).toBeInTheDocument()
+    expect(screen.getByText(/^Ping measured by VALORANT before the match: Paris 6/)).toBeVisible()
+  })
+
+  it('says which match a borrowed trace comes from', async () => {
     renderTable()
 
-    expect(cellsOf(bodyRows()[1])[4]).toHaveTextContent('trace from match 1')
+    await userEvent.hover(within(cellsOf(bodyRows()[1])[4]).getByText(/up to hop/))
+    expect(await screen.findByText('trace from match 1')).toBeInTheDocument()
   })
 
-  it('gives the offset of the trace and the jitter in the detailed view', () => {
+  it('gives the server address and the jitter in the detailed view', () => {
     renderTable({ detailed: true })
 
     const first = cellsOf(bodyRows()[0])
     expect(first[3]).toHaveTextContent(RIOT)
-    expect(first[4]).toHaveTextContent('trace at 0:41')
     expect(first[6]).toHaveTextContent('1.0 ms')
     expect(first[6].className).not.toMatch(/text-(ok|watch|degraded|critical)/)
   })

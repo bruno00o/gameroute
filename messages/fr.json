@@ -992,5 +992,7 @@
   "home_week_median": "Médiane de la semaine : {values}.",
   "home_also_watch": "À surveiller aussi : {games}.",
   "home_others_fine_one": "Rien à signaler sur {game}.",
-  "home_others_fine_other": "Rien à signaler sur vos {count} autres jeux."
+  "home_others_fine_other": "Rien à signaler sur vos {count} autres jeux.",
+  "ping_point_hop": "jusqu'au saut {hop} ({operator})",
+  "ping_point_hop_plain": "jusqu'au saut {hop}"
 }
