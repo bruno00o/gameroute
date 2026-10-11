@@ -1,10 +1,9 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
 import { ReportMissing, ReportView } from '@/components/report/ReportView'
-import { pageHead } from '@/lib/head'
+import { langQuery, pageHead } from '@/lib/head'
 import { getReport } from '@/lib/report.functions'
 import { gameName, matchesLabel, reportDay, verdictHeadline, verdictShort } from '@/lib/report-text'
 import { m } from '@/paraglide/messages'
-import { getLocale } from '@/paraglide/runtime'
 
 export const Route = createFileRoute('/r/$id')({
   loader: async ({ params }) => {
@@ -23,28 +22,16 @@ export const Route = createFileRoute('/r/$id')({
       game,
       day: reportDay(payload),
     })
-    const en = getLocale() === 'en'
-    const image = `${origin}/api/og/r/${report.id}.png${en ? '?lang=en' : ''}`
-    const url = `${origin}${en ? '/en' : ''}/r/${report.id}`
-    const head = pageHead({ title, description, noindex: true })
-    return {
-      meta: [
-        ...head.meta,
-        { property: 'og:type', content: 'website' },
-        { property: 'og:site_name', content: 'GameRoute' },
-        { property: 'og:url', content: url },
-        { property: 'og:title', content: title },
-        { property: 'og:description', content: description },
-        { property: 'og:image', content: image },
-        { property: 'og:image:width', content: '1200' },
-        { property: 'og:image:height', content: '630' },
-        { property: 'og:image:alt', content: verdictHeadline(payload) },
-        { name: 'twitter:card', content: 'summary_large_image' },
-        { name: 'twitter:title', content: title },
-        { name: 'twitter:description', content: description },
-        { name: 'twitter:image', content: image },
-      ],
-    }
+    return pageHead({
+      title,
+      description,
+      path: `/r/${report.id}`,
+      image: {
+        url: `${origin}/api/og/r/${report.id}.png${langQuery()}`,
+        alt: verdictHeadline(payload),
+      },
+      noindex: true,
+    })
   },
   component: ReportPage,
   notFoundComponent: MissingReportPage,

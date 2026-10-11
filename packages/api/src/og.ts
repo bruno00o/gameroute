@@ -68,6 +68,12 @@ export interface OgReport {
   note?: string
 }
 
+export interface OgSite {
+  label: string
+  title: string
+  lead: string
+}
+
 export const DEMO_REPORT: OgReport = {
   label: 'Exemple de rapport',
   game: 'League of Legends, serveur EUW',
@@ -159,24 +165,7 @@ export function reportCard(report: OgReport): Node {
       fontFamily: 'Archivo',
       color: COLORS.ink,
     },
-    h(
-      'div',
-      { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-      wordmark(),
-      h(
-        'div',
-        {
-          display: 'flex',
-          padding: '10px 20px',
-          borderRadius: 999,
-          backgroundColor: COLORS.tint,
-          color: COLORS.brand,
-          fontSize: 22,
-          fontWeight: 700,
-        },
-        report.label
-      )
-    ),
+    header(report.label),
     h(
       'div',
       { display: 'flex', flexDirection: 'column', gap: 18 },
@@ -207,6 +196,63 @@ export function reportCard(report: OgReport): Node {
       ...(report.hops.length > 0
         ? report.hops.map(hop => hopCell(hop, hop.zone === report.culprit))
         : [h('div', { fontSize: 26, color: COLORS.muted }, report.note ?? '')])
+    )
+  )
+}
+
+function header(label: string): Node {
+  return h(
+    'div',
+    { display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
+    wordmark(),
+    h(
+      'div',
+      {
+        display: 'flex',
+        padding: '10px 20px',
+        borderRadius: 999,
+        backgroundColor: COLORS.tint,
+        color: COLORS.brand,
+        fontSize: 22,
+        fontWeight: 700,
+      },
+      label
+    )
+  )
+}
+
+export function siteCard(site: OgSite): Node {
+  return h(
+    'div',
+    {
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      width: '100%',
+      height: '100%',
+      boxSizing: 'border-box',
+      padding: 64,
+      backgroundColor: COLORS.canvas,
+      fontFamily: 'Archivo',
+      color: COLORS.ink,
+    },
+    header(site.label),
+    h(
+      'div',
+      { display: 'flex', flexDirection: 'column', gap: 22 },
+      h(
+        'div',
+        { fontSize: 64, fontWeight: 800, lineHeight: 1.08, letterSpacing: -1.5, maxWidth: 1000 },
+        site.title
+      ),
+      h('div', { fontSize: 30, color: COLORS.muted, maxWidth: 960 }, site.lead)
+    ),
+    h(
+      'div',
+      { display: 'flex', gap: 12 },
+      ...Object.values(ZONE_COLORS).map(color =>
+        h('div', { flex: 1, height: 14, borderRadius: 7, backgroundColor: color })
+      )
     )
   )
 }

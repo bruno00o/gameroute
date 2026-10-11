@@ -16,7 +16,12 @@ import { REPO_URL } from '@/lib/links'
 import { m } from '@/paraglide/messages'
 
 export const Route = createFileRoute('/method')({
-  head: () => pageHead({ title: m.meta_method_title(), description: m.meta_method_description() }),
+  head: () =>
+    pageHead({
+      title: m.meta_method_title(),
+      description: m.meta_method_description(),
+      path: '/method',
+    }),
   component: MethodPage,
 })
 

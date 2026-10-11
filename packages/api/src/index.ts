@@ -2,7 +2,7 @@ import { type Database, findReport } from '@gameroute/db'
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import { HTTPException } from 'hono/http-exception'
 import type { OgWasmLoader } from './og'
-import { buildOgReport, ogLang } from './og-report'
+import { buildOgReport, buildOgSite, ogLang } from './og-report'
 import { ogCacheKey, registerReports } from './reports'
 import type { ApiEnv, ApiServices } from './types'
 
@@ -115,6 +115,15 @@ export function createApp({ version = API_VERSION, og, ...services }: ApiOptions
     app.get('/og/demo.png', async c => {
       const { demoCard, renderPng } = await import('./og')
       const png = await renderPng(demoCard(), og)
+      return c.body(png, 200, {
+        'Content-Type': 'image/png',
+        'Cache-Control': c.req.query('v') ? IMMUTABLE : SHORT_LIVED,
+      })
+    })
+
+    app.get('/og/site.png', async c => {
+      const { renderPng, siteCard } = await import('./og')
+      const png = await renderPng(siteCard(buildOgSite(ogLang(c.req.query('lang')))), og)
       return c.body(png, 200, {
         'Content-Type': 'image/png',
         'Cache-Control': c.req.query('v') ? IMMUTABLE : SHORT_LIVED,
