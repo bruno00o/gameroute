@@ -230,21 +230,19 @@ afterEach(() => {
 })
 
 describe('Home', () => {
-  it('opens on a verdict with the numbers of the worst server this week', async () => {
+  it('opens on a verdict naming the worst game and its problem this week', async () => {
     renderHome()
 
-    const title = await screen.findByRole('heading', { level: 2, name: /median on/ })
-    expect(title.textContent).toBe(
-      `≥${NB}38${NB}ms median on VALORANT, Riot Games, ≥${NB}17${NB}ms usually, no loss`
-    )
+    const title = await screen.findByRole('heading', { level: 2, name: /^VALORANT: / })
+    expect(title.textContent).toMatch(/^VALORANT: higher ping than usual /)
+    expect(title.textContent).not.toContain('≥')
     const verdict = title.closest('[data-slot=verdict]')!
     expect(verdict).toHaveAttribute('data-status', 'watch')
     expect(verdict).toHaveTextContent('Last 7 days, 9 matches, 3 game servers')
-    expect(verdict).toHaveTextContent(
-      'It is the only one of the 2 measured servers above a threshold.'
+    expect(verdict.querySelector('p.text-body')?.textContent).toBe(
+      `Median this week: 38${NB}ms up to hop 9 (Riot Games), 17${NB}ms usually. ` +
+        'Nothing to report on League of Legends. 1 server could not be measured.'
     )
-    expect(verdict).toHaveTextContent('measured up to hop 9.')
-    expect(verdict).toHaveTextContent('1 server could not be measured.')
     expect(getServerSummary).toHaveBeenCalledWith(7)
   })
 
