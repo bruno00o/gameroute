@@ -190,6 +190,9 @@ importers:
       '@fontsource/noto-sans-math':
         specifier: ^5.3.0
         version: 5.3.0
+      '@gameroute/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@inlang/paraglide-js':
         specifier: ^2.26.0
         version: 2.26.0(typescript@5.9.3)(vite@7.3.7(@types/node@24.19.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.1))

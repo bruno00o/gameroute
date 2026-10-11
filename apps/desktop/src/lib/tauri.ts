@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import type { ReportPayload } from '@gameroute/shared'
 import type {
   AlertSettings,
   AppSettings,
@@ -32,6 +33,8 @@ import type {
   SessionMatch,
   ScanResult,
   SeverityThresholds,
+  SharedReport,
+  SharedReportLink,
   StorageStats,
   TracerouteAllCompleteEvent,
   TracerouteHopEvent,
@@ -156,6 +159,12 @@ export const writeExportFile = (path: string, content: string) =>
   invoke<void>('write_export_file', { path, content })
 export const writeExportPdf = (path: string, bytes: Uint8Array) =>
   invoke<void>('write_export_pdf', { path, bytes: Array.from(bytes) })
+
+// ===== Shared reports =====
+export const shareReport = (payload: ReportPayload) =>
+  invoke<SharedReportLink>('share_report', { payload })
+export const listSharedReports = () => invoke<SharedReport[]>('list_shared_reports')
+export const deleteSharedReport = (id: string) => invoke<void>('delete_shared_report', { id })
 
 // ===== Event listeners =====
 export const onGameDetected = (cb: (game: DetectedGame) => void): Promise<UnlistenFn> =>

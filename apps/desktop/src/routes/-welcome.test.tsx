@@ -231,7 +231,7 @@ describe('Welcome flow', () => {
     expect(screen.getByRole('button', { name: 'Add a game' })).toBeInTheDocument()
   })
 
-  it('lists what stays on the PC, with no sharing option, and finishes on the home screen', async () => {
+  it('lists what stays on the PC, names the one report you may share, and finishes on the home screen', async () => {
     renderFlow()
     await reachStep(4)
 
@@ -239,7 +239,7 @@ describe('Welcome flow', () => {
     expect(within(list).getAllByRole('listitem')).toHaveLength(4)
     expect(
       screen.getByText(
-        'No data is sent. Sessions and measurements are stored in a local database, with no account.'
+        'Nothing is sent, except a report you choose to share online. Sessions and measurements are stored in a local database, with no account.'
       )
     ).toBeInTheDocument()
     expect(
@@ -291,10 +291,10 @@ describe('Welcome texts', () => {
     for (const other of keys) expect(other).toEqual(keys[0])
   })
 
-  it('names no third-party lookup and promises no telemetry, sharing or mode choice', () => {
+  it('names no third-party lookup and promises no telemetry or anonymous sharing', () => {
     for (const { file, strings } of onboarding) {
       expect(JSON.stringify(strings), file).not.toMatch(/ip-api|télémétrie|telemetry|telemetría/i)
-      expect(JSON.stringify(strings), file).not.toMatch(/anonym|share|partag|compart/i)
+      expect(JSON.stringify(strings), file).not.toMatch(/anonym/i)
     }
   })
 })

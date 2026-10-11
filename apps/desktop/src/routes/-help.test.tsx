@@ -113,7 +113,9 @@ describe('Help', () => {
     expect(data).toHaveTextContent('to a public measurement point')
     expect(data).toHaveTextContent('see your public IP address')
     expect(data).toHaveTextContent('There is no telemetry.')
-    expect(data).toHaveTextContent("planned for version 1.0; it doesn't exist yet")
+    expect(data).toHaveTextContent('A report leaves this PC only if you share it')
+    expect(data).toHaveTextContent('never your IP address')
+    expect(data).toHaveTextContent('deleted after 90 days')
   })
 
   it('filters the glossary and questions as you type and opens matching answers', async () => {
