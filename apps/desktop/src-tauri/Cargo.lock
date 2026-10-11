@@ -82,6 +82,8 @@ dependencies = [
  "log",
  "maxminddb",
  "netstat2",
+ "reqwest",
+ "rustls",
  "serde",
  "serde_json",
  "sqlx",
