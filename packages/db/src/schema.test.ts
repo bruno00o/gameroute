@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import { fileURLToPath } from 'node:url'
-import { eq, sql } from 'drizzle-orm'
-import { migrate } from 'drizzle-orm/node-postgres/migrator'
+import { REPORT_GAMES } from '@gameroute/shared'
+import { eq } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { createDb, type Database } from './index'
+import type { Database } from './index'
 import {
   asnClaims,
   autonomousSystems,
@@ -19,43 +18,31 @@ import {
   topologyNodes,
   zoneCells,
 } from './schema'
+import { createTestDatabase, type TestDatabase } from './testing'
 
 const adminUrl = process.env.DATABASE_URL
-const migrationsFolder = fileURLToPath(new URL('../migrations', import.meta.url))
 
 it.runIf(process.env.CI)('runs against a real database in CI', () => {
   expect(adminUrl).toBeTruthy()
 })
 
 describe.skipIf(!adminUrl)('schema', () => {
-  const name = `gameroute_test_${randomUUID().replaceAll('-', '')}`
-  let admin: Database
+  let testDb: TestDatabase | undefined
   let db: Database
 
   beforeAll(async () => {
-    admin = createDb(adminUrl!)
-    await admin.execute(sql.raw(`create database ${name}`))
-    const url = new URL(adminUrl!)
-    url.pathname = `/${name}`
-    db = createDb(url.toString())
-    await migrate(db, { migrationsFolder })
+    testDb = await createTestDatabase(adminUrl!)
+    db = testDb.db
   })
 
-  afterAll(async () => {
-    await db?.$client.end()
-    for (let attempt = 0; attempt < 50; attempt++) {
-      const { rows } = await admin.execute<{ count: number }>(
-        sql`select count(*)::int as count from pg_stat_activity where datname = ${name}`
-      )
-      if (rows[0]?.count === 0) break
-      await new Promise(resolve => setTimeout(resolve, 100))
-    }
-    await admin?.execute(sql.raw(`drop database if exists ${name}`))
-    await admin?.$client.end()
+  afterAll(() => testDb?.drop())
+
+  it('seeds the games that can be shared in a report', async () => {
+    const rows = await db.select().from(games)
+    expect(Object.fromEntries(rows.map(row => [row.slug, row.name]))).toEqual(REPORT_GAMES)
   })
 
   it('stores a match with its anonymised route', async () => {
-    await db.insert(games).values({ slug: 'valorant', name: 'VALORANT' })
     await db.insert(autonomousSystems).values([
       { asn: 3215, name: 'Orange', country: 'FR' },
       { asn: 6507, name: 'Riot Games', country: 'US' },

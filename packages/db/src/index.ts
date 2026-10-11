@@ -13,3 +13,5 @@ export function createDb(connectionString: string) {
 export type Database = ReturnType<typeof createDb>
 
 export { schema }
+
+export * from './reports'
