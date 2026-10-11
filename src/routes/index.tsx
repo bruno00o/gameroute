@@ -67,7 +67,7 @@ function HomePage() {
 
 function Overview({ summary, recent }: { summary?: ServerSummary; recent?: SessionListPage }) {
   const navigate = useNavigate()
-  const verdict = useMemo(() => summary && homeVerdict(summary.servers, DAYS), [summary])
+  const verdict = useMemo(() => summary && homeVerdict(summary, DAYS), [summary])
   const columns = useMemo(() => sessionColumns({ sortable: false }), [])
   const lastServer = summary?.servers[0]
 
