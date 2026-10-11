@@ -119,7 +119,7 @@ cargo clippy -- -D warnings
 The web API uses Postgres. With Docker running:
 
 ```bash
-pnpm db:up       # Postgres 17 on localhost:5432
+pnpm db:up       # Postgres 18 on localhost:5432
 pnpm db:migrate  # apply the Drizzle migrations
 ```
 
