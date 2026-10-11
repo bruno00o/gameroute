@@ -43,7 +43,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri -> target
+          workspaces: apps/desktop/src-tauri -> target
 
       - name: Download GeoLite2 databases
         env:
@@ -54,10 +54,10 @@ jobs:
       - name: Build capture service sidecar
         run: |
           # Create placeholder so tauri build.rs doesn't fail during cargo build
-          New-Item -ItemType Directory -Force -Path src-tauri/binaries | Out-Null
-          New-Item -ItemType File -Force -Path src-tauri/binaries/gameroute-capture-service-x86_64-pc-windows-msvc.exe | Out-Null
-          cargo build --release --bin gameroute-capture-service --manifest-path src-tauri/Cargo.toml
-          Copy-Item src-tauri/target/release/gameroute-capture-service.exe src-tauri/binaries/gameroute-capture-service-x86_64-pc-windows-msvc.exe -Force
+          New-Item -ItemType Directory -Force -Path apps/desktop/src-tauri/binaries | Out-Null
+          New-Item -ItemType File -Force -Path apps/desktop/src-tauri/binaries/gameroute-capture-service-x86_64-pc-windows-msvc.exe | Out-Null
+          cargo build --release --bin gameroute-capture-service --manifest-path apps/desktop/src-tauri/Cargo.toml
+          Copy-Item apps/desktop/src-tauri/target/release/gameroute-capture-service.exe apps/desktop/src-tauri/binaries/gameroute-capture-service-x86_64-pc-windows-msvc.exe -Force
         shell: pwsh
 
       - uses: tauri-apps/tauri-action@v0
@@ -68,5 +68,6 @@ jobs:
         with:
           releaseId: ${{ needs.release-please.outputs.release_id }}
           releaseBody: ${{ needs.release-please.outputs.release_body }}
+          projectPath: apps/desktop
           tauriScript: pnpm tauri
           includeUpdaterJson: true
