@@ -7,10 +7,11 @@ import { useUpdateStore } from '@/lib/updater'
 import { useMonitoringStore } from '@/stores/monitoring-store'
 import { UpdateDialog } from './update-dialog'
 
-const { relaunch } = vi.hoisted(() => ({ relaunch: vi.fn() }))
+const { relaunch, invoke } = vi.hoisted(() => ({ relaunch: vi.fn(), invoke: vi.fn() }))
 
 vi.mock('@tauri-apps/plugin-updater', () => ({ check: vi.fn() }))
 vi.mock('@tauri-apps/plugin-process', () => ({ relaunch }))
+vi.mock('@tauri-apps/api/core', () => ({ invoke }))
 
 function offer(overrides: Partial<Update> = {}) {
   const update = {
@@ -26,6 +27,7 @@ function offer(overrides: Partial<Update> = {}) {
 
 beforeEach(() => {
   relaunch.mockReset().mockResolvedValue(undefined)
+  invoke.mockReset().mockResolvedValue(undefined)
   useMonitoringStore.setState({ currentGame: null, isMonitoring: false })
   useUpdateStore.setState({ pending: null, checkedAt: null })
 })
@@ -47,6 +49,24 @@ describe('UpdateDialog', () => {
     expect(within(dialog).getByText('GameRoute 0.2.0 is available')).toBeInTheDocument()
     expect(within(dialog).getByRole('listitem')).toHaveTextContent('Keep sessions for a year')
     expect(within(dialog).getByText(/No match in progress/)).toBeInTheDocument()
+  })
+
+  it('caps the notes and links to the full release page', async () => {
+    const body = [
+      '### Features',
+      ...Array.from({ length: 11 }, (_, i) => `* **ui:** change ${i + 1}`),
+    ].join('\n')
+    render(<UpdateDialog />)
+    offer({ body })
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getAllByRole('listitem')).toHaveLength(8)
+    expect(within(dialog).getByText('and 3 more changes')).toBeInTheDocument()
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'See all release notes' }))
+    expect(invoke).toHaveBeenCalledWith('plugin:opener|open_url', {
+      url: 'https://github.com/bruno00o/gameroute/releases/tag/v0.2.0',
+    })
   })
 
   it('warns that installing during a match stops its measurement', async () => {
@@ -72,7 +92,7 @@ describe('UpdateDialog', () => {
     render(<UpdateDialog />)
     const update = offer()
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Update and restart' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Update now' }))
 
     await waitFor(() => expect(relaunch).toHaveBeenCalledOnce())
     expect(update.downloadAndInstall).toHaveBeenCalledOnce()

@@ -585,7 +585,7 @@
   "settings_wipe_done": "Toutes les données ont été supprimées.",
   "settings_wipe_error": "Impossible de tout supprimer. Arrêtez la surveillance, puis réessayez.",
   "updater_title": "GameRoute {version} est disponible",
-  "updater_update_now": "Mettre à jour et relancer",
+  "updater_update_now": "Mettre à jour maintenant",
   "updater_later": "Plus tard",
   "updater_match_warning": "{game} est surveillé. Installer maintenant arrête la mesure de la partie en cours.",
   "updater_no_match": "Aucune partie en cours. GameRoute redémarre après l’installation.",
@@ -967,5 +967,8 @@
   "route_map_none": "Aucun point de cette route n'est localisable.",
   "route_map_aria": "Carte de la route : {places}",
   "route_contrib_deduced": "déduit du ping du jeu",
-  "route_limit_note_deduced": "{destination} ne répond pas aux pings, ce qui est normal. Les traces s’arrêtent au dernier routeur qui répond (saut {hop}, {operator}) ; le dernier tronçon, +{deduced}, est déduit du ping mesuré par le jeu."
+  "route_limit_note_deduced": "{destination} ne répond pas aux pings, ce qui est normal. Les traces s’arrêtent au dernier routeur qui répond (saut {hop}, {operator}) ; le dernier tronçon, +{deduced}, est déduit du ping mesuré par le jeu.",
+  "updater_more_one": "et {count} autre changement",
+  "updater_more_other": "et {count} autres changements",
+  "updater_all_notes": "Voir toutes les nouveautés"
 }
