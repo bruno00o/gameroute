@@ -1,43 +1,61 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { Container } from '@/components/Container'
-import { Display, Heading, Lead, Small, Text } from '@/components/Typography'
-import { LinkButton } from '@/components/LinkButton'
+import { createFileRoute, notFound } from '@tanstack/react-router'
+import { ReportMissing, ReportView } from '@/components/report/ReportView'
 import { pageHead } from '@/lib/head'
+import { getReport } from '@/lib/report.functions'
+import { gameName, matchesLabel, reportDay, verdictHeadline, verdictShort } from '@/lib/report-text'
 import { m } from '@/paraglide/messages'
+import { getLocale } from '@/paraglide/runtime'
 
 export const Route = createFileRoute('/r/$id')({
-  head: () =>
-    pageHead({
-      title: m.meta_report_title(),
-      description: m.meta_report_description(),
-      noindex: true,
-    }),
+  loader: async ({ params }) => {
+    const { origin, report } = await getReport({ data: params.id })
+    if (!report) throw notFound()
+    return { origin, report }
+  },
+  head: ({ loaderData }) => {
+    if (!loaderData) return pageHead({ title: m.report_title(), noindex: true })
+    const { origin, report } = loaderData
+    const { payload } = report
+    const game = gameName(payload)
+    const title = m.report_meta_title({ game, verdict: verdictShort(payload) })
+    const description = m.report_meta_description({
+      matches: matchesLabel(payload.matches.length),
+      game,
+      day: reportDay(payload),
+    })
+    const en = getLocale() === 'en'
+    const image = `${origin}/api/og/r/${report.id}.png${en ? '?lang=en' : ''}`
+    const url = `${origin}${en ? '/en' : ''}/r/${report.id}`
+    const head = pageHead({ title, description, noindex: true })
+    return {
+      meta: [
+        ...head.meta,
+        { property: 'og:type', content: 'website' },
+        { property: 'og:site_name', content: 'GameRoute' },
+        { property: 'og:url', content: url },
+        { property: 'og:title', content: title },
+        { property: 'og:description', content: description },
+        { property: 'og:image', content: image },
+        { property: 'og:image:width', content: '1200' },
+        { property: 'og:image:height', content: '630' },
+        { property: 'og:image:alt', content: verdictHeadline(payload) },
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:title', content: title },
+        { name: 'twitter:description', content: description },
+        { name: 'twitter:image', content: image },
+      ],
+    }
+  },
   component: ReportPage,
+  notFoundComponent: MissingReportPage,
 })
 
 function ReportPage() {
-  const { id } = Route.useParams()
+  const { report } = Route.useLoaderData()
+  return <ReportView report={report} />
+}
 
-  return (
-    <>
-      <Container className="flex flex-col items-start gap-5 py-20">
-        <Display>{m.report_title()}</Display>
-        <Lead>{m.report_text()}</Lead>
-        <Small>
-          {m.report_id()} <span className="font-mono break-all text-foreground">/r/{id}</span>
-        </Small>
-      </Container>
-      <section className="border-t bg-card">
-        <Container className="flex flex-wrap items-center justify-between gap-x-12 gap-y-5 py-14">
-          <div className="flex max-w-[620px] flex-col gap-2">
-            <Heading>{m.report_cta_title()}</Heading>
-            <Text>{m.report_cta_text()}</Text>
-          </div>
-          <LinkButton to="/telecharger" size="lg">
-            {m.add_cta()}
-          </LinkButton>
-        </Container>
-      </section>
-    </>
-  )
+function MissingReportPage() {
+  const { id } = Route.useParams()
+  return <ReportMissing id={id} />
 }
