@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src/assets/logo.svg" width="80" alt="GameRoute logo" />
+  <img src="apps/desktop/src/assets/logo.svg" width="80" alt="GameRoute logo" />
 </p>
 
 <h1 align="center">GameRoute</h1>
@@ -84,7 +84,7 @@ $env:MAXMIND_LICENSE_KEY = "your-license-key"
 pwsh scripts/download-geolite.ps1
 ```
 
-The `.mmdb` files land in `src-tauri/resources/` and are gitignored.
+The `.mmdb` files land in `apps/desktop/src-tauri/resources/` and are gitignored.
 
 ### Run
 
@@ -109,7 +109,7 @@ pnpm test          # Vitest
 pnpm lint          # Biome
 pnpm format:check  # Biome
 
-# Rust (from src-tauri/)
+# Rust (from apps/desktop/src-tauri/)
 cargo test --all-targets
 cargo clippy -- -D warnings
 ```
@@ -117,23 +117,25 @@ cargo clippy -- -D warnings
 ## Architecture
 
 ```
-src/                    # React frontend
-├── routes/             # File-based routing (TanStack Router)
-├── components/         # UI components (shadcn/ui)
-├── stores/             # Zustand state stores
-├── hooks/              # React hooks (events, health check)
-├── lib/                # Utilities (IPC, format, export)
-└── types/              # TypeScript types matching Rust structs
+apps/desktop/               # Desktop app (pnpm workspace package)
+├── src/                    # React frontend
+│   ├── routes/             # File-based routing (TanStack Router)
+│   ├── components/         # UI components (shadcn/ui)
+│   ├── stores/             # Zustand state stores
+│   ├── hooks/              # React hooks (events, health check)
+│   ├── lib/                # Utilities (IPC, format, export)
+│   └── types/              # TypeScript types matching Rust structs
+└── src-tauri/              # Rust backend
+    ├── src/
+    │   ├── commands/       # Tauri IPC handlers
+    │   ├── services/       # Business logic (traceroute, capture, ASN)
+    │   ├── db/             # SQLx repositories (SQLite)
+    │   ├── models/         # Shared data structures
+    │   └── platform/       # OS-specific code (Windows)
+    ├── migrations/         # SQLite migrations
+    └── bin/                # Capture service binary
 
-src-tauri/              # Rust backend
-├── src/
-│   ├── commands/       # Tauri IPC handlers
-│   ├── services/       # Business logic (traceroute, capture, ASN)
-│   ├── db/             # SQLx repositories (SQLite)
-│   ├── models/         # Shared data structures
-│   └── platform/       # OS-specific code (Windows)
-├── migrations/         # SQLite migrations
-└── bin/                # Capture service binary
+packages/shared/            # Code shared between workspace packages
 ```
 
 ## Privacy

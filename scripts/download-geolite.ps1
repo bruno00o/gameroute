@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 <#
-Downloads MaxMind GeoLite2-City and GeoLite2-ASN databases into src-tauri/resources/.
+Downloads MaxMind GeoLite2-City and GeoLite2-ASN databases into apps/desktop/src-tauri/resources/.
 
 Requires the MAXMIND_LICENSE_KEY environment variable.
 Get a free license key at https://www.maxmind.com/en/geolite2/signup
@@ -19,7 +19,7 @@ if ([string]::IsNullOrWhiteSpace($licenseKey)) {
 }
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$resourcesDir = Join-Path $repoRoot "src-tauri/resources"
+$resourcesDir = Join-Path $repoRoot "apps/desktop/src-tauri/resources"
 New-Item -ItemType Directory -Force -Path $resourcesDir | Out-Null
 
 $editions = @("GeoLite2-City", "GeoLite2-ASN")
