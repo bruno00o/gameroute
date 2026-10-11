@@ -994,5 +994,7 @@
   "home_others_fine_one": "Rien à signaler sur {game}.",
   "home_others_fine_other": "Rien à signaler sur vos {count} autres jeux.",
   "ping_point_hop": "jusqu'au saut {hop} ({operator})",
-  "ping_point_hop_plain": "jusqu'au saut {hop}"
+  "ping_point_hop_plain": "jusqu'au saut {hop}",
+  "verdict_zone_no_transit": "Aucun transitaire visible",
+  "route_direct_peering": "{isp} remet probablement le trafic directement à {service} (peering direct)."
 }

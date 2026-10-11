@@ -500,7 +500,7 @@ describe('Live points and flows', () => {
     await waitFor(() => expect(listeners.status).toBeDefined())
     emit(liveStatus())
 
-    await screen.findByText('Game server')
+    await screen.findAllByText('Game server')
     expect(slot('live-ignored')).toBeNull()
   })
 })

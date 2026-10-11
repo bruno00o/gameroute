@@ -312,7 +312,12 @@ function during(matches: SessionMatch[]): string {
     : m.verdict_during_other({ numbers: listNumbers(numbers) })
 }
 
-export type VerdictZone = { status: Severity | null; name: string; note: string }
+export type VerdictZone = {
+  status: Severity | null
+  name: string
+  operator: string | null
+  note: string
+}
 
 export type SessionVerdict = {
   status: Severity
@@ -324,7 +329,7 @@ export type SessionVerdict = {
   reference: SessionMatch | null
 }
 
-function zoneName(zone: RouteZone, route: OperatorRoute): string {
+function zoneOperator(zone: RouteZone, route: OperatorRoute): string | null {
   const names = route.segments
     .filter(segment => segment.zone === zone)
     .map(segmentName)
@@ -334,7 +339,7 @@ function zoneName(zone: RouteZone, route: OperatorRoute): string {
     if (destination) names.push(destination)
   }
   const unique = [...new Set(names)]
-  return unique.length ? `${zoneLabel(zone)} (${unique.join(', ')})` : zoneLabel(zone)
+  return unique.length ? unique.join(', ') : null
 }
 
 function verdictZones(
@@ -344,7 +349,7 @@ function verdictZones(
 ): Record<RouteZone, VerdictZone> {
   const guiltyIndex = guilty ? ZONES.indexOf(guilty) : -1
 
-  const zoneView = (zone: RouteZone, index: number): Omit<VerdictZone, 'name'> => {
+  const zoneView = (zone: RouteZone, index: number): Pick<VerdictZone, 'status' | 'note'> => {
     const segments = route.segments.filter(segment => segment.zone === zone)
     if (guilty === 'home' && zone !== 'home') {
       return { status: 'unmeasured', note: m.verdict_zone_masked() }
@@ -359,7 +364,12 @@ function verdictZones(
     if (zone === 'service' && route.destinationSilent) {
       return { status: 'unmeasured', note: m.hop_silent() }
     }
-    if (segments.length === 0) return { status: null, note: m.verdict_zone_none() }
+    if (segments.length === 0) {
+      return {
+        status: null,
+        note: zone === 'transit' ? m.verdict_zone_no_transit() : m.verdict_zone_none(),
+      }
+    }
     if (segments.every(segment => segment.firstHop > route.lastRespondingHop)) {
       return { status: 'unmeasured', note: severityLabel('unmeasured') }
     }
@@ -370,7 +380,10 @@ function verdictZones(
   }
 
   return Object.fromEntries(
-    ZONES.map((zone, index) => [zone, { name: zoneName(zone, route), ...zoneView(zone, index) }])
+    ZONES.map((zone, index) => [
+      zone,
+      { name: zoneLabel(zone), operator: zoneOperator(zone, route), ...zoneView(zone, index) },
+    ])
   ) as Record<RouteZone, VerdictZone>
 }
 

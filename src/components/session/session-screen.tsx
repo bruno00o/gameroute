@@ -4,7 +4,8 @@ import { RiLoopLeftLine } from '@remixicon/react'
 import * as m from '@/paraglide/messages'
 import type { SessionDetail, SessionMatch, SeverityThresholds } from '@/types/backend'
 import { computeDurationSecs, formatDuration } from '@/lib/format'
-import { flowServerName, sessionSpan, sessionVerdict } from '@/lib/matches'
+import { flowServerName, sessionSpan, sessionVerdict, traceOf } from '@/lib/matches'
+import { directPeering } from '@/lib/route'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/empty-state'
 import { Panel } from '@/components/panel'
@@ -113,6 +114,10 @@ function SessionScreen({
             scope={verdict.scope}
             zone={verdict.zone}
             zones={verdict.zones}
+            zonesNote={
+              verdict.reference &&
+              directPeering(traceOf(verdict.reference, detail.traceroutes)?.route)
+            }
             action={
               verdict.status === 'unmeasured' &&
               !ongoing &&

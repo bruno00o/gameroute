@@ -102,21 +102,17 @@ function adviceFor(zone: FaultZone | null): string[] {
   }
 }
 
-function zoneName(zone: RouteZone, evidence: ZoneEvidence | undefined): string {
-  const operator = shortOperatorName(evidence?.operator)
-  return operator ? `${zoneLabel(zone)} (${operator})` : zoneLabel(zone)
-}
-
 function zoneView(
   zone: RouteZone,
   evidence: ZoneEvidence | undefined,
   status: LiveStatus
 ): VerdictZone {
-  const name = zoneName(zone, evidence)
-  if (!evidence) return { status: null, name, note: m.verdict_zone_none() }
+  const name = zoneLabel(zone)
+  const operator = shortOperatorName(evidence?.operator)
+  if (!evidence) return { status: null, name, operator, note: m.verdict_zone_none() }
   switch (evidence.verdict) {
     case 'clear':
-      return { status: 'ok', name, note: severityLabel('ok') }
+      return { status: 'ok', name, operator, note: severityLabel('ok') }
     case 'fault': {
       const reading = status.points.find(point => point.point === evidence.point)
       const loss = reading ? (reading.lossPct ?? reading.lossFloorPct) : null
@@ -124,16 +120,17 @@ function zoneView(
         status.cause === 'loss' && loss != null
           ? m.verdict_zone_loss({ loss: formatLoss(loss) })
           : severityLabel(evidence.status)
-      return { status: evidence.status, name, note }
+      return { status: evidence.status, name, operator, note }
     }
     case 'suspect':
-      return { status: evidence.status, name, note: m.live_zone_suspect() }
+      return { status: evidence.status, name, operator, note: m.live_zone_suspect() }
     case 'masked':
-      return { status: 'unmeasured', name, note: m.verdict_zone_masked() }
+      return { status: 'unmeasured', name, operator, note: m.verdict_zone_masked() }
     default:
       return {
         status: 'unmeasured',
         name,
+        operator,
         note: evidence.silent ? m.hop_silent() : severityLabel('unmeasured'),
       }
   }
