@@ -8,6 +8,13 @@
       "when": 1791728336053,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791743908921,
+      "tag": "0001_seed_report_games",
+      "breakpoints": true
     }
   ]
 }
