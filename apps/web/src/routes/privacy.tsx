@@ -3,7 +3,7 @@ import { ComingSoon } from '@/components/ComingSoon'
 import { pageHead } from '@/lib/head'
 import { m } from '@/paraglide/messages'
 
-export const Route = createFileRoute('/mentions-legales')({
-  head: () => pageHead({ title: m.meta_legal_title() }),
-  component: () => <ComingSoon title={m.legal_title()} />,
+export const Route = createFileRoute('/privacy')({
+  head: () => pageHead({ title: m.meta_privacy_title() }),
+  component: () => <ComingSoon title={m.privacy_title()} />,
 })

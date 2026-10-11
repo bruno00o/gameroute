@@ -25,11 +25,11 @@ describe('home route', () => {
     expect(screen.getByRole('button', { name: 'Ping mesuré par le jeu' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Installez GameRoute/ })).toHaveAttribute(
       'href',
-      '/telecharger'
+      '/download'
     )
     expect(screen.getByRole('link', { name: 'Télécharger pour Windows' })).toHaveAttribute(
       'href',
-      '/telecharger'
+      '/download'
     )
   })
 

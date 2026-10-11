@@ -35,16 +35,16 @@ export function SiteFooter() {
             <Link to="/" className={FOOT_LINK}>
               {m.nav_barometer()}
             </Link>
-            <Link to="/methode" className={FOOT_LINK}>
+            <Link to="/method" className={FOOT_LINK}>
               {m.nav_method()}
             </Link>
-            <Link to="/telecharger" className={FOOT_LINK}>
+            <Link to="/download" className={FOOT_LINK}>
               {m.nav_download()}
             </Link>
-            <Link to="/confidentialite" className={FOOT_LINK}>
+            <Link to="/privacy" className={FOOT_LINK}>
               {m.footer_privacy()}
             </Link>
-            <Link to="/mentions-legales" className={FOOT_LINK}>
+            <Link to="/legal-notice" className={FOOT_LINK}>
               {m.footer_legal()}
             </Link>
             <a href={REPO_URL} className={FOOT_LINK}>
