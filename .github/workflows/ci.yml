@@ -17,6 +17,22 @@ jobs:
   frontend-tests:
     name: Frontend Tests
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: gameroute
+          POSTGRES_USER: gameroute
+          POSTGRES_PASSWORD: gameroute
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gameroute -d gameroute"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      DATABASE_URL: postgres://gameroute:gameroute@localhost:5432/gameroute
     steps:
       - uses: actions/checkout@v4
 
