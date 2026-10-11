@@ -20,6 +20,18 @@ describe('api mount', () => {
     expect(doc.paths).toHaveProperty('/api/health')
   })
 
+  it('validates shared reports before needing the database', async () => {
+    const res = await handler({
+      request: new Request('https://gameroute.test/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version: 1 }),
+      }),
+    })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ error: 'invalid_report' })
+  })
+
   it('answers unknown API paths with a JSON 404', async () => {
     const res = await handler({ request: new Request('https://gameroute.test/api/unknown') })
     expect(res.status).toBe(404)

@@ -12,5 +12,20 @@
       "id": "6a9b86009b994097a6227ee979aa193e",
       "localConnectionString": "postgres://gameroute:gameroute@127.0.0.1:5432/gameroute"
     }
-  ]
+  ],
+  "ratelimits": [
+    {
+      "name": "REPORT_CREATE_LIMIT",
+      "namespace_id": "1001",
+      "simple": { "limit": 3, "period": 60 }
+    },
+    {
+      "name": "REPORT_DELETE_LIMIT",
+      "namespace_id": "1002",
+      "simple": { "limit": 10, "period": 60 }
+    }
+  ],
+  "triggers": {
+    "crons": ["17 3 * * *"]
+  }
 }
