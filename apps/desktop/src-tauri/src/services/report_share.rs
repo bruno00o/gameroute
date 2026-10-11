@@ -97,8 +97,8 @@ fn excerpt(body: &str) -> String {
 
 fn status_error(status: u16, body: &str) -> ShareError {
     match status {
-        400 | 422 => ShareError::Rejected(excerpt(body)),
-        403 => ShareError::Forbidden,
+        400 | 415 | 422 => ShareError::Rejected(excerpt(body)),
+        401 | 403 => ShareError::Forbidden,
         413 => ShareError::TooLarge,
         429 => ShareError::RateLimited,
         _ => ShareError::Server(status),
@@ -273,6 +273,10 @@ mod tests {
             matches!(parse_published(400, invalid), Err(ShareError::Rejected(body)) if body.contains("invalid_report"))
         );
         assert!(matches!(
+            parse_published(415, r#"{"error":"unsupported_media_type"}"#),
+            Err(ShareError::Rejected(_))
+        ));
+        assert!(matches!(
             parse_published(413, ""),
             Err(ShareError::TooLarge)
         ));
@@ -291,6 +295,7 @@ mod tests {
         assert_eq!(parse_deleted(204, "").unwrap(), DeleteOutcome::Deleted);
         assert_eq!(parse_deleted(404, "").unwrap(), DeleteOutcome::Gone);
         assert!(matches!(parse_deleted(403, ""), Err(ShareError::Forbidden)));
+        assert!(matches!(parse_deleted(401, ""), Err(ShareError::Forbidden)));
         assert!(matches!(
             parse_deleted(429, ""),
             Err(ShareError::RateLimited)
