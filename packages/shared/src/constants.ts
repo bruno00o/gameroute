@@ -15,3 +15,11 @@ export const MAX_ZONE_CELL_RESOLUTION = 5
 export const MIN_PLAYERS_PER_ISP = 30
 
 export const MIN_PLAYERS_PER_ISP_ZONE = 10
+
+export const REPORT_GAMES = {
+  valorant: 'VALORANT',
+  'league-of-legends': 'League of Legends',
+  'counter-strike-2': 'Counter-Strike 2',
+} as const
+
+export type ReportGameSlug = keyof typeof REPORT_GAMES

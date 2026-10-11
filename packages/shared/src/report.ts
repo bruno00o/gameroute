@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { isPublicIp } from './ip'
-import { MEASUREMENT_SOURCES, ROUTE_ZONES } from './constants'
+import { MEASUREMENT_SOURCES, REPORT_GAMES, ROUTE_ZONES, type ReportGameSlug } from './constants'
 
 export const REPORT_SCHEMA_VERSION = 1
 export const MAX_REPORT_MATCHES = 20
@@ -86,7 +86,7 @@ export const reportPayloadSchema = z
   .object({
     version: z.literal(REPORT_SCHEMA_VERSION),
     appVersion: z.string().regex(/^\d+\.\d+\.\d+$/),
-    gameSlug: z.string().regex(/^[a-z0-9-]{1,40}$/),
+    gameSlug: z.enum(Object.keys(REPORT_GAMES) as [ReportGameSlug, ...ReportGameSlug[]]),
     recipient: z.enum(REPORT_RECIPIENTS),
     exactTimes: z.boolean(),
     verdict: z.object({ status: severity, zone: zone.nullable() }).strict(),
