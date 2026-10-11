@@ -1,3 +1,4 @@
+import type { MatchReason } from '@gameroute/shared'
 import * as m from '@/paraglide/messages'
 import { getLocale } from '@/paraglide/runtime'
 import type {
@@ -233,6 +234,21 @@ export function thresholdRules(
   })
 }
 
+export function matchReason(
+  flow: MeasuredFlow,
+  thresholds?: SeverityThresholds | null
+): MatchReason | null {
+  const trace = matchMeasure(flow)
+  if (flow.status === 'unmeasured' || flow.status === 'ok' || trace?.pingMs == null) return null
+  const threshold = thresholds?.[flow.status]
+  if (!threshold) return null
+  if ((trace.lossPct ?? 0) >= threshold.lossPct) return 'loss'
+  const usual = usualPing(trace)
+  if (usual != null && trace.pingMs - usual >= threshold.overBaselineMs) return 'ping_over_usual'
+  if (usual == null && trace.pingMs >= threshold.rttMs) return 'ping_high'
+  return null
+}
+
 export function statusReason(flow: MeasuredFlow, thresholds?: SeverityThresholds | null): string {
   const trace = matchMeasure(flow)
   if (flow.status === 'unmeasured' || trace?.pingMs == null) return m.match_why_unmeasured()
@@ -240,22 +256,20 @@ export function statusReason(flow: MeasuredFlow, thresholds?: SeverityThresholds
   const loss = formatLoss(trace.lossPct ?? 0)
   if (flow.status === 'ok') return m.match_why_ok({ ping, loss })
   const threshold = thresholds?.[flow.status]
-  if (!threshold) return severityLabel(flow.status)
-  if ((trace.lossPct ?? 0) >= threshold.lossPct) {
-    return m.match_why_loss({ loss, threshold: formatLoss(threshold.lossPct) })
+  switch (matchReason(flow, thresholds)) {
+    case 'loss':
+      return m.match_why_loss({ loss, threshold: formatLoss(threshold!.lossPct) })
+    case 'ping_over_usual':
+      return m.match_why_ping_usual({
+        ping,
+        usual: formatUsualPing(trace)!,
+        threshold: formatRouteMs(threshold!.overBaselineMs),
+      })
+    case 'ping_high':
+      return m.match_why_ping({ ping, threshold: formatRouteMs(threshold!.rttMs) })
+    default:
+      return severityLabel(flow.status)
   }
-  const usual = usualPing(trace)
-  if (usual != null && trace.pingMs - usual >= threshold.overBaselineMs) {
-    return m.match_why_ping_usual({
-      ping,
-      usual: formatUsualPing(trace)!,
-      threshold: formatRouteMs(threshold.overBaselineMs),
-    })
-  }
-  if (usual == null && trace.pingMs >= threshold.rttMs) {
-    return m.match_why_ping({ ping, threshold: formatRouteMs(threshold.rttMs) })
-  }
-  return severityLabel(flow.status)
 }
 
 function latencyLevel(trace: PingMeasure, thresholds: SeverityThresholds): number {

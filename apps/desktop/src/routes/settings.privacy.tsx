@@ -59,6 +59,7 @@ function PrivacySettings() {
             <p>{m.settings_local_description()}</p>
             <p>{m.settings_local_connections()}</p>
             <p>{m.settings_local_probes()}</p>
+            <p>{m.settings_local_share()}</p>
           </>
         }
       >

@@ -917,3 +917,16 @@ export type MatchRecap = {
   cells: TimelineCell[]
   incidents: MatchIncident[]
 }
+
+// ===== Shared reports =====
+export type SharedReportLink = {
+  id: string
+  url: string
+  expiresAt: string
+}
+
+export type SharedReport = SharedReportLink & {
+  gameName: string
+  recipient: string
+  createdAt: string
+}

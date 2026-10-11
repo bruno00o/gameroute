@@ -5,20 +5,38 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import type { SessionListItem, SessionMatch } from '@/types/backend'
+import type { ReportPayload } from '@gameroute/shared'
 import { save } from '@tauri-apps/plugin-dialog'
-import { getSessionDetail, getSessionList, getSessionMatches, writeExportPdf } from '@/lib/tauri'
-import { measure, sessionDetail, sessionMatches } from '@/test/session-fixtures'
+import {
+  deleteSharedReport,
+  getSessionDetail,
+  getSessionList,
+  getSessionMatches,
+  getSeverityThresholds,
+  listSharedReports,
+  openExternalUrl,
+  shareReport,
+  writeExportPdf,
+} from '@/lib/tauri'
+import { measure, sessionDetail, sessionMatches, thresholds } from '@/test/session-fixtures'
 import { Route } from './reports'
 
 vi.mock('@/lib/tauri', () => ({
+  deleteSharedReport: vi.fn(),
   getSessionDetail: vi.fn(),
   getSessionList: vi.fn(),
   getSessionMatches: vi.fn(),
+  getSeverityThresholds: vi.fn(),
+  listSharedReports: vi.fn(),
+  openExternalUrl: vi.fn(),
+  shareReport: vi.fn(),
   writeExportFile: vi.fn(),
   writeExportPdf: vi.fn(),
 }))
 
 vi.mock('@tauri-apps/plugin-dialog', () => ({ save: vi.fn() }))
+
+vi.mock('@tauri-apps/api/app', () => ({ getVersion: vi.fn().mockResolvedValue('0.1.20') }))
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
@@ -79,6 +97,11 @@ beforeEach(() => {
   vi.mocked(save).mockReset()
   vi.mocked(toast.success).mockReset()
   vi.mocked(toast.error).mockReset()
+  vi.mocked(shareReport).mockReset()
+  vi.mocked(deleteSharedReport).mockReset()
+  vi.mocked(openExternalUrl).mockReset().mockResolvedValue()
+  vi.mocked(getSeverityThresholds).mockResolvedValue(thresholds())
+  vi.mocked(listSharedReports).mockResolvedValue([])
   mockSessions()
 })
 
@@ -265,5 +288,159 @@ describe('Reports', () => {
     expect(
       within(notice.closest('[data-slot=notice]') ?? document.body).getByRole('button')
     ).toBeInTheDocument()
+  })
+})
+
+describe('Reports, sharing online', () => {
+  const link = {
+    id: 'k3J9x',
+    url: 'https://gameroute.test/r/k3J9x',
+    expiresAt: '2027-01-09T09:00:00.000Z',
+  }
+
+  async function openShare(user: ReturnType<typeof userEvent.setup>) {
+    renderPage()
+    await waitFor(() => expect(preview()).toHaveTextContent('Hops:'))
+    await user.click(screen.getByRole('button', { name: 'Share online' }))
+    return screen.findByRole('dialog')
+  }
+
+  const sharePreview = () => document.querySelector('[data-slot=share-preview]')!
+
+  it('shows what will be sent before anything leaves the PC', async () => {
+    const user = userEvent.setup()
+    const dialog = await openShare(user)
+
+    await waitFor(() => expect(sharePreview()).toHaveTextContent('VALORANT'))
+    expect(sharePreview()).toHaveTextContent('SFR, AS15557')
+    expect(sharePreview()).toHaveTextContent('RETN (AS9002)')
+    expect(sharePreview()).toHaveTextContent('77.136.10.6, 87.245.233.46, 162.249.72.5')
+    expect(sharePreview()).toHaveTextContent('Match 2')
+    expect(sharePreview()).toHaveTextContent('Never sent: your IP address')
+    expect(dialog.textContent).not.toContain('192.168.1.254')
+    expect(within(dialog).getByRole('switch', { name: 'Share exact times' })).not.toBeChecked()
+    expect(shareReport).not.toHaveBeenCalled()
+  })
+
+  it('shows the raw JSON and sends exact times only when asked', async () => {
+    const user = userEvent.setup()
+    vi.mocked(shareReport).mockResolvedValue(link)
+    const dialog = await openShare(user)
+    await waitFor(() => expect(sharePreview()).toBeInTheDocument())
+
+    await user.click(within(dialog).getByRole('button', { name: 'Raw data (JSON)' }))
+    const raw = () => document.querySelector('[data-slot=share-raw]')?.textContent ?? 'null'
+    await waitFor(() => expect(JSON.parse(raw())?.exactTimes).toBe(false))
+
+    await user.click(within(dialog).getByRole('switch', { name: 'Share exact times' }))
+    const shown = JSON.parse(raw())
+    expect(shown.exactTimes).toBe(true)
+
+    await user.click(within(dialog).getByRole('button', { name: 'Share' }))
+
+    await waitFor(() => expect(shareReport).toHaveBeenCalledTimes(1))
+    const sent = vi.mocked(shareReport).mock.calls[0][0] as ReportPayload
+    expect(sent).toEqual(shown)
+    expect(sent.matches[0].startedAt).toBe(new Date(withWatchOnSecond()[1].startedAt).toISOString())
+  })
+
+  it('gives the link with copy, open and the expiry date once shared', async () => {
+    const user = userEvent.setup()
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
+    vi.mocked(shareReport).mockResolvedValue(link)
+    const dialog = await openShare(user)
+    await waitFor(() => expect(sharePreview()).toBeInTheDocument())
+
+    await user.click(within(dialog).getByRole('button', { name: 'Share' }))
+
+    expect(await within(dialog).findByText('Report shared')).toBeInTheDocument()
+    expect(within(dialog).getByText(link.url)).toBeInTheDocument()
+    expect(within(dialog).getByText('The link works until Jan 9, 2027.')).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Copy link' }))
+    expect(writeText).toHaveBeenCalledWith(link.url)
+    await user.click(within(dialog).getByRole('button', { name: 'Open' }))
+    expect(openExternalUrl).toHaveBeenCalledWith(link.url)
+  })
+
+  it('deletes the report it just shared', async () => {
+    const user = userEvent.setup()
+    vi.mocked(shareReport).mockResolvedValue(link)
+    vi.mocked(deleteSharedReport).mockResolvedValue()
+    const dialog = await openShare(user)
+    await waitFor(() => expect(sharePreview()).toBeInTheDocument())
+    await user.click(within(dialog).getByRole('button', { name: 'Share' }))
+    await within(dialog).findByText('Report shared')
+
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => expect(deleteSharedReport).toHaveBeenCalledWith(link.id))
+    expect(toast.success).toHaveBeenCalledWith('Online report deleted')
+  })
+
+  it('explains a failed share and keeps the dialog open to retry', async () => {
+    const user = userEvent.setup()
+    vi.mocked(shareReport).mockRejectedValue({ code: 'SHARE_RATE_LIMITED', message: '429' })
+    const dialog = await openShare(user)
+    await waitFor(() => expect(sharePreview()).toBeInTheDocument())
+
+    await user.click(within(dialog).getByRole('button', { name: 'Share' }))
+
+    expect(
+      await within(dialog).findByText(
+        'Too many shares in a short time. Try again in a few minutes.'
+      )
+    ).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Share' })).toBeEnabled()
+  })
+
+  it('offers no online link for a game without a profile and says why', async () => {
+    vi.mocked(getSessionDetail).mockResolvedValue(sessionDetail({ gameName: 'Rocket League' }))
+    vi.mocked(getSessionList).mockResolvedValue({
+      items: [listItem({ gameName: 'Rocket League' })],
+      total: 1,
+      recorded: 1,
+      firstStartedAt: sessionDetail().startedAt,
+      games: [{ name: 'Rocket League', sessionCount: 1 }],
+    })
+    renderPage()
+    await waitFor(() => expect(preview()).toHaveTextContent('Hops:'))
+
+    expect(screen.getByRole('button', { name: 'Share online' })).toBeDisabled()
+    expect(
+      screen.getByText(
+        'Online sharing works for VALORANT, League of Legends, and Counter-Strike 2, not yet for Rocket League.'
+      )
+    ).toBeInTheDocument()
+  })
+
+  it('lists the shared reports and deletes one after confirmation', async () => {
+    const user = userEvent.setup()
+    vi.mocked(listSharedReports).mockResolvedValue([
+      {
+        ...link,
+        gameName: 'VALORANT',
+        recipient: 'isp',
+        createdAt: '2026-10-11T09:00:00.000Z',
+      },
+    ])
+    vi.mocked(deleteSharedReport).mockResolvedValue()
+    renderPage()
+
+    const row = await screen.findByText(link.url)
+    const item = row.closest('[data-slot=shared-report]') as HTMLElement
+    expect(within(item).getByText('VALORANT')).toBeInTheDocument()
+    expect(within(item).getByText('Shared on Oct 11, expires on Jan 9, 2027')).toBeInTheDocument()
+
+    await user.click(within(item).getByRole('button', { name: 'Delete' }))
+    const confirm = await screen.findByRole('alertdialog')
+    expect(confirm).toHaveTextContent('Delete this online report?')
+    expect(deleteSharedReport).not.toHaveBeenCalled()
+
+    vi.mocked(listSharedReports).mockResolvedValue([])
+    await user.click(within(confirm).getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => expect(deleteSharedReport).toHaveBeenCalledWith(link.id))
+    await waitFor(() => expect(screen.queryByText(link.url)).not.toBeInTheDocument())
   })
 })

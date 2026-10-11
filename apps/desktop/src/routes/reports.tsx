@@ -1,7 +1,12 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import { RiDownloadLine, RiFileCopyLine, RiFilePdf2Line } from '@remixicon/react'
+import {
+  RiDownloadLine,
+  RiFileCopyLine,
+  RiFilePdf2Line,
+  RiShareForwardLine,
+} from '@remixicon/react'
 import { save } from '@tauri-apps/plugin-dialog'
 import { toast } from 'sonner'
 
@@ -21,6 +26,7 @@ import {
   type ReportRecipient,
   type ReportSource,
 } from '@/lib/report'
+import { reportGameNames, shareBlocker, type ShareBlocker } from '@/lib/share'
 import {
   getSessionDetail,
   getSessionList,
@@ -37,6 +43,8 @@ import { EmptyState } from '@/components/empty-state'
 import { Notice } from '@/components/notice'
 import { Panel } from '@/components/panel'
 import { StatusPill } from '@/components/status/status-pill'
+import { ShareDialog } from '@/components/report/share-dialog'
+import { SharedReports } from '@/components/report/shared-reports'
 
 export const Route = createFileRoute('/reports')({
   component: ReportsPage,
@@ -51,6 +59,22 @@ const MAX_MATCHES = 30
 const STALE_MS = 60_000
 
 type SessionRef = { id: number; gameName: string; startedAt: string }
+
+function blockerText(blocker: ShareBlocker): string {
+  switch (blocker.kind) {
+    case 'empty':
+      return m.share_blocked_empty()
+    case 'mixed_games':
+      return m.share_blocked_mixed()
+    case 'unprofiled_game':
+      return m.share_blocked_game({
+        game: blocker.game,
+        games: new Intl.ListFormat(getLocale(), { type: 'conjunction' }).format(reportGameNames()),
+      })
+    case 'too_many':
+      return m.share_blocked_too_many({ count: String(blocker.max) })
+  }
+}
 
 function fileStamp(date = new Date()) {
   return [date.getFullYear(), date.getMonth() + 1, date.getDate()]
@@ -135,6 +159,7 @@ function ReportsPage() {
   const [picked, setPicked] = useState<Set<string> | null>(null)
   const [showOkChoice, setShowOkChoice] = useState<boolean | null>(null)
   const [creatingPdf, setCreatingPdf] = useState(false)
+  const [sharing, setSharing] = useState(false)
 
   const focusHasNoProblem =
     focusSessionId != null &&
@@ -214,6 +239,8 @@ function ReportsPage() {
     },
     { value: 'forum' as const, label: m.report_recipient_forum() },
   ]
+  const recipientLabel = recipientOptions.find(option => option.value === recipient)!.label
+  const blocker = loading ? null : shareBlocker(sources)
 
   const toggle = (key: string) => {
     const next = new Set(selected)
@@ -298,10 +325,11 @@ function ReportsPage() {
       </header>
 
       {empty ? (
-        <div className="px-4 pt-5 pb-6 sm:px-6">
+        <div className="flex flex-col gap-6 px-4 pt-5 pb-6 sm:px-6">
           <EmptyState title={m.report_matches_empty_title()}>
             {m.report_matches_empty_body()}
           </EmptyState>
+          <SharedReports />
         </div>
       ) : (
         <div className="flex flex-wrap items-start gap-6 px-4 pt-5 pb-6 sm:px-6">
@@ -389,6 +417,22 @@ function ReportsPage() {
                 />
               </div>
             </Field>
+
+            <Field label={m.share_label()} hint={blocker ? blockerText(blocker) : undefined}>
+              <p className="text-ui text-muted-foreground max-w-[60ch]">{m.share_hint()}</p>
+              <div>
+                <Button
+                  size="sm"
+                  disabled={!ready || blocker != null}
+                  onClick={() => setSharing(true)}
+                >
+                  <RiShareForwardLine data-icon="inline-start" />
+                  {m.share_button()}
+                </Button>
+              </div>
+            </Field>
+
+            <SharedReports />
           </div>
 
           <Panel
@@ -410,6 +454,16 @@ function ReportsPage() {
           </Panel>
         </div>
       )}
+
+      <ShareDialog
+        open={sharing}
+        onOpenChange={setSharing}
+        sources={sources}
+        recipient={recipient}
+        recipientLabel={recipientLabel}
+        route={route}
+        hops={hops}
+      />
     </div>
   )
 }
