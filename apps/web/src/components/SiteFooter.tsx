@@ -7,6 +7,7 @@ import { Container } from './Container'
 const LANGUAGES: { locale: Locale; name: string }[] = [
   { locale: 'fr', name: 'Français' },
   { locale: 'en', name: 'English' },
+  { locale: 'es', name: 'Español' },
 ]
 
 const FOOT_LINK = 'text-muted-foreground no-underline hover:text-foreground hover:underline'
