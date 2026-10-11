@@ -15,6 +15,7 @@ import {
 } from '@/lib/tauri'
 import { exportServerStability } from '@/lib/export-csv'
 import { generateNetworkExport } from '@/lib/export-llm'
+import { directPeering } from '@/lib/route'
 import { counted, destinationName, ROUTE_DAYS, routeLimitNote } from '@/lib/route-history'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
@@ -182,7 +183,7 @@ function RoutePage() {
               />
               {usual.route.destinationSilent && (
                 <p className="text-ui text-muted-foreground mt-4 max-w-[70ch]">
-                  {routeLimitNote(usual)}
+                  {[routeLimitNote(usual), directPeering(usual.route)].filter(Boolean).join(' ')}
                 </p>
               )}
             </Panel>

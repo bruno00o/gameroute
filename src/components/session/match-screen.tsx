@@ -30,7 +30,7 @@ import {
   type TraceTiming,
 } from '@/lib/matches'
 import { hasRecap } from '@/lib/recap'
-import { formatRouteMs, hopCount } from '@/lib/route'
+import { directPeering, formatRouteMs, hopCount } from '@/lib/route'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/empty-state'
@@ -177,6 +177,7 @@ function MatchRoute({
   }
 
   const name = flowServerName(match)
+  const peering = directPeering(traceroute.route)
   const title = [timing && traceSource(timing), hopCount(traceroute.hops.length)]
     .filter(Boolean)
     .join(', ')
@@ -207,6 +208,7 @@ function MatchRoute({
           persistentLoss={match.trace?.lossPct}
         />
       )}
+      {peering && <p className="text-label text-muted-foreground -mt-2 mb-4">{peering}</p>}
       <HopList
         hops={traceroute.hops}
         targetIp={traceroute.targetIp}

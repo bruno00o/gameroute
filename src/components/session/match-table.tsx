@@ -80,8 +80,7 @@ function MatchTable({
   className,
 }: MatchTableProps) {
   const columns = useMemo<DataTableColumn<SessionMatch>[]>(() => {
-    const point = (flow: MeasuredFlow) =>
-      pingSourceNote(flow, traceOf(flow, traceroutes)?.route)
+    const point = (flow: MeasuredFlow) => pingSourceNote(flow, traceOf(flow, traceroutes)?.route)
 
     const timing = (flow: MeasuredFlow) => {
       if (flow.game) return null

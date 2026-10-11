@@ -994,5 +994,7 @@
   "home_others_fine_one": "Nada que señalar en {game}.",
   "home_others_fine_other": "Nada que señalar en tus otros {count} juegos.",
   "ping_point_hop": "hasta el salto {hop} ({operator})",
-  "ping_point_hop_plain": "hasta el salto {hop}"
+  "ping_point_hop_plain": "hasta el salto {hop}",
+  "verdict_zone_no_transit": "Ningún proveedor de tránsito visible",
+  "route_direct_peering": "{isp} probablemente entrega el tráfico directamente a {service} (peering directo)."
 }

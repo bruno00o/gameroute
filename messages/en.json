@@ -994,5 +994,7 @@
   "home_others_fine_one": "Nothing to report on {game}.",
   "home_others_fine_other": "Nothing to report on your {count} other games.",
   "ping_point_hop": "up to hop {hop} ({operator})",
-  "ping_point_hop_plain": "up to hop {hop}"
+  "ping_point_hop_plain": "up to hop {hop}",
+  "verdict_zone_no_transit": "No visible transit provider",
+  "route_direct_peering": "{isp} probably hands the traffic directly to {service} (direct peering)."
 }

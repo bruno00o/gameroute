@@ -156,8 +156,32 @@ describe('SessionScreen', () => {
 
     const zones = within(within(verdict).getByRole('list')).getAllByRole('listitem')
     expect(zones.map(zone => zone.dataset.status ?? null)).toEqual(['ok', 'ok', 'ok', 'unmeasured'])
-    expect(zones[2]).toHaveTextContent('Transit (RETN)')
-    expect(zones[3]).toHaveTextContent("Game server (Riot Games)Doesn't answer pings")
+    expect(zones[2]).toHaveTextContent('TransitRETNGood')
+    expect(zones[3]).toHaveTextContent("Game serverRiot GamesDoesn't answer pings")
+    expect(verdict).not.toHaveTextContent('direct peering')
+  })
+
+  it('says when no transit provider is visible and the ISP probably peers directly', () => {
+    const detail = sessionDetail()
+    detail.traceroutes = detail.traceroutes.map(trace =>
+      trace.route
+        ? {
+            ...trace,
+            route: {
+              ...trace.route,
+              segments: trace.route.segments.filter(segment => segment.zone !== 'transit'),
+              lastRespondingHop: 2,
+            },
+          }
+        : trace
+    )
+    render(<SessionScreen detail={detail} matches={sessionMatches()} />)
+
+    const transit = document.querySelector('[data-slot=verdict] [data-zone=transit]')
+    expect(transit).toHaveTextContent('TransitNo visible transit provider')
+    expect(
+      screen.getByText('SFR probably hands the traffic directly to Riot Games (direct peering).')
+    ).toBeInTheDocument()
   })
 
   it('names the operator where a persistent loss starts', () => {

@@ -22,6 +22,16 @@ export function segmentAt(route: OperatorRoute | null | undefined, hopNumber: nu
   return route?.segments.find(s => hopNumber >= s.firstHop && hopNumber <= s.lastHop)
 }
 
+export function directPeering(route: OperatorRoute | null | undefined): string | null {
+  if (!route?.destinationSilent || route.segments.some(segment => segment.zone === 'transit')) {
+    return null
+  }
+  const last = segmentAt(route, route.lastRespondingHop)
+  const service = shortOperatorName(route.destinationName)
+  if (last?.zone !== 'isp' || !service) return null
+  return m.route_direct_peering({ isp: segmentName(last) ?? zoneLabel('isp'), service })
+}
+
 export function hopCount(count: number): string {
   const params = { count: String(count) }
   return count === 1 ? m.route_hop_count_one(params) : m.route_hop_count_other(params)
