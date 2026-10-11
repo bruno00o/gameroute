@@ -114,6 +114,17 @@ cargo test --all-targets
 cargo clippy -- -D warnings
 ```
 
+### Local database
+
+The web API uses Postgres. With Docker running:
+
+```bash
+pnpm db:up       # Postgres 17 on localhost:5432
+pnpm db:migrate  # apply the Drizzle migrations
+```
+
+Set `DATABASE_URL=postgres://gameroute:gameroute@localhost:5432/gameroute` before `pnpm test` to run the database tests. `pnpm db:down` stops the container.
+
 ## Architecture
 
 ```

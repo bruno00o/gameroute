@@ -12,6 +12,10 @@
     "format": "biome format --write .",
     "format:check": "biome format .",
     "test": "pnpm -r test",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:generate": "pnpm --filter @gameroute/db db:generate",
+    "db:migrate": "pnpm --filter @gameroute/db db:migrate",
     "tauri": "pnpm --filter @gameroute/desktop tauri"
   },
   "devDependencies": {
