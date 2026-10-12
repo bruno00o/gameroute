@@ -14,7 +14,7 @@ describe('home route', () => {
     expect(
       await screen.findByRole('heading', {
         level: 1,
-        name: 'Quel FAI tient le mieux en partie, près de chez vous ?',
+        name: 'Quel FAI tient le mieux en partie, près de chez vous\u00a0?',
       })
     ).toBeInTheDocument()
     expect(
