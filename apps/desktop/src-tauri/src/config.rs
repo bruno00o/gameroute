@@ -244,7 +244,7 @@ pub const TRACEROUTE_SERVICE_TIMEOUT_MS: u32 = 70_000;
 
 // ── Shared reports ─────────────────────────────────────────────────────────
 
-pub const REPORT_API_URL: &str = "https://gameroute-web.bruno-bb6.workers.dev";
+pub const REPORT_API_URL: &str = "https://gameroute.app";
 
 /// Read in debug builds only, to point the app at a local API.
 pub const REPORT_API_URL_ENV: &str = "GAMEROUTE_API_URL";
