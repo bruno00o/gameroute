@@ -6,9 +6,9 @@ import {
   type ReportRoute,
   type RouteZone,
 } from '@gameroute/shared'
-import type { OgHop, OgReport } from './og'
+import type { OgHop, OgReport, OgSite } from './og'
 
-export const OG_LANGS = ['fr', 'en'] as const
+export const OG_LANGS = ['fr', 'en', 'es'] as const
 
 export type OgLang = (typeof OG_LANGS)[number]
 
@@ -24,6 +24,7 @@ interface Copy {
   unlocated: string
   located: Record<Audience, Record<RouteZone, string>>
   noRoute: string
+  site: OgSite
 }
 
 const COPY: Record<OgLang, Copy> = {
@@ -53,6 +54,11 @@ const COPY: Record<OgLang, Copy> = {
       },
     },
     noRoute: 'Pas de route mesurée dans ce rapport.',
+    site: {
+      label: 'Baromètre des FAI',
+      title: 'Quel FAI tient le mieux en partie\u00a0?',
+      lead: 'Les FAI comparés sur de vraies parties, par jeu et par région.',
+    },
   },
   en: {
     label: 'GameRoute report',
@@ -78,6 +84,48 @@ const COPY: Record<OgLang, Copy> = {
       },
     },
     noRoute: 'No route measured in this report.',
+    site: {
+      label: 'ISP barometer',
+      title: 'Which ISP holds up best in game?',
+      lead: 'ISPs compared on real matches, by game and by region.',
+    },
+  },
+  es: {
+    label: 'Informe de GameRoute',
+    zones: {
+      home: 'Domicilio',
+      isp: 'Proveedor',
+      transit: 'Tránsito',
+      service: 'Servidor del juego',
+    },
+    silent: 'no responde a los pings',
+    matches: count => (count === 1 ? '1 partida' : `${count} partidas`),
+    ok: count => `Ningún problema medido en ${count === 1 ? '1 partida' : `${count} partidas`}.`,
+    unmeasured: count =>
+      count === 1 ? 'Esta partida no se pudo medir.' : 'Estas partidas no se pudieron medir.',
+    unlocated: 'Se midió un problema, sin zona identificada.',
+    located: {
+      player: {
+        home: 'El problema está en tu casa, antes de tu proveedor.',
+        isp: 'El problema está en tu proveedor, no en tu casa.',
+        transit: 'El problema está en el tránsito, no en tu casa ni en tu proveedor.',
+        service:
+          'El problema está del lado del servidor del juego, no en tu casa ni en tu proveedor.',
+      },
+      third: {
+        home: 'El problema está en casa del jugador, antes de su proveedor.',
+        isp: 'El problema está en el proveedor del jugador, no en su casa.',
+        transit: 'El problema está en el tránsito, no en casa del jugador ni en su proveedor.',
+        service:
+          'El problema está del lado del servidor del juego, no en casa del jugador ni en su proveedor.',
+      },
+    },
+    noRoute: 'No hay ruta medida en este informe.',
+    site: {
+      label: 'Barómetro de proveedores',
+      title: '¿Qué proveedor aguanta mejor en partida?',
+      lead: 'Los proveedores comparados en partidas reales, por juego y por región.',
+    },
   },
 }
 
@@ -88,7 +136,11 @@ const AUDIENCE: Record<ReportRecipient, Audience> = {
 }
 
 export function ogLang(value: string | undefined): OgLang {
-  return value === 'en' ? 'en' : 'fr'
+  return OG_LANGS.find(lang => lang === value) ?? 'fr'
+}
+
+export function buildOgSite(lang: OgLang): OgSite {
+  return COPY[lang].site
 }
 
 export function reportVerdict(payload: ReportPayload, lang: OgLang): string {

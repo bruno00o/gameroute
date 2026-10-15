@@ -13,7 +13,8 @@ import { pageHead } from '@/lib/head'
 import { m } from '@/paraglide/messages'
 
 export const Route = createFileRoute('/')({
-  head: () => pageHead({ title: m.meta_home_title(), description: m.meta_home_description() }),
+  head: () =>
+    pageHead({ title: m.meta_home_title(), description: m.meta_home_description(), path: '/' }),
   component: HomePage,
 })
 
@@ -71,7 +72,7 @@ function HomePage() {
               </Text>
               <Heading className="mt-2 text-subheading">{m.aside_clean_title()}</Heading>
               <Text className="text-[14px] leading-[22px]">{m.aside_clean_text()}</Text>
-              <Link to="/methode" hash="barometre" className="text-[14px] leading-5">
+              <Link to="/method" hash="barometer" className="text-[14px] leading-5">
                 {m.aside_method_link()}
               </Link>
             </aside>
@@ -91,7 +92,7 @@ function HomePage() {
               <li>{m.how_bias()}</li>
             </List>
             <p className="text-body">
-              <Link to="/methode" hash="barometre">
+              <Link to="/method" hash="barometer">
                 {m.how_link()}
               </Link>
             </p>
@@ -99,7 +100,7 @@ function HomePage() {
           <div className="flex min-w-0 flex-col items-start gap-3.5">
             <Title>{m.add_title()}</Title>
             <Text>{m.add_text()}</Text>
-            <LinkButton to="/telecharger" size="lg">
+            <LinkButton to="/download" size="lg">
               {m.add_cta()}
             </LinkButton>
           </div>

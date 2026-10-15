@@ -36,7 +36,7 @@ describe('report view', () => {
     expect(screen.getByText('Les heures sont arrondies à l’heure.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Comment GameRoute mesure' })).toHaveAttribute(
       'href',
-      '/methode'
+      '/method'
     )
   })
 

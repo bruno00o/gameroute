@@ -1,6 +1,6 @@
 {
   "baseLocale": "fr",
-  "locales": ["fr", "en"],
+  "locales": ["fr", "en", "es"],
   "modules": ["https://cdn.jsdelivr.net/npm/@inlang/plugin-message-format@4/dist/index.js"],
   "plugin.inlang.messageFormat": {
     "pathPattern": "./messages/{locale}.json"

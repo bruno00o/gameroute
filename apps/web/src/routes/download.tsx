@@ -17,9 +17,13 @@ import { pageHead } from '@/lib/head'
 import { LATEST_RELEASE_URL, RELEASES_URL } from '@/lib/links'
 import { m } from '@/paraglide/messages'
 
-export const Route = createFileRoute('/telecharger')({
+export const Route = createFileRoute('/download')({
   head: () =>
-    pageHead({ title: m.meta_download_title(), description: m.meta_download_description() }),
+    pageHead({
+      title: m.meta_download_title(),
+      description: m.meta_download_description(),
+      path: '/download',
+    }),
   component: DownloadPage,
 })
 
