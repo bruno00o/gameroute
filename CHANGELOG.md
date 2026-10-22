@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.1.21](https://github.com/bruno00o/gameroute/compare/v0.1.20...v0.1.21) (2026-10-22)
+
+
+### Features
+
+* **api:** add the Hono API package with health and OpenAPI routes ([35d5b35](https://github.com/bruno00o/gameroute/commit/35d5b35a202865b8747d90d68b3bf9b162322245))
+* **api:** create, read and delete shared reports with per-report Open Graph cards ([b800c6e](https://github.com/bruno00o/gameroute/commit/b800c6e9922c09d973ccc5c0a876a358d7349383))
+* **api:** render Open Graph cards and report database latency ([7695e07](https://github.com/bruno00o/gameroute/commit/7695e0780baae3919a80a0cb24b319369288ac95))
+* **api:** report database health ([5a82b0f](https://github.com/bruno00o/gameroute/commit/5a82b0f4e65c1cc4208b740fc6229f11e8e45168))
+* **db:** add the Postgres package with the Drizzle schema and first migration ([eec4ea0](https://github.com/bruno00o/gameroute/commit/eec4ea06c8600de67fa7dfa23c210376b8e358e8))
+* **db:** seed report games and add shared report queries ([a8c4955](https://github.com/bruno00o/gameroute/commit/a8c4955b1fae6dc37f9337d3c862a544945f48a0))
+* **desktop:** share a report online from the Reports screen ([4a26251](https://github.com/bruno00o/gameroute/commit/4a26251c33f2e469000873aa45bbbde79fa680f6))
+* **desktop:** store shared reports and talk to the report API ([c6beb76](https://github.com/bruno00o/gameroute/commit/c6beb76ad3346b5f4585caec1b27ce3373371514))
+* **shared:** add measurement sources, report lifetime and publication thresholds ([e21e38e](https://github.com/bruno00o/gameroute/commit/e21e38e28a9883f16620cf6b8777d007c10c0b9f))
+* **shared:** add the route zone list ([a3329e3](https://github.com/bruno00o/gameroute/commit/a3329e3eda72d054de82a4a887cca84cb1f44119))
+* **shared:** define the shared report payload ([9361aee](https://github.com/bruno00o/gameroute/commit/9361aee7ea3cf7ec44769e9745aaa0e2e6496199))
+* **shared:** limit shared reports to profiled games ([aa113bd](https://github.com/bruno00o/gameroute/commit/aa113bd2dac146357a4f2cc078f54040b6c24123))
+* **updater:** show readable release notes in an in-app dialog ([09d58db](https://github.com/bruno00o/gameroute/commit/09d58dbd87250274422259b7a87ab920bb726bab))
+* **web:** connect the API to Postgres through Hyperdrive ([3ce2de3](https://github.com/bruno00o/gameroute/commit/3ce2de34a3617733ae1d68955687d81d78f6d1fb))
+* **web:** rate limit report writes, cache report cards and purge expired reports nightly ([150f49a](https://github.com/bruno00o/gameroute/commit/150f49ac4979214c57dc3379876b094c0cfae666))
+* **web:** render shared reports with their route by operator and Open Graph card ([4a61901](https://github.com/bruno00o/gameroute/commit/4a619013082ac9c4dc134a8fd809d27dc51f5192))
+* **web:** scaffold the public site with TanStack Start on Cloudflare Workers ([6dbadbc](https://github.com/bruno00o/gameroute/commit/6dbadbcb4bf018958e3a758c2e8d28f0a2769c19))
+* **web:** set up shadcn with the base-lyra style ([a0618da](https://github.com/bruno00o/gameroute/commit/a0618daeb56a42ed900d9759b2da2036502e9ae6))
+
+
+### Bug Fixes
+
+* **desktop:** map the report API's 401 and 415 answers ([73fe27a](https://github.com/bruno00o/gameroute/commit/73fe27ad50e283d2635b33d24a24e8aec9b3b491))
+* **home:** write the weekly verdict for any number of games ([592e12a](https://github.com/bruno00o/gameroute/commit/592e12a96dfce908879fc762d4dc20fa22793fbe))
+* **lint:** address biome findings ([62f2e6a](https://github.com/bruno00o/gameroute/commit/62f2e6ac9a29c08e4fd60c8f91e1b98d94f4ca08))
+* **route:** name a route without visible transit ([d38286d](https://github.com/bruno00o/gameroute/commit/d38286da65b8236746aa0aa08d78532386b74851))
+* **session:** shorten the match ping cell ([357c4f5](https://github.com/bruno00o/gameroute/commit/357c4f5ab04143e7d98fa364542f68ea3278b1ea))
+
 ## [0.1.20](https://github.com/bruno00o/gameroute/compare/v0.1.19...v0.1.20) (2026-10-10)
 
 
