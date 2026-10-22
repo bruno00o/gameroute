@@ -113,7 +113,7 @@ export function ReportView({ report }: { report: SharedReport }) {
             {atLeast && <li>{m.report_note_at_least()}</li>}
             <li>{m.report_note_expiry({ date: formatDate(report.expiresAt) })}</li>
             <li>
-              <Link to="/methode">{m.report_note_method()}</Link>
+              <Link to="/method">{m.report_note_method()}</Link>
             </li>
           </ul>
         </Container>
@@ -132,7 +132,7 @@ export function ReportCta() {
           <Heading>{m.report_cta_title()}</Heading>
           <Text>{m.report_cta_text()}</Text>
         </div>
-        <LinkButton to="/telecharger" size="lg">
+        <LinkButton to="/download" size="lg">
           {m.add_cta()}
         </LinkButton>
       </Container>

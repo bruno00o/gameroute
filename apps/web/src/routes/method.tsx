@@ -15,20 +15,25 @@ import { pageHead } from '@/lib/head'
 import { REPO_URL } from '@/lib/links'
 import { m } from '@/paraglide/messages'
 
-export const Route = createFileRoute('/methode')({
-  head: () => pageHead({ title: m.meta_method_title(), description: m.meta_method_description() }),
+export const Route = createFileRoute('/method')({
+  head: () =>
+    pageHead({
+      title: m.meta_method_title(),
+      description: m.meta_method_description(),
+      path: '/method',
+    }),
   component: MethodPage,
 })
 
 type Message = () => string
 
 const SECTIONS: { id: string; title: Message }[] = [
-  { id: 'barometre', title: m.method_indicators_title },
+  { id: 'barometer', title: m.method_indicators_title },
   { id: 'sources', title: m.method_sources_title },
-  { id: 'echantillons', title: m.method_samples_title },
+  { id: 'samples', title: m.method_samples_title },
   { id: 'zones', title: m.method_zones_title },
-  { id: 'biais', title: m.method_bias_title },
-  { id: 'limites', title: m.method_limits_title },
+  { id: 'bias', title: m.method_bias_title },
+  { id: 'limits', title: m.method_limits_title },
 ]
 
 const INDICATORS: [Message, Message, Message][] = [
@@ -93,7 +98,7 @@ function MethodPage() {
         </nav>
 
         <div className="flex min-w-0 max-w-[820px] flex-[999_1_560px] flex-col gap-20">
-          <Section id="barometre" title={m.method_indicators_title()}>
+          <Section id="barometer" title={m.method_indicators_title()}>
             <Text>{m.method_indicators_text()}</Text>
             <MethodTable
               head={[m.method_col_indicator(), m.method_col_definition(), m.method_col_source()]}
@@ -114,7 +119,7 @@ function MethodPage() {
             />
           </Section>
 
-          <Section id="echantillons" title={m.method_samples_title()}>
+          <Section id="samples" title={m.method_samples_title()}>
             <List>
               <li>{m.method_samples_period()}</li>
               <li>{m.method_samples_min({ players: MIN_PLAYERS, matches: MIN_MATCHES })}</li>
@@ -141,7 +146,7 @@ function MethodPage() {
             </List>
           </Section>
 
-          <Section id="biais" title={m.method_bias_title()}>
+          <Section id="bias" title={m.method_bias_title()}>
             <List>
               <li>{m.method_bias_self()}</li>
               <li>{m.method_bias_compare()}</li>
@@ -150,7 +155,7 @@ function MethodPage() {
             </List>
           </Section>
 
-          <Section id="limites" title={m.method_limits_title()}>
+          <Section id="limits" title={m.method_limits_title()}>
             <Text>{m.method_limits_text()}</Text>
             <dl className="flex flex-col border-b">
               {LIMITS.map(([title, text]) => (

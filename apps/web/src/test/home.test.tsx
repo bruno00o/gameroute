@@ -14,7 +14,7 @@ describe('home route', () => {
     expect(
       await screen.findByRole('heading', {
         level: 1,
-        name: 'Quel FAI tient le mieux en partie, près de chez vous ?',
+        name: 'Quel FAI tient le mieux en partie, près de chez vous\u00a0?',
       })
     ).toBeInTheDocument()
     expect(
@@ -25,11 +25,11 @@ describe('home route', () => {
     expect(screen.getByRole('button', { name: 'Ping mesuré par le jeu' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Installez GameRoute/ })).toHaveAttribute(
       'href',
-      '/telecharger'
+      '/download'
     )
     expect(screen.getByRole('link', { name: 'Télécharger pour Windows' })).toHaveAttribute(
       'href',
-      '/telecharger'
+      '/download'
     )
   })
 
